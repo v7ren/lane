@@ -197,7 +197,10 @@ export function buildDemoFixtures(variant: DemoVariant): DemoFixtures {
       cwd: 'C:\\Users\\demo\\loomria\\packages\\api',
     }),
     pane(paneIds.claude, 'claude', 'idle', { pid: 1020 }),
-    pane(paneIds.opencode, 'opencode_native', 'waiting_input', { pid: 1030 }),
+    pane(paneIds.opencode, 'opencode_native', 'waiting_input', {
+      pid: 1030,
+      cwd: 'C:\\Users\\demo\\loomria\\packages\\web',
+    }),
     pane(paneIds.shell, 'powershell', 'idle', { pid: 1040 }),
     pane(paneIds.codexRate, 'codex', 'running', {
       pid: 1013,

@@ -19,6 +19,7 @@ export default function App() {
   const sessionStates = useSessionRail();
   const { projectPath, setProjectPath } = useProjectPath();
   const [selectedPaneId, setSelectedPaneId] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [showTui, setShowTui] = useState(false);
   const [railConnecting, setRailConnecting] = useState(true);
 
@@ -56,6 +57,8 @@ export default function App() {
     } else if (demo.variant === 'empty') {
       setSelectedPaneId(null);
     }
+    if (flags.sessionId) setSelectedSessionId(flags.sessionId);
+    else if (flags.showRevertBanner) setSelectedSessionId('demo-sess-parent');
     if (flags.showTui) setShowTui(true);
   }, [demo]);
 
@@ -78,6 +81,7 @@ export default function App() {
 
   const jumpApproval = useCallback((paneId: string) => {
     setSelectedPaneId(paneId);
+    setSelectedSessionId(null);
   }, []);
 
   return (
@@ -90,6 +94,8 @@ export default function App() {
       railConnecting={railConnecting}
       selectedPaneId={selectedPaneId}
       setSelectedPaneId={setSelectedPaneId}
+      selectedSessionId={selectedSessionId}
+      setSelectedSessionId={setSelectedSessionId}
       showTui={showTui}
       setShowTui={setShowTui}
       onNewSession={handleNewSession}

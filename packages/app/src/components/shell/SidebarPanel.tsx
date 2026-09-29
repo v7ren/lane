@@ -1,82 +1,73 @@
 import { Plus } from 'lucide-react';
-import { useMemo } from 'react';
-import type { AgentCatalog } from '@loomria/shared';
-import { SessionRail } from '../SessionRail';
-import type { SessionRailState } from '../../hooks/useSessionRail';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { PaneRegistryApi } from '../../hooks/usePaneRegistry';
 import type { ActivityRailSection } from '../../lib/shell-selection-context';
 import { pickProjectFolder } from '../../lib/project-path';
-
-const RECENT_KEY = 'loomria-recent-workspaces';
-
-function readRecent(): string[] {
-  if (typeof localStorage === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(RECENT_KEY);
-    return raw ? (JSON.parse(raw) as string[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function pushRecent(path: string): void {
-  if (typeof localStorage === 'undefined') return;
-  const next = [path, ...readRecent().filter((p) => p !== path)].slice(0, 8);
-  localStorage.setItem(RECENT_KEY, JSON.stringify(next));
-}
+import { loadRecentWorkspaces, pushRecentWorkspace } from '../../lib/sessions/recent-workspaces';
+import { SessionsSidebar } from '../sessions/SessionsSidebar';
+import { useOpenCodePaneStates } from '../../lib/sessions/use-opencode-stores';
+import { isOpenCodePane } from '../../lib/sessions/merge-sessions';
 
 export function SidebarPanel({
   section,
-  sessionStates,
-  agentCatalog,
-  paneTitles,
+  registry,
   selectedPaneId,
   connecting,
   onSelectSession,
   projectPath,
   onProjectPathChange,
-  paneCwds,
+  onOpenWorkspace,
 }: {
   section: ActivityRailSection;
-  sessionStates: Map<string, SessionRailState>;
-  agentCatalog: AgentCatalog;
-  paneTitles: Map<string, string>;
-  paneCwds?: Map<string, string>;
+  registry: PaneRegistryApi;
   selectedPaneId: string | null;
   connecting?: boolean;
-  onSelectSession: (paneId: string) => void;
+  onSelectSession: (paneId: string, sessionId?: string) => void;
   projectPath: string | null;
   onProjectPathChange: (path: string) => Promise<void>;
+  onOpenWorkspace: (path: string) => Promise<void>;
 }) {
-  const recent = useMemo(() => {
-    const list = readRecent();
-    if (projectPath && !list.includes(projectPath)) {
-      return [projectPath, ...list];
-    }
-    return list;
+  const [recent, setRecent] = useState<string[]>([]);
+
+  useEffect(() => {
+    void loadRecentWorkspaces().then(setRecent);
   }, [projectPath]);
+
+  const openCodePaneIds = useMemo(
+    () => registry.paneList.filter(isOpenCodePane).map((p) => p.info.id),
+    [registry.paneList],
+  );
+  const ocStates = useOpenCodePaneStates(openCodePaneIds);
 
   const openFolder = async () => {
     const picked = await pickProjectFolder(projectPath);
     if (picked) {
-      pushRecent(picked);
+      const next = await pushRecentWorkspace(picked);
+      setRecent(next);
       await onProjectPathChange(picked);
+      await onOpenWorkspace(picked);
     }
   };
 
+  const openWorkspace = useCallback(
+    async (path: string) => {
+      const next = await pushRecentWorkspace(path);
+      setRecent(next);
+      await onProjectPathChange(path);
+      await onOpenWorkspace(path);
+    },
+    [onOpenWorkspace, onProjectPathChange],
+  );
+
+  const displayRecent = useMemo(() => {
+    const list = [...recent];
+    if (projectPath && !list.includes(projectPath)) list.unshift(projectPath);
+    return list;
+  }, [projectPath, recent]);
+
   if (section === 'sessions') {
     return (
-      <div className="flex flex-col min-h-0 h-full bg-surface" data-testid="sidebar-sessions">
-        <SessionRail
-          embedded
-          states={sessionStates}
-          agentCatalog={agentCatalog}
-          paneTitles={paneTitles}
-          paneCwds={paneCwds}
-          selectedPaneId={selectedPaneId}
-          connecting={connecting}
-          onSelect={onSelectSession}
-        />
-      </div>
+      <SessionsSidebar connecting={connecting} onSelectSession={onSelectSession} />
     );
   }
 
@@ -97,23 +88,31 @@ export function SidebarPanel({
         </button>
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-        {recent.length === 0 && (
+        {displayRecent.length === 0 && (
           <p className="text-meta text-text-3 px-2 py-3">No recent folders.</p>
         )}
-        {recent.map((path) => {
+        {displayRecent.map((path) => {
           const name = path.split(/[/\\]/).filter(Boolean).pop() ?? path;
           const active = projectPath === path;
+          const paneForPath = registry.paneList.find(
+            (p) => isOpenCodePane(p) && p.info.cwd === path,
+          );
+          const ocState = paneForPath ? ocStates.get(paneForPath.info.id) : undefined;
+          const status = ocState?.connectionStatus ?? (active ? 'unknown' : undefined);
           return (
             <button
               key={path}
               type="button"
               title={path}
-              onClick={() => void onProjectPathChange(path)}
-              className={`w-full text-left rounded-sm px-2 h-7 flex items-center text-meta transition-colors duration-ui ${
+              onClick={() => void openWorkspace(path)}
+              className={`w-full text-left rounded-sm px-2 py-1 flex flex-col gap-0.5 text-meta transition-colors duration-ui ${
                 active ? 'bg-elevated text-text' : 'text-text-2 hover:bg-hover'
               }`}
             >
               <span className="truncate font-medium">{name}</span>
+              {status && (
+                <span className="text-[10px] text-text-3 uppercase">OpenCode · {status}</span>
+              )}
             </button>
           );
         })}
