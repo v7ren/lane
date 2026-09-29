@@ -35,15 +35,19 @@ import { readDemoUrlFlags } from '../demo-mode';
 import { useDemoFixtures } from '../demo/DemoContext';
 
 export type MainView = 'launcher' | 'editor' | 'review';
+export type ExplorerColumnView = 'tree' | 'search';
 
 type EditorContextValue = {
   tabs: EditorTab[];
   activeTabId: string | null;
   mainView: MainView;
+  explorerView: ExplorerColumnView;
   quickOpenOpen: boolean;
+  /** @deprecated use explorerView === 'search' */
   searchOpen: boolean;
   searchQuery: string;
   searchResults: FindMatch[];
+  pendingRevealLine: number | null;
   conflict: DiskConflictState;
   setMainView: (view: MainView) => void;
   openFile: (path: string, opts?: { preview?: boolean; line?: number }) => Promise<void>;
@@ -76,7 +80,8 @@ export function EditorProvider({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [mainView, setMainView] = useState<MainView>('launcher');
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [explorerView, setExplorerView] = useState<ExplorerColumnView>('tree');
+  const [pendingRevealLine, setPendingRevealLine] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<FindMatch[]>([]);
   const [conflict, setConflict] = useState<DiskConflictState>({
@@ -99,19 +104,24 @@ export function EditorProvider({
     void fsStartWatcher(root);
   }, [root]);
 
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  const conflictRef = useRef(conflict);
+  conflictRef.current = conflict;
+
   useEffect(() => {
     if (!root || !isTauriRuntime()) return;
     let unlisten: (() => void) | undefined;
     void listen<{ root: string; paths: string[] }>('fs://changed', (event) => {
       if (event.payload.root !== root) return;
       for (const rel of event.payload.paths) {
-        const tab = tabs.find((t) => t.path === rel);
+        const tab = tabsRef.current.find((t) => t.path === rel);
         if (!tab) continue;
         void (async () => {
           try {
             const disk = await fsReadFile(root, rel);
             const { state, reload } = onDiskChange(
-              conflict,
+              conflictRef.current,
               tab.dirty,
               disk.content,
               disk.mtimeMs,
@@ -142,22 +152,22 @@ export function EditorProvider({
       unlisten = fn;
     });
     return () => unlisten?.();
-  }, [conflict, root, tabs]);
+  }, [root]);
 
   const openFile = useCallback(
-    async (path: string, opts?: { preview?: boolean }) => {
+    async (path: string, opts?: { preview?: boolean; line?: number }) => {
       if (!root) return;
       const data = await fsReadFile(root, path);
       setTabs((prev) => {
-        const next = openTab(prev, path, {
+        const nextTabs = openTab(prev, path, {
           preview: opts?.preview,
           content: data.content,
           mtimeMs: data.mtimeMs,
         });
-        const id = next.find((t) => t.path === path)?.id ?? activeTabId(next, activeId);
-        setActiveId(id);
-        return next;
+        setActiveId(activeTabId(nextTabs, activeId));
+        return nextTabs;
       });
+      setPendingRevealLine(opts?.line ?? null);
       setMainView('editor');
       setConflict({ phase: 'idle', diskContent: null, diskMtimeMs: null });
     },
@@ -231,16 +241,20 @@ export function EditorProvider({
       const { getDemoFs } = await import('../demo/editor-fixtures');
       const demo = getDemoFs();
       const q = query.toLowerCase();
-      const matches = demo
-        .walkFiles('')
-        .filter((p) => {
-          try {
-            return demo.readFile(p).content.toLowerCase().includes(q);
-          } catch {
-            return false;
-          }
-        })
-        .map((p) => ({ path: p, line: 1, text: query }));
+      const matches: FindMatch[] = [];
+      for (const p of demo.walkFiles('')) {
+        try {
+          const content = demo.readFile(p).content;
+          const lines = content.split('\n');
+          lines.forEach((text, i) => {
+            if (text.toLowerCase().includes(q)) {
+              matches.push({ path: p, line: i + 1, text: text.trim() });
+            }
+          });
+        } catch {
+          /* skip */
+        }
+      }
       setSearchResults(matches);
     },
     [opencodePaneId],
@@ -266,13 +280,16 @@ export function EditorProvider({
     if (shot === 'conflict-banner') {
       void (async () => {
         await openFile('src/main.ts', { preview: false });
-        setTabs((prev) => (prev[0] ? markDirty(prev, prev[0].id, 'unsaved local edits') : prev));
+        setTabs((prev) => {
+          const tab = prev.find((t) => t.path === 'src/main.ts');
+          return tab ? markDirty(prev, tab.id, 'unsaved local edits') : prev;
+        });
         setConflict({ phase: 'prompt', diskContent: 'disk version', diskMtimeMs: Date.now() });
       })();
     }
     if (shot === 'review') setMainView('review');
     if (shot === 'search') {
-      setSearchOpen(true);
+      setExplorerView('search');
       void runSearch('loomria');
     }
     if (params.get('palette') === '1' || shot === 'quick-open') setQuickOpenOpen(true);
@@ -284,7 +301,7 @@ export function EditorProvider({
     };
     registerEditorCommands(registryStub, {
       onQuickOpen: () => setQuickOpenOpen(true),
-      onSearchPanel: () => setSearchOpen(true),
+      onSearchPanel: () => setExplorerView('search'),
       onReview: () => setMainView('review'),
       onSave: () => void saveActive(),
       onCloseTab: () => {
@@ -306,7 +323,7 @@ export function EditorProvider({
       }
       if (mod && e.shiftKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
-        setSearchOpen(true);
+        setExplorerView('search');
       }
     };
     window.addEventListener('keydown', onKey);
@@ -318,10 +335,12 @@ export function EditorProvider({
       tabs,
       activeTabId: activeId,
       mainView,
+      explorerView,
       quickOpenOpen,
-      searchOpen,
+      searchOpen: explorerView === 'search',
       searchQuery,
       searchResults,
+      pendingRevealLine,
       conflict,
       setMainView,
       openFile,
@@ -334,8 +353,8 @@ export function EditorProvider({
       closeTab,
       openQuickOpen: () => setQuickOpenOpen(true),
       closeQuickOpen: () => setQuickOpenOpen(false),
-      openSearch: () => setSearchOpen(true),
-      closeSearch: () => setSearchOpen(false),
+      openSearch: () => setExplorerView('search'),
+      closeSearch: () => setExplorerView('tree'),
       runSearch,
       fuzzyFiles,
       conflictKeepMine: () => setConflict((c) => keepMine(c)),
@@ -367,11 +386,12 @@ export function EditorProvider({
       fuzzyFiles,
       mainView,
       openFile,
+      explorerView,
       quickOpenOpen,
       runSearch,
       saveActive,
-      searchOpen,
       searchQuery,
+      pendingRevealLine,
       searchResults,
       tabs,
       root,

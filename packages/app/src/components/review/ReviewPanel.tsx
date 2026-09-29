@@ -1,10 +1,11 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePaneRegistry } from '../../hooks/usePaneRegistry';
 import { useSelectedSession } from '../../lib/shell-data';
 import { useEditor } from '../../lib/editor/EditorContext';
 import { sessionDiff, vcsWorkingDiff, type DiffFile } from '../../lib/editor/opencode-file-actions';
 import { configureMonacoWorkers } from '../../lib/editor/monaco-setup';
+import { languageForPath } from '../../lib/editor/language';
 
 const DiffEditor = lazy(async () => {
   configureMonacoWorkers();
@@ -19,6 +20,8 @@ export function ReviewPanel({ onClose }: { onClose: () => void }) {
   const [files, setFiles] = useState<DiffFile[]>([]);
   const [index, setIndex] = useState(0);
   const [inline, setInline] = useState(false);
+  const diffHostRef = useRef<HTMLDivElement>(null);
+  const [diffHeight, setDiffHeight] = useState(320);
 
   const paneId =
     registry.paneList.find((p) => p.info.agent_type === 'opencode_native')?.info.id ??
@@ -43,6 +46,15 @@ export function ReviewPanel({ onClose }: { onClose: () => void }) {
       }
     })();
   }, [paneId, session?.id]);
+
+  useEffect(() => {
+    const el = diffHostRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setDiffHeight(Math.max(120, el.clientHeight)));
+    ro.observe(el);
+    setDiffHeight(Math.max(120, el.clientHeight));
+    return () => ro.disconnect();
+  }, [files.length, index]);
 
   const current = files[index];
 
@@ -87,17 +99,19 @@ export function ReviewPanel({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       </div>
-      <div className="flex-1 min-h-0">
+      <div ref={diffHostRef} className="flex-1 min-h-0" data-testid="monaco-diff-host">
         {current ? (
           <Suspense fallback={<div className="p-4 text-meta text-text-3">Loading diff…</div>}>
-            <DiffEditor
-              height="100%"
-              theme="loomria-dark"
-              language="typescript"
-              original={current.before}
-              modified={current.after}
-              options={{ renderSideBySide: !inline, readOnly: true }}
-            />
+            <div data-testid="monaco-diff-editor" className="h-full min-h-[120px]">
+              <DiffEditor
+                height={diffHeight}
+                theme="loomria-dark"
+                language={languageForPath(current.path)}
+                original={current.before ?? ''}
+                modified={current.after ?? ''}
+                options={{ renderSideBySide: !inline, readOnly: true, minimap: { enabled: false } }}
+              />
+            </div>
           </Suspense>
         ) : (
           <p className="p-4 text-meta text-text-3">No changes to review.</p>

@@ -4,7 +4,6 @@ import { EditorTabsBar } from './EditorTabsBar';
 import { MonacoEditorPane } from './MonacoEditorPane';
 import { ConflictBanner } from './ConflictBanner';
 import { QuickOpen } from './QuickOpen';
-import { SearchPanel } from './SearchPanel';
 import { ReviewPanel } from '../review/ReviewPanel';
 
 export function EditorWorkspace({
@@ -51,12 +50,15 @@ export function EditorWorkspace({
         ) : showLauncher ? (
           <MainLauncher {...launcherProps} />
         ) : active ? (
-          <MonacoEditorPane tab={active} onChange={(v) => editor.updateContent(active.id, v)} />
+          <MonacoEditorPane
+            tab={active}
+            revealLine={editor.pendingRevealLine}
+            onChange={(v) => editor.updateContent(active.id, v)}
+          />
         ) : (
           <MainLauncher {...launcherProps} />
         )}
         <QuickOpen />
-        <SearchPanel />
       </div>
     </div>
   );

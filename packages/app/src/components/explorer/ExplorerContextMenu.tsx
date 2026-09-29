@@ -1,4 +1,5 @@
 import { dispatchAddToComposer } from '../../lib/editor/add-to-composer';
+import { ContextMenuPortal } from './ContextMenuPortal';
 
 export function ExplorerContextMenu({
   path,
@@ -40,28 +41,21 @@ export function ExplorerContextMenu({
   ];
 
   return (
-    <>
-      <div className="fixed inset-0 z-50" onClick={onClose} />
-      <ul
-        className="fixed z-[51] min-w-[10rem] py-1 rounded-md border border-border-subtle bg-elevated shadow-lg text-meta"
-        style={{ left: x, top: y }}
-        data-testid="explorer-context-menu"
-      >
-        {items.map((item) => (
-          <li key={item.label}>
-            <button
-              type="button"
-              className="w-full text-left px-3 h-7 hover:bg-hover text-text-2"
-              onClick={() => {
-                item.run();
-                onClose();
-              }}
-            >
-              {item.label}
-            </button>
-          </li>
-        ))}
-      </ul>
-    </>
+    <ContextMenuPortal x={x} y={y} onClose={onClose} testId="explorer-context-menu">
+      {items.map((item) => (
+        <li key={item.label}>
+          <button
+            type="button"
+            className="w-full text-left px-3 h-7 hover:bg-hover text-text-2"
+            onClick={() => {
+              item.run();
+              onClose();
+            }}
+          >
+            {item.label}
+          </button>
+        </li>
+      ))}
+    </ContextMenuPortal>
   );
 }

@@ -8,6 +8,7 @@ import { useEditor } from '../../lib/editor/EditorContext';
 import { isTauriRuntime } from '../../lib/is-tauri';
 import { FileTreeNode } from '../explorer/FileTreeNode';
 import { ExplorerContextMenu } from '../explorer/ExplorerContextMenu';
+import { ExplorerSearchView } from '../explorer/ExplorerSearchView';
 
 export function ExplorerPanel() {
   const env = useEnvironment();
@@ -37,66 +38,97 @@ export function ExplorerPanel() {
     void refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    const shot = new URLSearchParams(window.location.search).get('shot');
-    if (shot === 'explorer-menu') {
-      setMenu({ path: 'README', x: 220, y: 140 });
-    }
-  }, []);
-
   const baseName = (path: string) => path.split('/').pop() ?? path;
+  const searchMode = editor.explorerView === 'search';
 
   return (
     <aside
       className="flex flex-col min-h-0 h-full bg-surface border-r border-border-subtle"
       data-testid="explorer-panel"
     >
-      <div className="px-3 h-7 flex items-center justify-between border-b border-border-subtle">
-        <span className="text-section-label text-text-3">Explorer</span>
-        <div className="flex items-center gap-0.5">
-          <button type="button" aria-label="Review" className="p-1 rounded hover:bg-hover text-text-3" onClick={() => editor.setMainView('review')}>
-            <FileSearch size={14} strokeWidth={1.5} />
-          </button>
-          <button type="button" aria-label="Refresh" className="p-1 rounded hover:bg-hover text-text-3" onClick={() => void refresh()}>
-            <RefreshCw size={14} strokeWidth={1.5} />
-          </button>
+      <div className="px-2 h-7 flex items-center justify-between border-b border-border-subtle gap-1">
+        <div className="flex items-center gap-1 min-w-0">
           <button
             type="button"
-            aria-label="New file"
-            className="p-1 rounded hover:bg-hover text-text-3"
-            onClick={() => {
-              const name = window.prompt('New file name');
-              if (!name || !root) return;
-              const parent = selectedPath && selectedPath.includes('/') ? selectedPath.replace(/\/[^/]+$/, '') : selectedPath ?? '';
-              const path = parent ? `${parent}/${name}` : name;
-              void fsCreate(root, path, 'file').then(refresh);
-            }}
+            className={`text-section-label px-1 ${!searchMode ? 'text-text' : 'text-text-3 hover:text-text-2'}`}
+            onClick={() => editor.closeSearch()}
           >
-            <FolderPlus size={14} strokeWidth={1.5} />
+            Explorer
+          </button>
+          <span className="text-text-3 text-[10px]">|</span>
+          <button
+            type="button"
+            className={`text-section-label px-1 ${searchMode ? 'text-text' : 'text-text-3 hover:text-text-2'}`}
+            onClick={() => editor.openSearch()}
+          >
+            Search
           </button>
         </div>
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button
+            type="button"
+            aria-label="Review"
+            className="p-1 rounded hover:bg-hover text-text-3"
+            onClick={() => editor.setMainView('review')}
+          >
+            <FileSearch size={14} strokeWidth={1.5} />
+          </button>
+          {!searchMode && (
+            <>
+              <button
+                type="button"
+                aria-label="Refresh"
+                className="p-1 rounded hover:bg-hover text-text-3"
+                onClick={() => void refresh()}
+              >
+                <RefreshCw size={14} strokeWidth={1.5} />
+              </button>
+              <button
+                type="button"
+                aria-label="New file"
+                className="p-1 rounded hover:bg-hover text-text-3"
+                onClick={() => {
+                  const name = window.prompt('New file name');
+                  if (!name || !root) return;
+                  const parent =
+                    selectedPath && selectedPath.includes('/')
+                      ? selectedPath.replace(/\/[^/]+$/, '')
+                      : selectedPath ?? '';
+                  const path = parent ? `${parent}/${name}` : name;
+                  void fsCreate(root, path, 'file').then(refresh);
+                }}
+              >
+                <FolderPlus size={14} strokeWidth={1.5} />
+              </button>
+            </>
+          )}
+        </div>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto py-1" role="tree">
-        {!root ? (
-          <p className="p-4 text-center text-meta text-text-3">Open a folder to browse files</p>
-        ) : (
-          entries.map((entry) => (
-            <FileTreeNode
-              key={entry.path}
-              root={root}
-              entry={entry}
-              depth={0}
-              gitStatus={gitMap[entry.path] ?? gitMap[baseName(entry.path)]}
-              selectedPath={selectedPath}
-              onSelect={(path, preview) => {
-                setSelectedPath(path);
-                void editor.openFile(path, { preview });
-              }}
-              onContextMenu={(path, x, y) => setMenu({ path, x, y })}
-            />
-          ))
-        )}
-      </div>
+      {searchMode ? (
+        <ExplorerSearchView />
+      ) : (
+        <div className="flex-1 min-h-0 overflow-y-auto py-1" role="tree">
+          {!root ? (
+            <p className="p-4 text-center text-meta text-text-3">Open a folder to browse files</p>
+          ) : (
+            entries.map((entry) => (
+              <FileTreeNode
+                key={entry.path}
+                root={root}
+                entry={entry}
+                depth={0}
+                gitStatus={gitMap[entry.path] ?? gitMap[baseName(entry.path)]}
+                selectedPath={selectedPath}
+                onSelect={(path, preview) => {
+                  setSelectedPath(path);
+                  void editor.openFile(path, { preview });
+                }}
+                onContextMenu={(path, x, y) => setMenu({ path, x, y })}
+              />
+            ))
+          )}
+        </div>
+      )}
       {menu && root && (
         <ExplorerContextMenu
           path={menu.path}
@@ -120,7 +152,9 @@ export function ExplorerPanel() {
             if (!name) return;
             const dir = menu.path.replace(/\/[^/]+$/, '');
             const to = dir ? `${dir}/${name}` : name;
-            void import('../../lib/editor/fs-client').then(({ fsRename }) => fsRename(root, menu.path, to).then(refresh));
+            void import('../../lib/editor/fs-client').then(({ fsRename }) =>
+              fsRename(root, menu.path, to).then(refresh),
+            );
           }}
           onDelete={() => {
             if (window.confirm(`Delete ${menu.path}?`)) void fsDelete(root, menu.path).then(refresh);
