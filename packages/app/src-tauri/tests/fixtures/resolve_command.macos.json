@@ -1,0 +1,13 @@
+{
+  "claude": { "program": "claude", "args": [] },
+  "codex": {
+    "program": "codex",
+    "args": ["--sandbox", "workspace-write", "--ask-for-approval", "never"]
+  },
+  "opencode": { "program": "opencode", "args": [] },
+  "opencode_native": { "program": "opencode", "args": [] },
+  "cmd": { "program": "zsh", "args": ["-l"] },
+  "powershell": { "program": "pwsh", "args": ["-NoLogo"] },
+  "bash": { "program": "zsh", "args": ["-l"] },
+  "cursor": { "program": "cursor", "args": [] }
+}

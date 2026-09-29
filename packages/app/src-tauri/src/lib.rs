@@ -21,7 +21,7 @@ mod platform;
 mod project_ir;
 mod project_path;
 mod projections;
-mod pty;
+pub mod pty;
 mod pwa_server;
 mod session_context;
 mod settings_store;
