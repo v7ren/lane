@@ -8,7 +8,7 @@ interface Props {
   pane: PaneData;
   subscribePaneData: (paneId: string, cb: (data: Uint8Array) => void) => () => void;
   onClose: (paneId: string) => void;
-  onPopOut: (paneId: string, size?: { width: number; height: number }) => void;
+  onPopOut?: (paneId: string, size?: { width: number; height: number }) => void;
   onSwitchAgent: (paneId: string, agentType: AgentType) => Promise<void>;
   dragHandleProps?: HTMLAttributes<HTMLButtonElement>;
   syncPTYResize?: boolean;
@@ -102,21 +102,23 @@ export function TerminalPane({
           {preset?.label ?? pane.info.agent_type} · pid {pane.info.pid}
         </span>
         <div className="flex-1" />
-        <button
-          className="px-1.5 py-0.5 rounded text-pm-muted hover:text-pm-text hover:bg-pm-border/40"
-          title="Pop out pane"
-          onClick={() => {
-            const rect =
-              containerRef.current?.getBoundingClientRect() ??
-              rootRef.current?.getBoundingClientRect();
-            onPopOut(
-              pane.info.id,
-              rect ? { width: rect.width, height: rect.height } : undefined,
-            );
-          }}
-        >
-          ↗
-        </button>
+        {onPopOut && (
+          <button
+            className="px-1.5 py-0.5 rounded text-pm-muted hover:text-pm-text hover:bg-pm-border/40"
+            title="Pop out pane"
+            onClick={() => {
+              const rect =
+                containerRef.current?.getBoundingClientRect() ??
+                rootRef.current?.getBoundingClientRect();
+              onPopOut(
+                pane.info.id,
+                rect ? { width: rect.width, height: rect.height } : undefined,
+              );
+            }}
+          >
+            ↗
+          </button>
+        )}
         <button
           type="button"
           className="px-1.5 py-0.5 rounded text-pm-muted hover:text-pm-text hover:bg-pm-border/40"

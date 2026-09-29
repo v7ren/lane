@@ -1,11 +1,7 @@
 import { homeDir } from '@tauri-apps/api/path';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ORCHESTRATOR_BACKEND_LABELS,
-  type OrchestratorBackend,
-  type Settings,
-} from '@puppet-master/shared';
+import type { Settings } from '@puppet-master/shared';
 import type { PaneRegistryApi } from '../hooks/usePaneRegistry';
 import { loadSettings, resolveSettingsFilePath } from '../lib/settings';
 import logoUrl from '../assets/branding/logo.svg';
@@ -74,7 +70,6 @@ export function HomeDashboard({
     }
   }, [onProjectPathChange, projectPath]);
 
-  const orchestrator = settings?.orchestrator_backend ?? 'api';
   const modelLabel = settings
     ? `${settings.default_provider} / ${settings.default_model}`
     : 'Loading…';
@@ -181,12 +176,6 @@ export function HomeDashboard({
               }
               ok={paneCount > 0}
             />
-            <MetricCard
-              label="Orchestrator"
-              value={ORCHESTRATOR_BACKEND_LABELS[orchestrator as OrchestratorBackend]}
-              detail="Default sidebar backend"
-              ok
-            />
             <MetricCard label="Model" value={settings?.default_model ?? '…'} detail={modelLabel} ok={Boolean(settings)} />
           </section>
 
@@ -199,13 +188,13 @@ export function HomeDashboard({
               <div className="pm-home-action-grid">
                 <ActionCard
                   title="Open workspace"
-                  description="Terminal grid, orchestrator sidebar, pane controls."
+                  description="Terminal grid and pane controls."
                   onClick={onOpenWorkspace}
                   primary
                 />
                 <ActionCard
                   title="Pick project"
-                  description="Set cwd for new panes and orchestrator tools."
+                  description="Set cwd for new panes."
                   onClick={() => void pickProject()}
                 />
               </div>
@@ -248,24 +237,12 @@ export function HomeDashboard({
               </div>
               <dl className="pm-home-config-list">
                 <div>
-                  <dt>Orchestrator</dt>
-                  <dd>{ORCHESTRATOR_BACKEND_LABELS[orchestrator as OrchestratorBackend]}</dd>
-                </div>
-                <div>
                   <dt>Provider / model</dt>
                   <dd>{modelLabel}</dd>
                 </div>
                 <div>
-                  <dt>Sidebar width</dt>
-                  <dd>{settings?.sidebar_width ?? 360}px</dd>
-                </div>
-                <div>
                   <dt>Theme</dt>
                   <dd className="pm-home-config-capitalize">{settings?.theme ?? 'dark'}</dd>
-                </div>
-                <div>
-                  <dt>Mobile input delay</dt>
-                  <dd>{settings?.mobile_input_delay_ms ?? 250} ms</dd>
                 </div>
               </dl>
             </section>

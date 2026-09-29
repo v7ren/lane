@@ -37,3 +37,12 @@ Fresh `git clone` + `npm install` alone is **not** sufficient for green verifica
 
 - **Before smoke:** baseline snapshot recorded via `before` mode.
 - **After smoke:** _pending — expected non-zero delta at Phase 0 (Phase 2 target: zero delta)._
+
+## Phase 3 frontend strip (2026-09-29)
+
+- Removed orchestrator/PWA/pairing UI, detached panes, and slimmed settings to General + Developer.
+- Dropped `vite-plugin-pwa`, `html5-qrcode`, `qrcode`; removed root `@ngrok/ngrok` and `cloudflared` devDeps.
+- `App.tsx` full-width terminal grid; `TerminalApp.tsx` dev console only (no detached/worker-host).
+- Minimal stubs kept for `bridge-ngrok`, `mobile-pairing-auth`, and mirror terminal helpers so `terminal-session.ts` still typechecks (desktop path uses `isMobileInputDevice() === false`).
+
+**Gate 3:** `npm run typecheck` exit 0; `npm run test` 12 files / 46 tests pass.

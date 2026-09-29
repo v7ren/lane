@@ -1,55 +1,16 @@
 import type { ReactNode } from 'react';
 
-export type SettingsTabId =
-  | 'general'
-  | 'appearance'
-  | 'session'
-  | 'orchestrator'
-  | 'api'
-  | 'mcp'
-  | 'mobile'
-  | 'security'
-  | 'storage'
-  | 'notifications'
-  | 'backup'
-  | 'marketplace'
-  | 'rules'
-  | 'costs'
-  | 'team'
-  | 'automation'
-  | 'observability'
-  | 'plugins'
-  | 'developer'
-  | 'advanced';
+export type SettingsTabId = 'general' | 'developer';
 
 export interface SettingsTabDef {
   id: SettingsTabId;
   label: string;
-  /** Entire tab is mock / no backend yet. */
   planned: boolean;
 }
 
 export const SETTINGS_TABS: SettingsTabDef[] = [
   { id: 'general', label: 'General', planned: false },
-  { id: 'appearance', label: 'Appearance', planned: false },
-  { id: 'session', label: 'Sessions', planned: false },
-  { id: 'orchestrator', label: 'Orchestrator', planned: false },
-  { id: 'api', label: 'API keys', planned: false },
-  { id: 'mcp', label: 'MCP & bridge', planned: false },
-  { id: 'mobile', label: 'Mobile PWA', planned: false },
-  { id: 'security', label: 'Security', planned: true },
-  { id: 'storage', label: 'Storage', planned: false },
-  { id: 'notifications', label: 'Notifications', planned: true },
-  { id: 'backup', label: 'Backup & sync', planned: true },
-  { id: 'marketplace', label: 'Agent marketplace', planned: true },
-  { id: 'rules', label: 'Rules & guardrails', planned: true },
-  { id: 'costs', label: 'Cost controls', planned: true },
-  { id: 'team', label: 'Team workspace', planned: true },
-  { id: 'automation', label: 'Automation', planned: true },
-  { id: 'observability', label: 'Observability', planned: true },
-  { id: 'plugins', label: 'Plugins', planned: true },
   { id: 'developer', label: 'Developer', planned: false },
-  { id: 'advanced', label: 'Advanced', planned: false },
 ];
 
 export function PlannedBadge({ compact }: { compact?: boolean }) {

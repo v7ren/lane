@@ -1,57 +1,8 @@
-# deps
+.orphan-check/
 node_modules/
-.pnp/
-.pnp.js
-
-# build outputs
-dist/
-build/
-*.tsbuildinfo
-packages/app/dev-dist/
-
-# tauri / rust
+packages/app/dist/
+packages/*/dist/
 packages/app/src-tauri/target/
-packages/app/src-tauri/gen/
-
-# logs
-*.log
-npm-debug.log*
-
-# env
-.env
-.env.local
-.env.*.local
-
-# editor
-.vscode/
-.idea/
-.DS_Store
-*.swp
-
-# runtime artifacts
-.runtime/
-.puppet-master/
-*.pid
-*.sock
-puppet-master.bridge.port
-puppet-master.dev.json
-puppet-master.pairing.json
-
-# local tool / editor config
-.claude/
-.cursor/
-.codex/
-.mcp.json
-opencode.json
-packages/app/src-tauri/.mcp.json
-packages/app/src-tauri/opencode.json
-# OS
-Thumbs.db
-
-packages/app/src-tauri/resources/cloudflared
-packages/app/src-tauri/resources/cloudflared.exe
+packages/app/src-tauri/resources/mcp-stdio.bundle.cjs
 packages/app/src-tauri/resources/pwa-dist/
 packages/app/src-tauri/resources/bin/
-plan.md
-.codex
-.docs

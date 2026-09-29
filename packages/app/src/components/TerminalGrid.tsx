@@ -1,32 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { listLaunchPresets, type AgentType } from '@puppet-master/shared';
+import { isOrchestratorPaneId, listLaunchPresets, type AgentType } from '@puppet-master/shared';
 import { TerminalPane } from './TerminalPane';
 import type { PaneRegistryApi } from '../hooks/usePaneRegistry';
-import { isOrchestratorPaneId } from '../lib/orchestrator-panes';
-import { detachedWindowSizeFromGrid, openDetachedPaneWindow } from '../lib/detached-pane-window';
 
 interface Props {
   registry: PaneRegistryApi;
   projectPath: string | null;
   onClosePane: (paneId: string) => void;
-  detachedPaneIds?: Set<string>;
-  onDetachPane?: (paneId: string) => void;
 }
 
 export function TerminalGrid({
   registry,
   projectPath,
   onClosePane,
-  detachedPaneIds = new Set(),
-  onDetachPane,
 }: Props) {
   const { paneList, spawnPane, replacePaneAgent } = registry;
   const workerPanes = useMemo(
-    () => paneList.filter((pane) => (
-      !isOrchestratorPaneId(pane.info.id) &&
-      !detachedPaneIds.has(pane.info.id)
-    )),
-    [detachedPaneIds, paneList],
+    () => paneList.filter((pane) => !isOrchestratorPaneId(pane.info.id)),
+    [paneList],
   );
   const workerPaneIds = useMemo(
     () => workerPanes.map((pane) => pane.info.id).join('\0'),
@@ -134,17 +125,6 @@ export function TerminalGrid({
     await replacePaneAgent(paneId, agent, projectPath ?? undefined);
   };
 
-  const popOutPane = async (paneId: string, size?: { width: number; height: number }) => {
-    const pane = registry.panes.get(paneId);
-    const label = pane ? `${pane.info.agent_type} · ${pane.info.id.slice(0, 8)}` : `Pane ${paneId}`;
-    await openDetachedPaneWindow(
-      paneId,
-      label,
-      size ?? detachedWindowSizeFromGrid(pane?.info.cols, pane?.info.rows),
-    );
-    onDetachPane?.(paneId);
-  };
-
   return (
     <main className="flex-1 min-h-0 overflow-auto p-3 bg-pm-bg">
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 auto-rows-[minmax(280px,auto)]">
@@ -184,9 +164,8 @@ export function TerminalGrid({
               pane={pane}
               subscribePaneData={registry.subscribePaneData}
               onClose={onClosePane}
-              onPopOut={(paneId, size) => void popOutPane(paneId, size)}
               onSwitchAgent={switchAgent}
-              syncPTYResize={!detachedPaneIds.has(pane.info.id)}
+              syncPTYResize
               reflowKey={`${reflowGeneration}:${postSettleReflowGeneration}`}
               dragHandleProps={{
                 draggable: true,
