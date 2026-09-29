@@ -26,6 +26,7 @@ export type PaneInfo = {
   cwd: string;
   cols: number;
   rows: number;
+  surface?: string;
 };
 
 export type TerminalSnapshotEvent = { pane_id: string; snapshot: string };
@@ -196,6 +197,7 @@ export const tauri = {
     cols?: number;
     rows?: number;
     extra_args?: string[];
+    surface?: 'tui' | 'headless';
     pane_id?: string;
   }) => safeInvoke<string>('spawn_pane', { args }, `browser-preview-${Date.now()}`, true),
   killPane: (paneId: string) => safeInvoke<void>('kill_pane_cmd', { paneId }, undefined, true),

@@ -182,6 +182,10 @@ export default function App() {
               paneStatus={selectedPane?.status}
               sessionState={sessionForAgent ?? null}
               paneTitle={agentPaneTitle}
+              headlessClaude={
+                selectedPane?.info.surface === 'headless' &&
+                selectedPane?.info.agent_type === 'claude'
+              }
               showTui={showTui}
               chatWidthPercent={showTui ? chatPercent : undefined}
               onToggleTui={() => setShowTui((v) => !v)}

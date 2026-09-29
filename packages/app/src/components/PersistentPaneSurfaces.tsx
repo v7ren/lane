@@ -84,6 +84,25 @@ export function PersistentPaneSurfaces({
           }
         }
 
+        const isHeadless = pane.info.surface === 'headless';
+        if (mode === 'workspace' && isHeadless) {
+          return (
+            <button
+              key={pane.info.id}
+              type="button"
+              data-pane-id={pane.info.id}
+              onClick={() => onEnterAgent(pane.info.id)}
+              className="min-h-[220px] h-[260px] rounded-lg border border-lr-border/60 bg-lr-panel/40 hover:bg-lr-panel/70 p-4 text-left flex flex-col justify-between"
+            >
+              <div>
+                <div className="text-sm font-medium">{pane.info.agent_type}</div>
+                <div className="text-xs text-lr-muted mt-1">Headless — open Agent Mode</div>
+              </div>
+              <div className="text-[10px] font-mono text-lr-muted truncate">{pane.info.id}</div>
+            </button>
+          );
+        }
+
         return (
           <div key={pane.info.id} className={surfaceClass} data-pane-id={pane.info.id}>
             {agentTuiVisible && (

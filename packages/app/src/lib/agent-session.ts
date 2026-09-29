@@ -35,6 +35,11 @@ export async function sessionCancelTurn(paneId: string): Promise<void> {
   await invoke('session_cancel_turn', { paneId });
 }
 
+export async function sessionOpenInTui(paneId: string): Promise<string> {
+  if (!isTauriRuntime()) throw new Error('session_open_in_tui unavailable outside Tauri');
+  return invoke<string>('session_open_in_tui', { paneId });
+}
+
 export function subscribeAgentEvents(
   onEnvelope: (envelope: AgentEventEnvelope) => void,
 ): Promise<() => void> {

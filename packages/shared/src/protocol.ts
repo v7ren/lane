@@ -13,6 +13,7 @@ export const PaneInfoSchema = z.object({
   cwd: z.string(),
   cols: z.number().int(),
   rows: z.number().int(),
+  surface: z.string().default('tui'),
 });
 export type PaneInfo = z.infer<typeof PaneInfoSchema>;
 
@@ -23,6 +24,7 @@ export const SpawnPaneRequestSchema = z.object({
   rows: z.number().int().positive().default(30),
   extra_args: z.array(z.string()).optional(),
   pane_id: z.string().optional(),
+  surface: z.enum(['tui', 'headless']).optional(),
 });
 export type SpawnPaneRequest = z.infer<typeof SpawnPaneRequestSchema>;
 

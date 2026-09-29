@@ -5,7 +5,12 @@ import type { SessionRailState } from '../../hooks/useSessionRail';
 import { useAgentSession } from '../../hooks/useAgentSession';
 import type { ApprovalDecision } from '../../lib/agent-events';
 import { mergePaneAndSessionStatus } from '../../lib/display-status';
-import { sessionCancelTurn, sessionRespondApproval, sessionSendPrompt } from '../../lib/agent-session';
+import {
+  sessionCancelTurn,
+  sessionOpenInTui,
+  sessionRespondApproval,
+  sessionSendPrompt,
+} from '../../lib/agent-session';
 import { tauri } from '../../lib/tauri';
 import { setSessionMuted } from '../../lib/session-notify-prefs';
 import { DisplayStatusDot } from '../DisplayStatusDot';
@@ -25,12 +30,14 @@ export function AgentView({
   onExitWorkspace,
   muted,
   onMutedChange,
+  headlessClaude,
 }: {
   paneId: string;
   agentCatalog: AgentCatalog;
   paneStatus?: string;
   sessionState?: SessionRailState | null;
   paneTitle?: string | null;
+  headlessClaude?: boolean;
   showTui: boolean;
   chatWidthPercent?: number;
   onToggleTui: () => void;
@@ -155,7 +162,16 @@ export function AgentView({
           <div className="text-sm font-medium truncate">{agentLabel}</div>
           <div className="text-[10px] text-lr-muted truncate font-mono">{paneId.slice(0, 12)}</div>
         </div>
-        {capabilities.attach_tui && (
+        {headlessClaude && (
+          <button
+            type="button"
+            className="px-2 py-1 text-xs rounded-md border border-lr-border hover:bg-lr-raised"
+            onClick={() => void sessionOpenInTui(paneId)}
+          >
+            Open in TUI
+          </button>
+        )}
+        {capabilities.attach_tui && !headlessClaude && (
           <button
             type="button"
             className="px-2 py-1 text-xs rounded-md border border-lr-border hover:bg-lr-raised"
