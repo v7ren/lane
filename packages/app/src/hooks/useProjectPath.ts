@@ -4,7 +4,7 @@ import { useDemoFixtures } from '../lib/demo/DemoContext';
 
 import { isValidProjectPath } from '../lib/project-path';
 
-import { loadSettings, updateSettings } from '../lib/settings';
+import { invalidateSettingsCache, loadSettings, updateSettings } from '../lib/settings';
 
 import { tauri } from '../lib/tauri';
 
@@ -95,7 +95,7 @@ export function useProjectPath() {
 
     const resolved = await tauri.getProjectPath();
 
-    await updateSettings({ project_path: resolved });
+    invalidateSettingsCache();
 
     setProjectPathState(resolved);
 

@@ -14,6 +14,7 @@ pub mod process;
 mod project_path;
 mod fs_scoped;
 pub mod pty;
+mod settings_persist;
 mod settings_store;
 pub mod shell_env;
 

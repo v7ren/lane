@@ -525,9 +525,15 @@ pub async fn sync_public_settings(
 }
 
 #[tauri::command]
-pub async fn set_project_path(state: State<'_, AppState>, path: String) -> Result<(), String> {
+pub async fn set_project_path(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<(), String> {
     let normalized = crate::project_path::normalize_project_path(std::path::Path::new(&path))?;
-    registry_set_project_path(&state.registry, normalized.to_string_lossy().into_owned());
+    let path_str = normalized.to_string_lossy().into_owned();
+    registry_set_project_path(&state.registry, path_str.clone());
+    crate::settings_persist::persist_project_path(&app, &path_str)?;
     Ok(())
 }
 
