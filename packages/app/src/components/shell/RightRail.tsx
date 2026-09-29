@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { DISPLAY_STATUS_LABEL } from '../../lib/display-status';
-import { useEnvironment, useSelectedSession, useSessionSummary } from '../../lib/shell-data';
+import {
+  useEnvironment,
+  useSelectedSession,
+  useSessionSummary,
+} from '../../lib/shell-data';
 
 type Tab = 'session' | 'environment';
 
 export function RightRail() {
   const [tab, setTab] = useState<Tab>('session');
   const session = useSelectedSession();
-  const summary = useSessionSummary(session?.paneId ?? null);
+  const summary = useSessionSummary(session);
   const env = useEnvironment();
 
   return (
@@ -31,6 +35,7 @@ export function RightRail() {
               <>
                 <Field label="Agent" value={summary.agent ?? session.agentLabel} />
                 <Field label="Model" value={summary.model ?? '—'} />
+                {summary.provider && <Field label="Provider" value={summary.provider} />}
                 <Field label="Status" value={DISPLAY_STATUS_LABEL[session.status]} />
                 {summary.tokens && (
                   <Field
@@ -40,6 +45,9 @@ export function RightRail() {
                 )}
                 {summary.costUsd != null && (
                   <Field label="Cost" value={`$${summary.costUsd.toFixed(4)}`} />
+                )}
+                {session.shareUrl && (
+                  <Field label="OpenCode share" value={session.shareUrl} mono />
                 )}
                 <div>
                   <div className="text-section-label text-text-3 mb-2">Todos</div>
@@ -65,14 +73,8 @@ export function RightRail() {
             <Field label="Branch" value={env.branch ?? '—'} />
             <Field label="OpenCode server" value={env.serverUrl ?? '—'} mono />
             <Field label="Server status" value={env.serverStatus ?? '—'} />
-            <div>
-              <div className="text-section-label text-text-3 mb-1">MCP</div>
-              <p className="text-meta text-text-3">Status — Phase 6</p>
-            </div>
-            <div>
-              <div className="text-section-label text-text-3 mb-1">LSP</div>
-              <p className="text-meta text-text-3">Status — Phase 6</p>
-            </div>
+            <Field label="MCP" value={env.mcpSummary ?? '—'} />
+            <Field label="LSP" value={env.lspSummary ?? '—'} />
           </div>
         )}
       </div>

@@ -1,27 +1,48 @@
 import { getPreset } from '@loomria/shared';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAgentCatalog } from '../hooks/useAgentCatalog';
 import { usePaneRegistry } from '../hooks/usePaneRegistry';
 import { useProjectPath } from '../hooks/useProjectPath';
 import { useSessionRail } from '../hooks/useSessionRail';
 import { useDemoFixtures } from './demo/DemoContext';
 import {
-  DISPLAY_STATUS_ORDER,
-  mergePaneAndSessionStatus,
-  type DisplayStatus,
-} from './display-status';
-import { buildPaneDisplayNames } from './pane-display-name';
-import { useShellSelection } from './shell-selection-context';
+  buildDemoOpenCodeSessions,
+  demoEnvironment,
+  demoSessionSummary,
+} from './demo/session-fixtures';
+import type { DisplayStatus } from './display-status';
 import { isUserShellPane } from './pane-surface';
+import { selectSessionSummary } from './opencode/selectors.js';
+import { getServerInfo } from './opencode/client.js';
+import { opencodeSessionActions } from './sessions/opencode-session-actions';
+import { filterSessions, sortShellSessions, type SessionSortMode } from './sessions/filter-sort';
+import {
+  buildOpenCodeShellSessions,
+  buildPaneShellSessions,
+  isOpenCodePane,
+  mergeShellSessionLists,
+} from './sessions/merge-sessions';
+import { getSessionReadMap } from './sessions/session-read-state';
+import { useOpenCodePaneStates, useEnsureOpenCodeStores } from './sessions/use-opencode-stores';
+import { useShellSelection } from './shell-selection-context';
+import { isTauriRuntime } from './is-tauri';
 
 export type ShellSession = {
   id: string;
   paneId: string;
+  sessionId?: string;
+  parentSessionId?: string;
   title: string;
   agentLabel: string;
   status: DisplayStatus;
   updatedAt: number;
   unread: boolean;
+  lastMessagePreview?: string;
+  workspaceDirectory?: string;
+  workspaceLabel?: string;
+  shareUrl?: string;
+  reverted?: boolean;
+  depth?: number;
 };
 
 export type SessionSummary = {
@@ -38,144 +59,256 @@ export type EnvironmentInfo = {
   branch?: string;
   serverUrl?: string;
   serverStatus?: string;
+  mcpSummary?: string;
+  lspSummary?: string;
 };
 
-function sortSessions(rows: ShellSession[]): ShellSession[] {
-  return [...rows].sort((a, b) => {
-    const sa = DISPLAY_STATUS_ORDER[a.status] ?? 99;
-    const sb = DISPLAY_STATUS_ORDER[b.status] ?? 99;
-    if (sa !== sb) return sa - sb;
-    return b.updatedAt - a.updatedAt;
-  });
+export function useSessionListFilter(): {
+  query: string;
+  setQuery: (q: string) => void;
+  sortMode: SessionSortMode;
+  setSortMode: (mode: SessionSortMode) => void;
+} {
+  const [query, setQuery] = useState('');
+  const [sortMode, setSortMode] = useState<SessionSortMode>('attention');
+  return { query, setQuery, sortMode, setSortMode };
 }
 
-export function useSessionList(): ShellSession[] {
+export function useSessionList(options?: { query?: string; sortMode?: SessionSortMode }): ShellSession[] {
   const demo = useDemoFixtures();
   const sessionStates = useSessionRail();
   const registry = usePaneRegistry();
   const agentCatalog = useAgentCatalog();
-  const { selectedPaneId } = useShellSelection();
+  const { selectedPaneId, selectedSessionId } = useShellSelection();
+  const query = options?.query ?? '';
+  const sortMode = options?.sortMode ?? 'attention';
 
-  const paneTitles = useMemo(
-    () => buildPaneDisplayNames(registry.paneList, agentCatalog),
-    [agentCatalog, registry.paneList],
+  const panes = useMemo(
+    () => registry.paneList.filter((p) => !p.info.id.startsWith('loomria-orchestrator-')),
+    [registry.paneList],
   );
 
+  const openCodePaneIds = useMemo(
+    () => panes.filter(isOpenCodePane).map((p) => p.info.id),
+    [panes],
+  );
+
+  const selectedByPane = useMemo(() => {
+    const map: Record<string, string | undefined> = {};
+    if (selectedPaneId && selectedSessionId) {
+      map[selectedPaneId] = selectedSessionId;
+    }
+    return map;
+  }, [selectedPaneId, selectedSessionId]);
+
+  useEnsureOpenCodeStores(demo ? [] : openCodePaneIds, selectedByPane);
+  const ocStates = useOpenCodePaneStates(demo ? [] : openCodePaneIds);
+  const readAtMs = useMemo(() => getSessionReadMap(), []);
+
   return useMemo(() => {
-    const panes = registry.paneList.filter((p) => !p.info.id.startsWith('loomria-orchestrator-'));
-    const rows: ShellSession[] = [];
-
-    for (const pane of panes) {
-      if (isUserShellPane(pane.info.agent_type)) continue;
-      const session = sessionStates.get(pane.info.id);
-      const status = mergePaneAndSessionStatus(pane.status, session?.state);
-      const title =
-        paneTitles.get(pane.info.id) ??
-        (session?.agent_type
-          ? getPreset(agentCatalog, session.agent_type as never)?.label
-          : undefined) ??
-        `Session ${pane.info.id.slice(0, 8)}`;
-      const agentLabel =
-        (session?.agent_type
-          ? getPreset(agentCatalog, session.agent_type as never)?.label
-          : undefined) ??
-        getPreset(agentCatalog, pane.info.agent_type as never)?.label ??
-        pane.info.agent_type;
-
-      rows.push({
-        id: pane.info.id,
-        paneId: pane.info.id,
-        title,
-        agentLabel,
-        status,
-        updatedAt: session?.updated_at_ms ?? pane.info.last_output_at ?? 0,
-        unread: selectedPaneId !== pane.info.id && status === 'needs_approval',
+    if (demo) {
+      const paneId = demo.defaultAgentPaneId;
+      const demoOc = buildDemoOpenCodeSessions(paneId);
+      const paneRows = buildPaneShellSessions({
+        panes: demo.paneList.filter((p) => !isOpenCodePane(p)),
+        sessionStates: demo.sessionStates,
+        agentCatalog: demo.agentCatalog,
+        selectedPaneId,
+        selectedSessionId,
       });
+      const merged = mergeShellSessionLists(demoOc, paneRows);
+      return sortShellSessions(filterSessions(merged, query), sortMode);
     }
 
-    if (rows.length === 0 && demo) {
+    const ocRows: ShellSession[] = [];
+    for (const paneId of openCodePaneIds) {
+      const state = ocStates.get(paneId);
+      if (!state) continue;
+      ocRows.push(
+        ...buildOpenCodeShellSessions({
+          paneId,
+          state,
+          agentCatalog,
+          selectedPaneId,
+          selectedSessionId,
+          readAtMs,
+        }),
+      );
+    }
+
+    const paneRows = buildPaneShellSessions({
+      panes,
+      sessionStates,
+      agentCatalog,
+      selectedPaneId,
+      selectedSessionId,
+    });
+
+    let rows = mergeShellSessionLists(ocRows, paneRows);
+    if (rows.length === 0) {
       for (const [paneId, session] of sessionStates) {
         if (isUserShellPane(session.agent_type ?? '')) continue;
-        const status = mergePaneAndSessionStatus(null, session.state);
         rows.push({
           id: paneId,
           paneId,
-          title: paneTitles.get(paneId) ?? `Session ${paneId.slice(0, 8)}`,
-          agentLabel:
-            getPreset(agentCatalog, (session.agent_type as never) ?? 'opencode_native')?.label ??
-            'Agent',
-          status,
+          title: `Session ${paneId.slice(0, 8)}`,
+          agentLabel: 'Agent',
+          status: 'connecting',
           updatedAt: session.updated_at_ms,
-          unread: selectedPaneId !== paneId && status === 'needs_approval',
+          unread: false,
         });
       }
     }
 
-    return sortSessions(rows);
+    return sortShellSessions(filterSessions(rows, query), sortMode);
   }, [
     agentCatalog,
     demo,
-    paneTitles,
-    registry.paneList,
+    ocStates,
+    openCodePaneIds,
+    panes,
+    query,
+    readAtMs,
     selectedPaneId,
+    selectedSessionId,
     sessionStates,
+    sortMode,
   ]);
 }
 
 export function useSelectedSession(): ShellSession | null {
   const list = useSessionList();
-  const { selectedPaneId } = useShellSelection();
+  const { selectedPaneId, selectedSessionId } = useShellSelection();
   if (!selectedPaneId) return list[0] ?? null;
-  return list.find((s) => s.paneId === selectedPaneId) ?? list[0] ?? null;
+  const match = list.find(
+    (s) =>
+      s.paneId === selectedPaneId &&
+      (selectedSessionId
+        ? s.sessionId === selectedSessionId || s.id === selectedSessionId
+        : !s.sessionId || s.sessionId === s.id),
+  );
+  return match ?? list.find((s) => s.paneId === selectedPaneId) ?? list[0] ?? null;
 }
 
-export function useSessionSummary(id: string | null): SessionSummary {
+export function useSessionSummary(session: ShellSession | null): SessionSummary {
   const demo = useDemoFixtures();
   const agentCatalog = useAgentCatalog();
   const sessionStates = useSessionRail();
+  const ocStates = useOpenCodePaneStates(
+    session?.sessionId && session.paneId ? [session.paneId] : [],
+  );
 
   return useMemo(() => {
-    if (!id) return {};
-    const session = sessionStates.get(id);
-    const agentType = session?.agent_type;
+    if (!session) return {};
+    if (demo) return demoSessionSummary(session);
+
+    if (session.sessionId) {
+      const state = ocStates.get(session.paneId);
+      if (state) {
+        const summary = selectSessionSummary(state, session.sessionId);
+        const tokens = state.sessions[session.sessionId]?.tokens;
+        return {
+          agent: summary.agent ?? session.agentLabel,
+          model: summary.model,
+          provider: summary.provider,
+          tokens: tokens
+            ? { input: tokens.input, output: tokens.output + tokens.reasoning }
+            : undefined,
+          costUsd: summary.costUsd,
+          todos: summary.todos.map((t) => ({ content: t.content, status: t.status })),
+        };
+      }
+    }
+
+    const rail = sessionStates.get(session.paneId);
+    const agentType = rail?.agent_type;
     const agent =
       (agentType ? getPreset(agentCatalog, agentType as never)?.label : undefined) ?? agentType;
-
-    const timeline = demo?.agentSessions[id]?.timeline;
-    const usage = timeline?.usage;
-
-    return {
-      agent: agent ?? undefined,
-      model: agentType === 'opencode_native' ? 'deepseek-v3.1-flash' : undefined,
-      provider: agentType === 'opencode_native' ? 'opencode-go' : undefined,
-      tokens: usage
-        ? {
-            input: usage.input_tokens ?? 0,
-            output: usage.output_tokens ?? 0,
-          }
-        : undefined,
-      costUsd: usage?.cost_usd,
-      todos: demo && id
-        ? [
-            { content: 'Review bridge reconnect changes', status: 'in_progress' },
-            { content: 'Run app test suite', status: 'pending' },
-          ]
-        : undefined,
-    };
-  }, [agentCatalog, demo, id, sessionStates]);
+    return { agent: agent ?? undefined };
+  }, [agentCatalog, demo, ocStates, session, sessionStates]);
 }
 
 export function useEnvironment(): EnvironmentInfo {
   const { projectPath } = useProjectPath();
   const demo = useDemoFixtures();
+  const selected = useSelectedSession();
+  const paneId = selected?.paneId ?? null;
+  const ocStates = useOpenCodePaneStates(paneId ? [paneId] : []);
+  const [serverMeta, setServerMeta] = useState<{ url?: string; status?: string }>({});
+  const [infra, setInfra] = useState<{ mcp?: string; lsp?: string; branch?: string }>({});
 
-  return useMemo(
-    () => ({
-      directory: projectPath ?? demo?.projectPath,
-      branch: demo ? 'rebuild/shell' : undefined,
-      serverUrl: demo ? 'http://127.0.0.1:4096' : undefined,
-      serverStatus: demo ? 'connected' : undefined,
-    }),
-    [demo, projectPath],
-  );
+  useEffect(() => {
+    if (demo || !paneId || !isTauriRuntime()) return;
+    let cancelled = false;
+    void getServerInfo(paneId)
+      .then((info) => {
+        if (!cancelled) {
+          setServerMeta({
+            url: info.healthy ? 'OpenCode (local)' : undefined,
+            status: info.healthy ? 'connected' : 'disconnected',
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setServerMeta({ status: 'disconnected' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [demo, paneId]);
+
+  useEffect(() => {
+    if (demo || !paneId || !selected?.sessionId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [mcp, lsp, vcs] = await Promise.all([
+          opencodeSessionActions.listMcp(paneId).catch(() => null),
+          opencodeSessionActions.listLsp(paneId).catch(() => null),
+          opencodeSessionActions.getVcsBranch(paneId).catch(() => null),
+        ]);
+        if (cancelled) return;
+        setInfra({
+          mcp: summarizeMcp(mcp),
+          lsp: summarizeLsp(lsp),
+          branch: vcs?.branch ?? undefined,
+        });
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [demo, paneId, selected?.sessionId]);
+
+  return useMemo(() => {
+    if (demo) return demoEnvironment();
+    const state = paneId ? ocStates.get(paneId) : undefined;
+    return {
+      directory: state?.directory ?? projectPath ?? selected?.workspaceDirectory ?? undefined,
+      branch: state?.vcsBranch ?? infra.branch ?? undefined,
+      serverUrl: serverMeta.url,
+      serverStatus: state?.connectionStatus ?? serverMeta.status ?? 'unknown',
+      mcpSummary: infra.mcp,
+      lspSummary: infra.lsp,
+    };
+  }, [demo, infra, ocStates, paneId, projectPath, selected?.workspaceDirectory, serverMeta]);
+}
+
+function summarizeMcp(raw: unknown): string | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const servers = (raw as { servers?: unknown[] }).servers;
+  if (Array.isArray(servers)) return `${servers.length} server${servers.length === 1 ? '' : 's'}`;
+  return 'OK';
+}
+
+function summarizeLsp(raw: unknown): string | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const entries = Object.keys(raw as Record<string, unknown>);
+  return entries.length ? entries.slice(0, 3).join(' · ') : 'None';
+}
+
+export function isSessionReverted(session: ShellSession | null): boolean {
+  return Boolean(session?.reverted);
 }

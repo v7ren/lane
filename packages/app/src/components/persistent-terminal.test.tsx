@@ -86,6 +86,9 @@ function shellProvider(ui: ReactNode, overrides?: Partial<ComponentProps<typeof 
   const value = {
     selectedPaneId: 'pane-a',
     setSelectedPaneId: () => {},
+    selectedSessionId: null,
+    setSelectedSessionId: () => {},
+    selectSession: () => {},
     bottomTab: 'agent' as const,
     setBottomTab: () => {},
     showTui: false,

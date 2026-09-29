@@ -6,6 +6,9 @@ export type ActivityRailSection = 'sessions' | 'workspaces';
 export type ShellSelectionState = {
   selectedPaneId: string | null;
   setSelectedPaneId: (id: string | null) => void;
+  selectedSessionId: string | null;
+  setSelectedSessionId: (id: string | null) => void;
+  selectSession: (paneId: string, sessionId?: string) => void;
   bottomTab: BottomPanelTab;
   setBottomTab: (tab: BottomPanelTab) => void;
   showTui: boolean;

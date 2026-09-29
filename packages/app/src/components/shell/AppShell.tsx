@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MutableRefObject } from 'react';
 import type { AgentCatalog, AgentId } from '@loomria/shared';
-import { listLaunchPresets } from '@loomria/shared';
+import type { PaneData } from '../../hooks/usePaneRegistry';
 import { AgentView } from '../agent/AgentView';
 import { PersistentPaneSurfaces } from '../PersistentPaneSurfaces';
 import { SettingsPanel } from '../SettingsPanel';
@@ -11,17 +11,23 @@ import { useShellLayout } from '../../hooks/useShellLayout';
 import { useShellKeyboard } from '../../hooks/useShellKeyboard';
 import { buildPaneDisplayNames } from '../../lib/pane-display-name';
 import { isUserShellPane } from '../../lib/pane-surface';
-import { useSessionList } from '../../lib/shell-data';
+import { useSelectedSession, useSessionList } from '../../lib/shell-data';
 import { ShellSelectionProvider, useShellSelection } from '../../lib/shell-selection-context';
 import { isTauriRuntime } from '../../lib/is-tauri';
 import { readDemoUrlFlags } from '../../lib/demo-mode';
 import { useDemoFixtures } from '../../lib/demo/DemoContext';
 import { isSessionMuted } from '../../lib/session-notify-prefs';
 import { filterAgentSessionStates } from '../../lib/agent-session-states';
+import { buildPaletteCommands } from '../../lib/commands/sessions';
+import { SessionActionsProvider, useSessionActions } from '../../lib/sessions/session-actions-context';
+import { ShellToastProvider } from '../../lib/sessions/shell-toast';
+import { useOpenCodeTuiSync } from '../../lib/sessions/use-tui-sync';
+import { isOpenCodePane } from '../../lib/sessions/merge-sessions';
 import { ActivityRail } from './ActivityRail';
 import { AgentPanelEmpty } from './AgentPanelEmpty';
 import { BottomPanel } from './BottomPanel';
-import { buildPaletteCommands, CommandPalette } from './CommandPalette';
+import { CommandPalette } from './CommandPalette';
+import { listLaunchPresets } from '@loomria/shared';
 import { ExplorerPanel } from './ExplorerPanel';
 import { MainLauncher } from './MainLauncher';
 import { TerminalShellBar } from './TerminalShellBar';
@@ -39,6 +45,8 @@ export type AppShellProps = {
   railConnecting: boolean;
   selectedPaneId: string | null;
   setSelectedPaneId: (id: string | null) => void;
+  selectedSessionId: string | null;
+  setSelectedSessionId: (id: string | null) => void;
   showTui: boolean;
   setShowTui: (value: boolean | ((prev: boolean) => boolean)) => void;
   onNewSession: (agent: AgentId) => void | Promise<void>;
@@ -55,6 +63,8 @@ function AppShellInner({
   railConnecting,
   selectedPaneId,
   setSelectedPaneId,
+  selectedSessionId,
+  setSelectedSessionId,
   showTui,
   setShowTui,
   onNewSession,
@@ -63,6 +73,7 @@ function AppShellInner({
 }: AppShellProps) {
   const demo = useDemoFixtures();
   const shell = useShellSelection();
+  const selectedSession = useSelectedSession();
   const { layout, patchLayout, resetPanel, resetVisibility } = useShellLayout();
   const [viewportWidth, setViewportWidth] = useState(
     typeof window !== 'undefined' ? window.innerWidth : 1440,
@@ -117,6 +128,34 @@ function AppShellInner({
 
   const shellSessions = useSessionList();
 
+  const selectSession = useCallback(
+    (paneId: string, sessionId?: string) => {
+      setSelectedPaneId(paneId);
+      setSelectedSessionId(sessionId ?? null);
+      shell.setBottomTab('agent');
+    },
+    [setSelectedPaneId, setSelectedSessionId, shell],
+  );
+
+  useOpenCodeTuiSync(
+    selectedPaneId,
+    selectedSessionId ?? selectedSession?.sessionId,
+    Boolean(selectedPaneId && (selectedSessionId ?? selectedSession?.sessionId)),
+  );
+
+  const handleOpenWorkspace = useCallback(
+    async (path: string) => {
+      const existing = panes.find((p) => isOpenCodePane(p) && p.info.cwd === path);
+      if (existing) {
+        selectSession(existing.info.id, selectedSessionId ?? undefined);
+        return;
+      }
+      const id = await registry.spawnPane({ agent_type: 'opencode_native', cwd: path });
+      if (id) selectSession(id);
+    },
+    [panes, registry, selectSession, selectedSessionId],
+  );
+
   const terminalPanes = useMemo(
     () => panes.filter((p) => isUserShellPane(p.info.agent_type)),
     [panes],
@@ -135,9 +174,9 @@ function AppShellInner({
   useEffect(() => {
     if (demo?.variant === 'empty') return;
     if (!selectedPaneId && shellSessions[0]) {
-      setSelectedPaneId(shellSessions[0].paneId);
+      selectSession(shellSessions[0].paneId, shellSessions[0].sessionId);
     }
-  }, [demo?.variant, selectedPaneId, setSelectedPaneId, shellSessions]);
+  }, [demo?.variant, selectSession, selectedPaneId, shellSessions]);
 
   useEffect(() => {
     if (!selectedPaneId) return;
@@ -202,16 +241,165 @@ function AppShellInner({
     }
   }, [projectPath, registry, shell]);
 
+  return (
+    <ShellToastProvider>
+      <SessionActionsProvider onSelectSession={selectSession}>
+        <AppShellChrome
+          agentCatalog={agentCatalog}
+          registry={registry}
+          sessionStates={sessionStates}
+          projectPath={projectPath}
+          onProjectPathChange={onProjectPathChange}
+          railConnecting={railConnecting}
+          selectedPaneId={selectedPaneId}
+          selectSession={selectSession}
+          handleOpenWorkspace={handleOpenWorkspace}
+          showTui={showTui}
+          setShowTui={setShowTui}
+          onNewSession={onNewSession}
+          onClosePane={onClosePane}
+          onJumpApproval={onJumpApproval}
+          demo={demo}
+          shell={shell}
+          layout={layout}
+          patchLayout={patchLayout}
+          resetPanel={resetPanel}
+          viewportWidth={viewportWidth}
+          panes={panes}
+          paneCwds={paneCwds}
+          paneTitles={paneTitles}
+          shellSessions={shellSessions}
+          selectedSession={selectedSession}
+          terminalPanes={terminalPanes}
+          toggleBottom={toggleBottom}
+          toggleSidebar={toggleSidebar}
+          toggleRightRail={toggleRightRail}
+          handleRailSection={handleRailSection}
+          showSidebarColumn={showSidebarColumn}
+          showRightRail={showRightRail}
+          handleNewShell={handleNewShell}
+          selectedPane={selectedPane}
+          sessionForAgent={sessionForAgent}
+          agentPaneTitle={agentPaneTitle}
+          tuiSurfaceLive={tuiSurfaceLive}
+          agentSplitActive={agentSplitActive}
+          chatPercent={chatPercent}
+          startDrag={startDrag}
+          mutedMap={mutedMap}
+          setMutedMap={setMutedMap}
+          newPaneOpen={newPaneOpen}
+          setNewPaneOpen={setNewPaneOpen}
+          dragBase={dragBase}
+          layoutEpoch={layoutEpoch}
+        />
+      </SessionActionsProvider>
+    </ShellToastProvider>
+  );
+}
+
+function AppShellChrome(props: {
+  agentCatalog: AgentCatalog;
+  registry: PaneRegistryApi;
+  sessionStates: Map<string, SessionRailState>;
+  projectPath: string | null;
+  onProjectPathChange: (path: string) => Promise<void>;
+  railConnecting: boolean;
+  selectedPaneId: string | null;
+  selectSession: (paneId: string, sessionId?: string) => void;
+  handleOpenWorkspace: (path: string) => Promise<void>;
+  showTui: boolean;
+  setShowTui: (value: boolean | ((prev: boolean) => boolean)) => void;
+  onNewSession: (agent: AgentId) => void | Promise<void>;
+  onClosePane: (paneId: string) => void;
+  onJumpApproval: (paneId: string) => void;
+  demo: ReturnType<typeof useDemoFixtures>;
+  shell: ReturnType<typeof useShellSelection>;
+  layout: ReturnType<typeof useShellLayout>['layout'];
+  patchLayout: ReturnType<typeof useShellLayout>['patchLayout'];
+  resetPanel: ReturnType<typeof useShellLayout>['resetPanel'];
+  viewportWidth: number;
+  panes: PaneData[];
+  paneCwds: Map<string, string>;
+  paneTitles: Map<string, string>;
+  shellSessions: ReturnType<typeof useSessionList>;
+  selectedSession: ReturnType<typeof useSelectedSession>;
+  terminalPanes: PaneData[];
+  toggleBottom: () => void;
+  toggleSidebar: () => void;
+  toggleRightRail: () => void;
+  handleRailSection: (section: 'sessions' | 'workspaces') => void;
+  showSidebarColumn: boolean;
+  showRightRail: boolean;
+  handleNewShell: () => Promise<void>;
+  selectedPane: PaneData | undefined;
+  sessionForAgent: SessionRailState | undefined;
+  agentPaneTitle: string | null;
+  tuiSurfaceLive: boolean;
+  agentSplitActive: boolean;
+  chatPercent: number;
+  startDrag: () => void;
+  mutedMap: Record<string, boolean>;
+  setMutedMap: Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  newPaneOpen: boolean;
+  setNewPaneOpen: (open: boolean) => void;
+  dragBase: MutableRefObject<number>;
+  layoutEpoch: number;
+}) {
+  const actions = useSessionActions();
+  const {
+    agentCatalog,
+    registry,
+    sessionStates,
+    projectPath,
+    onProjectPathChange,
+    railConnecting,
+    selectedPaneId,
+    selectSession,
+    handleOpenWorkspace,
+    showTui,
+    setShowTui,
+    onNewSession,
+    onClosePane,
+    shell,
+    layout,
+    patchLayout,
+    resetPanel,
+    viewportWidth,
+    panes,
+    paneTitles,
+    shellSessions,
+    selectedSession,
+    terminalPanes,
+    toggleBottom,
+    toggleSidebar,
+    toggleRightRail,
+    handleRailSection,
+    showSidebarColumn,
+    showRightRail,
+    handleNewShell,
+    selectedPane,
+    sessionForAgent,
+    agentPaneTitle,
+    tuiSurfaceLive,
+    agentSplitActive,
+    chatPercent,
+    startDrag,
+    mutedMap,
+    setMutedMap,
+    newPaneOpen,
+    setNewPaneOpen,
+    dragBase,
+    layoutEpoch,
+  } = props;
+
   const paletteCommands = useMemo(
     () =>
       buildPaletteCommands({
         agentCatalog,
         sessions: shellSessions,
-        onNewAgent: () => setNewPaneOpen(true),
-        onSelectSession: (id) => {
-          setSelectedPaneId(id);
-          shell.setBottomTab('agent');
-        },
+        selected: selectedSession,
+        onNewAgent: (agent) => void onNewSession(agent),
+        onSelectSession: selectSession,
         onToggleBottom: toggleBottom,
         onToggleSidebar: toggleSidebar,
         onToggleRightRail: toggleRightRail,
@@ -222,12 +410,45 @@ function AppShellInner({
         },
         onSwitchAgentTab: () => shell.setBottomTab('agent'),
         onSwitchTerminalTab: () => shell.setBottomTab('terminal'),
+        onNewOpenCodeSession: (paneId) => void actions.createSession(paneId),
+        onRenameSelected: () => {
+          if (!selectedSession?.sessionId) return;
+          const title = window.prompt('Session title', selectedSession.title);
+          if (title) void actions.renameSession(selectedSession.paneId, selectedSession.sessionId, title);
+        },
+        onDeleteSelected: () => {
+          if (!selectedSession?.sessionId) return;
+          if (window.confirm(`Delete session "${selectedSession.title}"?`)) {
+            void actions.deleteSession(selectedSession.paneId, selectedSession.sessionId);
+          }
+        },
+        onSummarizeSelected: () => {
+          if (selectedSession?.sessionId) {
+            void actions.summarizeSession(selectedSession.paneId, selectedSession.sessionId);
+          }
+        },
+        onShareSelected: () => {
+          if (selectedSession?.sessionId) {
+            void actions.shareSession(selectedSession.paneId, selectedSession.sessionId);
+          }
+        },
+        onExportMarkdown: () => {
+          if (selectedSession) void actions.exportTranscript(selectedSession, 'markdown');
+        },
+        onUnrevertSelected: () => {
+          if (selectedSession?.sessionId) {
+            void actions.unrevertSession(selectedSession.paneId, selectedSession.sessionId);
+          }
+        },
       }),
     [
+      actions,
       agentCatalog,
+      selectSession,
+      selectedSession,
+      setNewPaneOpen,
       shell,
       shellSessions,
-      setSelectedPaneId,
       toggleBottom,
       toggleRightRail,
       toggleSidebar,
@@ -249,7 +470,7 @@ function AppShellInner({
       shell.setPaletteOpen(true);
     },
     onSwitchTerminalTab: () => shell.setBottomTab('terminal'),
-    onJumpApproval,
+    onJumpApproval: props.onJumpApproval,
     onApproveTop: () => {},
     onDenyTop: () => {},
   });
@@ -276,18 +497,13 @@ function AppShellInner({
             >
               <SidebarPanel
                 section={shell.railSection}
-                sessionStates={agentSessionStates}
-                agentCatalog={agentCatalog}
-                paneTitles={paneTitles}
-                paneCwds={paneCwds}
+                registry={registry}
                 selectedPaneId={selectedPaneId}
                 connecting={railConnecting}
-                onSelectSession={(id) => {
-                  setSelectedPaneId(id);
-                  shell.setBottomTab('agent');
-                }}
+                onSelectSession={selectSession}
                 projectPath={projectPath}
                 onProjectPathChange={onProjectPathChange}
+                onOpenWorkspace={handleOpenWorkspace}
               />
             </div>
             <ResizableSplitter
@@ -380,7 +596,7 @@ function AppShellInner({
                       tuiSurfaceLive={tuiSurfaceLive}
                       onHideTui={() => setShowTui(false)}
                       onClosePane={onClosePane}
-                      onEnterAgent={(id) => setSelectedPaneId(id)}
+                      onEnterAgent={(id) => selectSession(id)}
                     />
                   }
                   agentContent={
@@ -520,6 +736,12 @@ export function AppShell(props: AppShellProps) {
     () => ({
       selectedPaneId: props.selectedPaneId,
       setSelectedPaneId: props.setSelectedPaneId,
+      selectedSessionId: props.selectedSessionId,
+      setSelectedSessionId: props.setSelectedSessionId,
+      selectSession: (paneId: string, sessionId?: string) => {
+        props.setSelectedPaneId(paneId);
+        props.setSelectedSessionId(sessionId ?? null);
+      },
       bottomTab,
       setBottomTab,
       showTui: props.showTui,
@@ -545,6 +767,8 @@ export function AppShell(props: AppShellProps) {
       paletteOpen,
       props.selectedPaneId,
       props.setSelectedPaneId,
+      props.selectedSessionId,
+      props.setSelectedSessionId,
       props.showTui,
       props.setShowTui,
       railSection,

@@ -1,23 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { listLaunchPresets, type AgentCatalog, type AgentId } from '@loomria/shared';
-import type { ShellSession } from '../../lib/shell-data';
-
-export type PaletteCommand = {
-  id: string;
-  label: string;
-  section: string;
-  keywords?: string;
-  run: () => void;
-};
-
-export function filterPaletteCommands(commands: PaletteCommand[], query: string): PaletteCommand[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return commands;
-  return commands.filter((cmd) => {
-    const hay = `${cmd.label} ${cmd.section} ${cmd.keywords ?? ''}`.toLowerCase();
-    return hay.includes(q);
-  });
-}
+import {
+  filterPaletteCommands,
+  type PaletteCommand,
+} from '../../lib/commands/index';
+export type { PaletteCommand } from '../../lib/commands/index';
+export { filterPaletteCommands } from '../../lib/commands/index';
 
 export function CommandPalette({
   open,
@@ -111,92 +98,4 @@ export function CommandPalette({
   );
 }
 
-export function buildPaletteCommands({
-  agentCatalog,
-  sessions,
-  onNewAgent,
-  onSelectSession,
-  onToggleBottom,
-  onToggleSidebar,
-  onToggleRightRail,
-  onOpenSettings,
-  onFocusComposer,
-  onSwitchAgentTab,
-  onSwitchTerminalTab,
-}: {
-  agentCatalog: AgentCatalog;
-  sessions: ShellSession[];
-  onNewAgent: (agent: AgentId) => void;
-  onSelectSession: (paneId: string) => void;
-  onToggleBottom: () => void;
-  onToggleSidebar: () => void;
-  onToggleRightRail: () => void;
-  onOpenSettings: () => void;
-  onFocusComposer: () => void;
-  onSwitchAgentTab: () => void;
-  onSwitchTerminalTab: () => void;
-}): PaletteCommand[] {
-  const agents = listLaunchPresets(agentCatalog);
-  const agentCommands: PaletteCommand[] = agents.map((preset) => ({
-    id: `new-${preset.type}`,
-    label: `New agent: ${preset.label}`,
-    section: 'Agent',
-    keywords: preset.type,
-    run: () => onNewAgent(preset.type),
-  }));
-
-  const sessionCommands: PaletteCommand[] = sessions.map((s) => ({
-    id: `session-${s.paneId}`,
-    label: `Switch session: ${s.title}`,
-    section: 'Session',
-    keywords: s.agentLabel,
-    run: () => onSelectSession(s.paneId),
-  }));
-
-  return [
-    ...agentCommands,
-    ...sessionCommands,
-    {
-      id: 'toggle-bottom',
-      label: 'Toggle bottom panel',
-      section: 'View',
-      run: onToggleBottom,
-    },
-    {
-      id: 'toggle-sidebar',
-      label: 'Toggle sidebar',
-      section: 'View',
-      run: onToggleSidebar,
-    },
-    {
-      id: 'toggle-right',
-      label: 'Toggle right rail',
-      section: 'View',
-      run: onToggleRightRail,
-    },
-    {
-      id: 'focus-composer',
-      label: 'Focus composer',
-      section: 'Agent',
-      run: onFocusComposer,
-    },
-    {
-      id: 'tab-agent',
-      label: 'Show AGENT tab',
-      section: 'Panel',
-      run: onSwitchAgentTab,
-    },
-    {
-      id: 'tab-terminal',
-      label: 'Show TERMINAL tab',
-      section: 'Panel',
-      run: onSwitchTerminalTab,
-    },
-    {
-      id: 'settings',
-      label: 'Open settings',
-      section: 'Settings',
-      run: onOpenSettings,
-    },
-  ];
-}
+export { buildPaletteCommands } from '../../lib/commands/sessions';
