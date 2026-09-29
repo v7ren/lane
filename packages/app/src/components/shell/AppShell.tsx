@@ -23,11 +23,12 @@ import { AgentPanelEmpty } from './AgentPanelEmpty';
 import { BottomPanel } from './BottomPanel';
 import { buildPaletteCommands, CommandPalette } from './CommandPalette';
 import { ExplorerPanel } from './ExplorerPanel';
-import { MainLauncher } from './MainLauncher';
 import { TerminalShellBar } from './TerminalShellBar';
 import { ResizableSplitter } from './ResizableSplitter';
 import { RightRail } from './RightRail';
-import { ShellTitleBar, EditorTabsSlot } from './ShellTitleBar';
+import { ShellTitleBar } from './ShellTitleBar';
+import { EditorProvider, useEditor } from '../../lib/editor/EditorContext';
+import { EditorWorkspace } from '../editor/EditorWorkspace';
 import { SidebarPanel } from './SidebarPanel';
 
 export type AppShellProps = {
@@ -62,6 +63,7 @@ function AppShellInner({
   onJumpApproval,
 }: AppShellProps) {
   const demo = useDemoFixtures();
+  const editor = useEditor();
   const shell = useShellSelection();
   const { layout, patchLayout, resetPanel, resetVisibility } = useShellLayout();
   const [viewportWidth, setViewportWidth] = useState(
@@ -245,8 +247,7 @@ function AppShellInner({
       shell.setPaletteOpen(true);
     },
     onOpenFilePalette: () => {
-      shell.setPaletteFileMode(true);
-      shell.setPaletteOpen(true);
+      editor.openQuickOpen();
     },
     onSwitchTerminalTab: () => shell.setBottomTab('terminal'),
     onJumpApproval,
@@ -325,21 +326,17 @@ function AppShellInner({
           </>
         )}
         <div className="flex flex-col flex-1 min-w-0 min-h-0">
-          <EditorTabsSlot />
-          <div className="flex-1 min-h-0 relative">
-            <MainLauncher
-              onNewAgent={() => setNewPaneOpen(true)}
-              onTogglePanel={toggleBottom}
-              onSearchFiles={() => {
-                shell.setPaletteFileMode(true);
-                shell.setPaletteOpen(true);
-              }}
-              onCommandPalette={() => {
+          <EditorWorkspace
+            launcherProps={{
+              onNewAgent: () => setNewPaneOpen(true),
+              onTogglePanel: toggleBottom,
+              onSearchFiles: () => editor.openQuickOpen(),
+              onCommandPalette: () => {
                 shell.setPaletteFileMode(false);
                 shell.setPaletteOpen(true);
-              }}
-            />
-          </div>
+              },
+            }}
+          />
           {!layout.bottomPanelCollapsed && (
             <>
               <ResizableSplitter
@@ -506,6 +503,16 @@ function AppShellInner({
   );
 }
 
+function AppShellWithEditor(props: AppShellProps) {
+  const demo = useDemoFixtures();
+  const root = props.projectPath ?? demo?.projectPath ?? '';
+  return (
+    <EditorProvider projectRoot={root || null}>
+      <AppShellInner {...props} />
+    </EditorProvider>
+  );
+}
+
 export function AppShell(props: AppShellProps) {
   const [bottomTab, setBottomTab] = useState<'agent' | 'terminal'>('agent');
   const [railSection, setRailSection] = useState<'sessions' | 'workspaces'>('sessions');
@@ -557,7 +564,7 @@ export function AppShell(props: AppShellProps) {
 
   return (
     <ShellSelectionProvider value={selection}>
-      <AppShellInner {...props} />
+      <AppShellWithEditor {...props} />
     </ShellSelectionProvider>
   );
 }
