@@ -44,6 +44,7 @@ export function buildDemoOpenCodeSessions(paneId: string): ShellSession[] {
       status: 'needs_approval',
       updatedAt: now - 30_000,
       unread: true,
+      reverted: true,
       lastMessagePreview: 'Run npm run test --workspace=@loomria/app?',
       workspaceDirectory: 'C:\\Users\\demo\\loomria',
       workspaceLabel: 'loomria',
