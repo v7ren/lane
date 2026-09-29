@@ -1,7 +1,7 @@
 //! Codex app-server WebSocket client (blocking tungstenite, shared thread via thread/resume).
 
-use crate::protocol::codex_notifications::map_codex_notification;
-use crate::protocol::{AgentError, AgentEvent};
+use crate::protocol::codex_notifications::{map_codex_notification, map_codex_server_request};
+use crate::protocol::{AgentError, AgentEvent, CodexThreadOptions};
 use serde_json::{json, Value};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -14,7 +14,9 @@ pub struct CodexWsClient {
     events_tx: broadcast::Sender<AgentEvent>,
     request_tx: std::sync::mpsc::Sender<Value>,
     thread_id: Arc<parking_lot::Mutex<Option<String>>>,
+    active_turn_id: Arc<parking_lot::Mutex<Option<String>>>,
     turn_counter: Arc<AtomicU64>,
+    _thread_options: CodexThreadOptions,
 }
 
 impl CodexWsClient {
@@ -23,6 +25,7 @@ impl CodexWsClient {
             ws_url,
             uuid::Uuid::new_v4().to_string(),
             std::env::temp_dir().to_string_lossy().to_string(),
+            CodexThreadOptions::default(),
         )
     }
 
@@ -30,16 +33,20 @@ impl CodexWsClient {
         ws_url: String,
         thread_id: String,
         cwd: String,
+        thread_options: CodexThreadOptions,
     ) -> Result<Arc<Self>, AgentError> {
         let (events_tx, _) = broadcast::channel(256);
         let (request_tx, request_rx) = std::sync::mpsc::channel();
         let thread_slot = Arc::new(parking_lot::Mutex::new(Some(thread_id.clone())));
+        let active_turn_id = Arc::new(parking_lot::Mutex::new(None));
         let turn_counter = Arc::new(AtomicU64::new(1));
         let client = Arc::new(Self {
             events_tx: events_tx.clone(),
             request_tx,
             thread_id: Arc::clone(&thread_slot),
+            active_turn_id: Arc::clone(&active_turn_id),
             turn_counter: Arc::clone(&turn_counter),
+            _thread_options: thread_options.clone(),
         });
         let events_err = events_tx.clone();
         std::thread::Builder::new()
@@ -53,6 +60,8 @@ impl CodexWsClient {
                     turn_counter,
                     thread_id,
                     cwd,
+                    thread_options,
+                    Arc::clone(&active_turn_id),
                 )
                 {
                     let _ = events_err.send(AgentEvent::Error { message });
@@ -66,6 +75,10 @@ impl CodexWsClient {
         self.events_tx.subscribe()
     }
 
+    pub fn emit_local(&self, event: AgentEvent) {
+        let _ = self.events_tx.send(event);
+    }
+
     pub fn send_rpc(&self, value: Value) -> Result<(), AgentError> {
         self.request_tx
             .send(value)
@@ -73,23 +86,34 @@ impl CodexWsClient {
     }
 
     pub fn send_turn(&self, text: &str) -> Result<(), AgentError> {
+        self.send_turn_with_policy(text, None)?;
+        Ok(())
+    }
+
+    pub fn send_turn_with_policy(
+        &self,
+        text: &str,
+        approval_policy: Option<&str>,
+    ) -> Result<(), AgentError> {
         let thread_id = self
             .thread_id
             .lock()
             .clone()
             .ok_or_else(|| AgentError::Protocol("codex thread not ready".into()))?;
         let turn_id = self.turn_counter.fetch_add(1, Ordering::SeqCst).to_string();
-        let _ = self.events_tx.send(AgentEvent::TurnStarted {
-            turn_id: turn_id.clone(),
+        *self.active_turn_id.lock() = Some(turn_id.clone());
+        let mut params = json!({
+            "threadId": thread_id,
+            "input": [{ "type": "text", "text": text }],
         });
+        if let Some(policy) = approval_policy {
+            params["approvalPolicy"] = json!(policy);
+        }
         self.send_rpc(json!({
             "jsonrpc": "2.0",
             "id": format!("turn-{turn_id}"),
             "method": "turn/start",
-            "params": {
-                "threadId": thread_id,
-                "input": [{ "type": "text", "text": text }],
-            }
+            "params": params,
         }))
     }
 
@@ -99,11 +123,38 @@ impl CodexWsClient {
             .lock()
             .clone()
             .ok_or_else(|| AgentError::Protocol("codex thread not ready".into()))?;
+        let turn_id = self
+            .active_turn_id
+            .lock()
+            .clone()
+            .ok_or_else(|| AgentError::Protocol("codex turn not active".into()))?;
         self.send_rpc(json!({
             "jsonrpc": "2.0",
             "id": "interrupt",
             "method": "turn/interrupt",
-            "params": { "threadId": thread_id }
+            "params": { "threadId": thread_id, "turnId": turn_id }
+        }))
+    }
+
+    pub fn respond_approval_rpc(
+        &self,
+        request_id: &str,
+        decision: &str,
+    ) -> Result<(), AgentError> {
+        let codex_decision = match decision {
+            "allow_once" => "accept",
+            "allow_always" => "acceptForSession",
+            "deny" => "decline",
+            other => {
+                return Err(AgentError::Protocol(format!(
+                    "unsupported codex approval decision {other}"
+                )));
+            }
+        };
+        self.send_rpc(json!({
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": { "decision": codex_decision }
         }))
     }
 
@@ -117,6 +168,8 @@ fn run_ws_loop(
     turn_counter: Arc<AtomicU64>,
     resume_thread_id: String,
     cwd: String,
+    thread_options: CodexThreadOptions,
+    active_turn_id: Arc<parking_lot::Mutex<Option<String>>>,
 ) -> Result<(), String> {
     let (mut ws, _) = connect(&ws_url).map_err(|e| format!("codex ws connect: {e}"))?;
     set_read_timeout(&mut ws)?;
@@ -130,16 +183,23 @@ fn run_ws_loop(
             "params": { "clientInfo": { "name": "loomria", "version": env!("CARGO_PKG_VERSION") } }
         }),
     )?;
+    let mut thread_params = json!({
+        "threadId": resume_thread_id,
+        "cwd": cwd,
+    });
+    if let Some(policy) = thread_options.approval_policy.clone() {
+        thread_params["approvalPolicy"] = policy;
+    }
+    if let Some(sandbox) = thread_options.sandbox_policy.clone() {
+        thread_params["sandboxPolicy"] = sandbox;
+    }
     send_json(
         &mut ws,
         json!({
             "jsonrpc": "2.0",
             "id": "thread-start",
             "method": "thread/start",
-            "params": {
-                "threadId": resume_thread_id,
-                "cwd": cwd,
-            }
+            "params": thread_params,
         }),
     )?;
     *thread_id_slot.lock() = Some(resume_thread_id);
@@ -158,8 +218,32 @@ fn run_ws_loop(
                     {
                         *thread_id_slot.lock() = Some(id.to_string());
                     }
-                    for event in map_codex_notification(&value, &turn_counter) {
-                        let _ = events_tx.send(event);
+                    if value.get("method").is_some()
+                        && value.get("id").is_some()
+                        && value.get("result").is_none()
+                        && value.get("error").is_none()
+                    {
+                        if let Some(turn) = value
+                            .pointer("/params/turnId")
+                            .and_then(|v| v.as_str())
+                            .or_else(|| value.pointer("/params/turn/id").and_then(|v| v.as_str()))
+                        {
+                            *active_turn_id.lock() = Some(turn.to_string());
+                        }
+                        for event in map_codex_server_request(&value, &turn_counter) {
+                            let _ = events_tx.send(event);
+                        }
+                    } else {
+                        if let Some(turn) = value
+                            .pointer("/params/turnId")
+                            .and_then(|v| v.as_str())
+                            .or_else(|| value.pointer("/params/turn/id").and_then(|v| v.as_str()))
+                        {
+                            *active_turn_id.lock() = Some(turn.to_string());
+                        }
+                        for event in map_codex_notification(&value, &turn_counter, &active_turn_id) {
+                            let _ = events_tx.send(event);
+                        }
                     }
                 }
             }

@@ -77,6 +77,7 @@ fn hub_seq_ring_and_coalesce() {
             url: "http://127.0.0.1:1".into(),
             session_id: Some("s".into()),
             cwd: None,
+            codex: None,
         },
     )
     .expect("register");

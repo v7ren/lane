@@ -21,8 +21,14 @@ impl ProtocolAdapter for CodexAppServerAdapter {
             .cwd
             .clone()
             .unwrap_or_else(|| std::env::temp_dir().to_string_lossy().to_string());
+        let thread_options = endpoint.codex.clone().unwrap_or_else(|| {
+            crate::protocol::CodexThreadOptions {
+                approval_policy: Some(serde_json::json!("never")),
+                sandbox_policy: Some(serde_json::json!("workspace-write")),
+            }
+        });
         let client = if let Some(thread_id) = endpoint.session_id.clone() {
-            CodexWsClient::spawn_with_thread(endpoint.url, thread_id, cwd)?
+            CodexWsClient::spawn_with_thread(endpoint.url, thread_id, cwd, thread_options)?
         } else {
             CodexWsClient::spawn(endpoint.url)?
         };
@@ -51,24 +57,23 @@ impl ProtocolSession for CodexAppServerSession {
     }
 
     fn send_prompt(&self, text: String) -> Result<(), AgentError> {
-        self.client.send_turn(&text)
+        let policy = std::env::var("LOOMRIA_CODEX_TURN_APPROVAL").ok();
+        match policy.as_deref() {
+            Some(policy) => self.client.send_turn_with_policy(&text, Some(policy)),
+            None => self.client.send_turn(&text),
+        }
     }
 
     fn respond_to_approval(&self, approval_id: &str, decision: &str) -> Result<(), AgentError> {
         let parsed = ApprovalDecision::parse(decision)
             .map_err(|e| AgentError::Protocol(e))?;
-        let approved = !matches!(parsed, ApprovalDecision::Deny);
-        let remember = matches!(parsed, ApprovalDecision::AllowAlways);
-        self.client.send_rpc(serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": format!("approval-{approval_id}"),
-            "method": "command/respondApproval",
-            "params": {
-                "requestId": approval_id,
-                "approved": approved,
-                "remember": remember,
-            }
-        }))
+        self.client
+            .respond_approval_rpc(approval_id, parsed.as_str())?;
+        let _ = self.client.emit_local(AgentEvent::ApprovalResolved {
+            approval_id: approval_id.to_string(),
+            decision: parsed,
+        });
+        Ok(())
     }
 
     fn cancel_turn(&self) -> Result<(), AgentError> {

@@ -22,13 +22,17 @@ pub fn map_opencode_event(
     let turn_id = turn_counter.load(Ordering::SeqCst).to_string();
 
     match event_type {
-        "session.idle" | "session.status" => {
-            if value
+        "session.idle" | "session.status" | "session.updated" => {
+            let status = value
                 .get("properties")
                 .and_then(|p| p.get("status"))
                 .and_then(|s| s.as_str())
-                == Some("idle")
-            {
+                .or_else(|| {
+                    value
+                        .pointer("/properties/session/status")
+                        .and_then(|s| s.as_str())
+                });
+            if status == Some("idle") || event_type == "session.idle" {
                 out.push(AgentEvent::TurnCompleted {
                     turn_id,
                     status: TurnStatus::Ok,

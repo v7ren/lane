@@ -244,7 +244,7 @@ pub fn get_session(
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub(crate) struct OpenCodeMessageUserModel {
+pub struct OpenCodeMessageUserModel {
     #[serde(rename = "modelID", default)]
     model_id: Option<String>,
     #[serde(rename = "providerID", default)]

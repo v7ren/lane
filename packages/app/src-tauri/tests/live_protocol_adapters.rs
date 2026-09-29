@@ -1,101 +1,307 @@
-//! Live adapter smoke (run with `cargo test --test live_protocol_adapters -- --ignored`).
+//! Live adapter verification against real agent CLIs.
+//!
+//! Run: `cargo test --manifest-path packages/app/src-tauri/Cargo.toml --test live_protocol_adapters -- --ignored --nocapture --test-threads=1`
 
-use loomria_app_lib::protocol::{adapter_for, AgentEvent, Endpoint};
+mod live_helpers;
+
+use live_helpers::*;
 use loomria_app_lib::agents::ProtocolKind;
-use std::collections::HashSet;
-use std::fs;
-use std::path::PathBuf;
-use std::process::Command;
+use loomria_app_lib::protocol::{
+    adapter_for, AgentError, AgentEvent, CodexThreadOptions, Endpoint,
+};
+use loomria_app_lib::session::ProtocolHub;
+use std::process::{Command, Stdio};
 use std::time::Duration;
 
-fn fixture_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
-}
+const PROMPT_OK: &str = "Reply with exactly the word ok";
+const PROMPT_APPROVAL: &str =
+    "Run the shell command: echo hi (use the shell tool once, nothing else)";
+const PROMPT_CANCEL: &str =
+    "Count slowly from 1 to 50, output one number per line with a short pause between each.";
 
-fn snapshot_pids() -> HashSet<u32> {
-    let mut set = HashSet::new();
-    for name in ["codex", "claude", "opencode", "node"] {
-        let out = Command::new("powershell")
-            .args([
-                "-NoProfile",
-                "-Command",
-                &format!(
-                    "Get-Process {name} -ErrorAction SilentlyContinue | ForEach-Object {{ $_.Id }}"
-                ),
-            ])
-            .output()
-            .expect("powershell");
-        for line in String::from_utf8_lossy(&out.stdout).lines() {
-            if let Ok(pid) = line.trim().parse::<u32>() {
-                set.insert(pid);
-            }
-        }
-    }
-    set
-}
-
-fn assert_no_new_pids(before: &HashSet<u32>, after: &HashSet<u32>, label: &str) {
-    let new: Vec<u32> = after.difference(before).copied().collect();
-    assert!(new.is_empty(), "{label} orphan new PIDs: {new:?}");
-}
-
-fn event_types(events: &[AgentEvent]) -> Vec<String> {
-    events
-        .iter()
-        .map(|e| serde_json::to_value(e).unwrap()["type"].as_str().unwrap().to_string())
-        .collect()
+#[test]
+#[ignore = "live codex adapter"]
+fn live_codex_prompt() {
+    let live = CodexLive::spawn(None);
+    live.hub
+        .send_prompt(&live.pane_id, PROMPT_OK.into())
+        .expect("prompt");
+    let history = wait_for_history(
+        &live.hub,
+        &live.pane_id,
+        Duration::from_secs(120),
+        |h| h.iter().any(|e| matches!(e.event, AgentEvent::TurnCompleted { .. })),
+    );
+    let types = event_types_from_history(&history);
+    assert_prompt_sequence(&types);
+    write_live_fixture("codex", "prompt", &history);
+    let active = live.tree.active_process_count().expect("job query");
+    assert!(active >= 1, "expected server still running before teardown");
+    live.teardown("codex-prompt");
 }
 
 #[test]
-#[ignore = "live codex adapter; run manually"]
-fn live_codex_prompt_and_approval() {
-    let before = snapshot_pids();
-    let _tmpdir = tempfile::tempdir().expect("tmpdir");
-    let cwd = _tmpdir.path().to_string_lossy().to_string();
-    let adapter = adapter_for(ProtocolKind::CodexAppServer).expect("adapter");
-    // Requires external `codex app-server` — exercised via supervisor in full E2E.
-    let _ = (adapter, cwd);
-    let after = snapshot_pids();
-    assert_no_new_pids(&before, &after, "codex");
+#[ignore = "live codex approval deny"]
+fn live_codex_approval_deny() {
+    std::env::set_var("LOOMRIA_CODEX_TURN_APPROVAL", "untrusted");
+    let live = CodexLive::spawn(Some(CodexThreadOptions {
+        approval_policy: Some(serde_json::json!("untrusted")),
+        sandbox_policy: Some(serde_json::json!("workspace-write")),
+    }));
+    live.hub
+        .send_prompt(&live.pane_id, PROMPT_APPROVAL.into())
+        .expect("prompt");
+    let history = wait_for_history(
+        &live.hub,
+        &live.pane_id,
+        Duration::from_secs(180),
+        |h| find_approval(h).is_some(),
+    );
+    let (approval_id, title, detail) = find_approval(&history).unwrap_or_else(|| {
+        panic!(
+            "approval_requested; types={:?}",
+            event_types_from_history(&history)
+        )
+    });
+    assert!(
+        !title.is_empty() && title != approval_id,
+        "title should be human-readable, got {:?}",
+        title
+    );
+    assert!(
+        !detail.is_empty(),
+        "detail should describe the command, got {:?}",
+        detail
+    );
+    live.hub
+        .respond_approval(&live.pane_id, &approval_id, "deny")
+        .expect("deny");
+    let history = wait_for_history(
+        &live.hub,
+        &live.pane_id,
+        Duration::from_secs(120),
+        |h| {
+            let types = event_types_from_history(h);
+            types.iter().any(|t| t == "approval_resolved")
+                && types.iter().any(|t| t == "turn_completed")
+        },
+    );
+    write_live_fixture("codex", "approval_deny", &history);
+    live.teardown("codex-approval");
 }
 
 #[test]
-#[ignore = "live claude stream-json"]
+#[ignore = "live codex cancel"]
+fn live_codex_cancel() {
+    let live = CodexLive::spawn(None);
+    live.hub
+        .send_prompt(&live.pane_id, PROMPT_CANCEL.into())
+        .expect("prompt");
+    std::thread::sleep(Duration::from_secs(2));
+    live.hub.cancel_turn(&live.pane_id).expect("cancel");
+    let history = wait_for_history(
+        &live.hub,
+        &live.pane_id,
+        Duration::from_secs(120),
+        |h| turn_completed_status(h).is_some(),
+    );
+    let status = turn_completed_status(&history).expect("turn_completed");
+    assert_eq!(
+        status,
+        loomria_app_lib::protocol::TurnStatus::Cancelled,
+        "types={:?}",
+        event_types_from_history(&history)
+    );
+    write_live_fixture("codex", "cancel", &history);
+    live.teardown("codex-cancel");
+}
+
+#[test]
+#[ignore = "live codex tui attach"]
+fn live_codex_tui_attach() {
+    let live = CodexLive::spawn(None);
+    live.hub
+        .send_prompt(&live.pane_id, PROMPT_OK.into())
+        .expect("prompt");
+    wait_for_history(
+        &live.hub,
+        &live.pane_id,
+        Duration::from_secs(120),
+        |h| h.iter().any(|e| matches!(e.event, AgentEvent::TurnCompleted { .. })),
+    );
+    codex_tui_attach_smoke(live.port, &live.thread_id, &live.cwd).expect("tui attach");
+    live.teardown("codex-tui");
+}
+
+#[test]
+#[ignore = "live opencode prompt"]
+fn live_opencode_prompt() {
+    let live = OpenCodeLive::spawn();
+    live.hub
+        .send_prompt(&live.pane_id, PROMPT_OK.into())
+        .expect("prompt");
+    let history = wait_for_history(
+        &live.hub,
+        &live.pane_id,
+        Duration::from_secs(300),
+        |h| h.iter().any(|e| matches!(e.event, AgentEvent::TurnCompleted { .. })),
+    );
+    let types = event_types_from_history(&history);
+    assert_prompt_sequence(&types);
+    write_live_fixture("opencode", "prompt", &history);
+    live.teardown("opencode-prompt");
+}
+
+#[test]
+#[ignore = "live opencode approval deny"]
+fn live_opencode_approval_deny() {
+    let live = OpenCodeLive::spawn();
+    live.hub
+        .send_prompt(&live.pane_id, PROMPT_APPROVAL.into())
+        .expect("prompt");
+    let history = wait_for_history(
+        &live.hub,
+        &live.pane_id,
+        Duration::from_secs(180),
+        |h| find_approval(h).is_some(),
+    );
+    let (approval_id, title, detail) = find_approval(&history).expect("approval");
+    assert!(!title.is_empty());
+    assert!(!detail.is_empty());
+    live.hub
+        .respond_approval(&live.pane_id, &approval_id, "deny")
+        .expect("deny");
+    let history = wait_for_history(
+        &live.hub,
+        &live.pane_id,
+        Duration::from_secs(120),
+        |h| {
+            let types = event_types_from_history(h);
+            types.iter().any(|t| t == "approval_resolved")
+                && types.iter().any(|t| t == "turn_completed")
+        },
+    );
+    write_live_fixture("opencode", "approval_deny", &history);
+    live.teardown("opencode-approval");
+}
+
+#[test]
+#[ignore = "live opencode cancel"]
+fn live_opencode_cancel() {
+    let live = OpenCodeLive::spawn();
+    live.hub
+        .send_prompt(&live.pane_id, PROMPT_CANCEL.into())
+        .expect("prompt");
+    std::thread::sleep(Duration::from_secs(2));
+    live.hub.cancel_turn(&live.pane_id).expect("cancel");
+    let history = wait_for_history(
+        &live.hub,
+        &live.pane_id,
+        Duration::from_secs(60),
+        |h| turn_completed_status(h).is_some(),
+    );
+    assert_eq!(
+        turn_completed_status(&history),
+        Some(loomria_app_lib::protocol::TurnStatus::Cancelled)
+    );
+    write_live_fixture("opencode", "cancel", &history);
+    live.teardown("opencode-cancel");
+}
+
+#[test]
+#[ignore = "live claude prompt"]
 fn live_claude_prompt() {
-    let before = snapshot_pids();
+    std::env::set_var("LOOMRIA_CLAUDE_PERMISSION_MODE", "dontAsk");
+    let adapter = adapter_for(ProtocolKind::ClaudeStreamJson).expect("adapter");
+    let hub = ProtocolHub::new();
+    let pane_id = "live-claude".to_string();
+    let cwd = live_temp_dir("claude");
+    hub.register(
+        pane_id.clone(),
+        adapter,
+        Endpoint {
+            url: String::new(),
+            session_id: Some(uuid::Uuid::new_v4().to_string()),
+            cwd: Some(cwd.to_string_lossy().to_string()),
+            codex: None,
+        },
+    )
+    .expect("register");
+    let child_pid = hub.protocol_child_pid(&pane_id).expect("child pid");
+    let tree = loomria_app_lib::process::ProcessTree::new();
+    tree.assign_pid(child_pid).expect("assign claude");
+    let tracked = descendant_pids(child_pid);
+
+    hub.send_prompt(&pane_id, PROMPT_OK.into()).expect("prompt");
+    let history = wait_for_history(
+        &hub,
+        &pane_id,
+        Duration::from_secs(120),
+        |h| h.iter().any(|e| matches!(e.event, AgentEvent::TurnCompleted { .. })),
+    );
+    let types = event_types_from_history(&history);
+    assert_prompt_sequence(&types);
+    write_live_fixture("claude", "prompt", &history);
+
+    hub.unregister(&pane_id);
+    drop(hub);
+    wait_job_empty(&tree, "claude-prompt");
+    assert_tracked_dead(&tracked, "claude-prompt");
+}
+
+#[test]
+#[ignore = "live claude unsupported approval/cancel"]
+fn live_claude_unsupported_ops() {
+    std::env::set_var("LOOMRIA_CLAUDE_PERMISSION_MODE", "dontAsk");
     let adapter = adapter_for(ProtocolKind::ClaudeStreamJson).expect("adapter");
     let session = adapter
         .connect(Endpoint {
             url: String::new(),
             session_id: Some(uuid::Uuid::new_v4().to_string()),
-            cwd: Some(std::env::temp_dir().to_string_lossy().to_string()),
+            cwd: Some(live_temp_dir("claude-ops").to_string_lossy().to_string()),
+            codex: None,
         })
         .expect("connect");
-    let mut rx = session.subscribe();
-    session
-        .send_prompt("Reply with exactly the word ok".into())
-        .expect("prompt");
-    let mut events = Vec::new();
-    for _ in 0..120 {
-        if let Ok(ev) = rx.try_recv() {
-            events.push(ev);
-        }
-        if events.iter().any(|e| matches!(e, AgentEvent::TurnCompleted { .. })) {
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(250));
-    }
-    let types = event_types(&events);
-    let _ = fs::write(
-        fixture_dir().join("live_claude_prompt_types.json"),
-        serde_json::to_string_pretty(&types).unwrap(),
+    let caps = session.capabilities();
+    assert!(!caps.approvals);
+    assert!(!caps.cancel);
+    let err = session
+        .respond_to_approval("a", "deny")
+        .expect_err("approval");
+    assert!(matches!(err, AgentError::Unsupported(_)));
+    let err = session.cancel_turn().expect_err("cancel");
+    assert!(matches!(err, AgentError::Unsupported(_)));
+}
+
+#[test]
+#[ignore = "live claude tui resume"]
+fn live_claude_tui_resume() {
+    std::env::set_var("LOOMRIA_CLAUDE_PERMISSION_MODE", "dontAsk");
+    let session_id = uuid::Uuid::new_v4().to_string();
+    let cwd = live_temp_dir("claude-resume");
+    let catalog = loomria_app_lib::agents::AgentCatalog::load();
+    let manifest = catalog.get("claude").expect("claude");
+    let resume = manifest.launch_resume_args().expect("resume");
+    let argv = loomria_app_lib::session::substitute_args(
+        resume,
+        0,
+        "",
+        &session_id,
+        &cwd.to_string_lossy(),
     );
-    drop(session);
-    std::thread::sleep(Duration::from_secs(5));
-    let after = snapshot_pids();
-    let new: Vec<u32> = after.difference(&before).copied().collect();
-    assert!(
-        new.is_empty(),
-        "claude orphan new PIDs after teardown: {new:?}; events={types:?}"
-    );
+    let exe = loomria_app_lib::shell_env::resolve_claude_executable().expect("claude");
+    let tree = loomria_app_lib::process::ProcessTree::new();
+    let mut child = Command::new(&exe);
+    child
+        .args(&argv)
+        .current_dir(&cwd)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = child.spawn().expect("spawn claude resume");
+    tree.assign_pid(child.id()).expect("assign");
+    std::thread::sleep(Duration::from_secs(4));
+    let _ = child.kill();
+    let _ = child.wait();
+    drop(tree);
 }

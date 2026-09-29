@@ -1,0 +1,17 @@
+{
+  "events": [
+    {
+      "turn_id": "<id>",
+      "type": "turn_started"
+    },
+    {
+      "status": "cancelled",
+      "turn_id": "<id>",
+      "type": "turn_completed"
+    }
+  ],
+  "types": [
+    "turn_started",
+    "turn_completed"
+  ]
+}

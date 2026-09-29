@@ -164,11 +164,18 @@ pub struct AgentEventEnvelope {
     pub event: AgentEvent,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct CodexThreadOptions {
+    pub approval_policy: Option<serde_json::Value>,
+    pub sandbox_policy: Option<serde_json::Value>,
+}
+
 #[derive(Debug, Clone)]
 pub struct Endpoint {
     pub url: String,
     pub session_id: Option<String>,
     pub cwd: Option<String>,
+    pub codex: Option<CodexThreadOptions>,
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -324,6 +324,7 @@ mod tests {
                 url: "http://127.0.0.1:1".into(),
                 session_id: Some("s".into()),
                 cwd: None,
+                codex: None,
             },
         )
         .expect("register");
@@ -353,6 +354,7 @@ mod tests {
                 url: "http://127.0.0.1:1".into(),
                 session_id: None,
                 cwd: None,
+                codex: None,
             },
         )
         .expect("register");
@@ -391,6 +393,7 @@ mod tests {
                 url: "http://127.0.0.1:1".into(),
                 session_id: Some("s".into()),
                 cwd: None,
+                codex: None,
             },
         )
         .expect("register");

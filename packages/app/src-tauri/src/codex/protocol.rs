@@ -33,6 +33,7 @@ pub fn register_pane_protocol(
             url: ws_url,
             session_id: Some(thread_id),
             cwd: Some(cwd),
+            codex: None,
         },
     )
 }

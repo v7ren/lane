@@ -1,0 +1,30 @@
+{
+  "events": [
+    {
+      "turn_id": "<id>",
+      "type": "turn_started"
+    },
+    {
+      "approval_id": "<id>",
+      "detail": "\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.…",
+      "kind": "command",
+      "options": [
+        "allow_once",
+        "allow_always",
+        "deny"
+      ],
+      "title": "Command approval",
+      "type": "approval_requested"
+    },
+    {
+      "approval_id": "<id>",
+      "decision": "deny",
+      "type": "approval_resolved"
+    }
+  ],
+  "types": [
+    "turn_started",
+    "approval_requested",
+    "approval_resolved"
+  ]
+}

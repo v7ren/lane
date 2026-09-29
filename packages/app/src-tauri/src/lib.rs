@@ -8,7 +8,7 @@ mod bridge;
 mod bridge_auth;
 mod commands;
 mod events;
-mod opencode;
+pub mod opencode;
 mod platform;
 pub mod process;
 mod project_path;

@@ -37,6 +37,7 @@ pub fn register_pane_protocol(
             url: base_url,
             session_id: Some(session_id),
             cwd: Some(directory),
+            codex: None,
         },
     )
 }

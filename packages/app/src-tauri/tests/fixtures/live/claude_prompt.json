@@ -1,0 +1,31 @@
+{
+  "events": [
+    {
+      "turn_id": "<id>",
+      "type": "turn_started"
+    },
+    {
+      "status": "ok",
+      "turn_id": "<id>",
+      "type": "turn_completed"
+    },
+    {
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "type": "usage"
+    },
+    {
+      "message_id": "<id>",
+      "role": "assistant",
+      "text": "Failed to authenticate: OAuth session ex…",
+      "turn_id": "<id>",
+      "type": "message_delta"
+    }
+  ],
+  "types": [
+    "turn_started",
+    "turn_completed",
+    "usage",
+    "message_delta"
+  ]
+}

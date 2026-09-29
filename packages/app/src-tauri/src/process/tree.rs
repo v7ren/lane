@@ -98,6 +98,37 @@ impl ProcessTree {
         windows::Win32::Foundation::HANDLE(self.job_handle as *mut _)
     }
 
+    pub fn assigned_pids(&self) -> Vec<u32> {
+        self.assigned.lock().iter().copied().collect()
+    }
+
+    /// Windows Job Object active process count (0 after full teardown).
+    #[cfg(windows)]
+    pub fn active_process_count(&self) -> Result<u32, String> {
+        use windows::Win32::System::JobObjects::{
+            JobObjectBasicAccountingInformation, JOBOBJECT_BASIC_ACCOUNTING_INFORMATION,
+            QueryInformationJobObject,
+        };
+
+        let mut info = JOBOBJECT_BASIC_ACCOUNTING_INFORMATION::default();
+        let ok = unsafe {
+            QueryInformationJobObject(
+                Some(self.job()),
+                JobObjectBasicAccountingInformation,
+                &mut info as *mut _ as *mut _,
+                std::mem::size_of::<JOBOBJECT_BASIC_ACCOUNTING_INFORMATION>() as u32,
+                None,
+            )
+        };
+        ok.map_err(|e| format!("QueryInformationJobObject: {e}"))?;
+        Ok(info.ActiveProcesses)
+    }
+
+    #[cfg(not(windows))]
+    pub fn active_process_count(&self) -> Result<u32, String> {
+        Ok(self.assigned.lock().len() as u32)
+    }
+
     pub fn assign_pid(&self, pid: u32) -> Result<(), String> {
         if pid == 0 {
             return Ok(());

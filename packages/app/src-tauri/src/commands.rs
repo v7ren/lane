@@ -289,6 +289,7 @@ fn register_claude_headless_protocol(state: &AppState, pane_id: &str) -> Result<
             url: String::new(),
             session_id: Some(session_id),
             cwd: Some(cwd),
+            codex: None,
         },
     )?;
     if let Some(pid) = state.protocol_hub.protocol_child_pid(pane_id) {

@@ -36,6 +36,8 @@ impl ProtocolAdapter for ClaudeStreamJsonAdapter {
         let turn_counter = Arc::new(AtomicU64::new(1));
         let claude_exe = crate::shell_env::resolve_claude_executable()
             .map_err(|e| AgentError::Connect(e))?;
+        let permission_mode = std::env::var("LOOMRIA_CLAUDE_PERMISSION_MODE")
+            .unwrap_or_else(|_| "default".into());
         let mut child = Command::new(&claude_exe)
             .args([
                 "-p",
@@ -48,7 +50,7 @@ impl ProtocolAdapter for ClaudeStreamJsonAdapter {
                 "--session-id",
                 &session_id,
                 "--permission-mode",
-                "default",
+                &permission_mode,
             ])
             .current_dir(&cwd)
             .stdin(Stdio::piped())

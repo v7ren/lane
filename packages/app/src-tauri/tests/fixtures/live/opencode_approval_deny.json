@@ -1,0 +1,62 @@
+{
+  "events": [
+    {
+      "turn_id": "<id>",
+      "type": "turn_started"
+    },
+    {
+      "message_id": "<id>",
+      "role": "assistant",
+      "text": "Run the shell command: echo hi (use the …",
+      "turn_id": "<id>",
+      "type": "message_delta"
+    },
+    {
+      "input_summary": "",
+      "name": "bash",
+      "tool_id": "<id>",
+      "turn_id": "<id>",
+      "type": "tool_started"
+    },
+    {
+      "input_summary": "",
+      "name": "bash",
+      "tool_id": "<id>",
+      "turn_id": "<id>",
+      "type": "tool_started"
+    },
+    {
+      "approval_id": "<id>",
+      "detail": "per_0edd9aa3d001Hq7YYMrt2luj6l",
+      "kind": "other",
+      "options": [
+        "allow_once",
+        "allow_always",
+        "deny"
+      ],
+      "title": "Permission",
+      "type": "approval_requested"
+    },
+    {
+      "approval_id": "<id>",
+      "decision": "deny",
+      "type": "approval_resolved"
+    },
+    {
+      "input_summary": "",
+      "name": "bash",
+      "tool_id": "<id>",
+      "turn_id": "<id>",
+      "type": "tool_started"
+    }
+  ],
+  "types": [
+    "turn_started",
+    "message_delta",
+    "tool_started",
+    "tool_started",
+    "approval_requested",
+    "approval_resolved",
+    "tool_started"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "events": [
+    {
+      "turn_id": "<id>",
+      "type": "turn_started"
+    },
+    {
+      "message_id": "<id>",
+      "role": "assistant",
+      "text": "Count slowly from 1 to 50, output one nu…",
+      "turn_id": "<id>",
+      "type": "message_delta"
+    },
+    {
+      "status": "cancelled",
+      "turn_id": "<id>",
+      "type": "turn_completed"
+    }
+  ],
+  "types": [
+    "turn_started",
+    "message_delta",
+    "turn_completed"
+  ]
+}
