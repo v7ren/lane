@@ -175,11 +175,25 @@ impl ProtocolHub {
         session.cancel_turn().map_err(|e| e.to_string())
     }
 
+    fn should_flush_before(event: &AgentEvent) -> bool {
+        matches!(
+            event,
+            AgentEvent::TurnCompleted { .. }
+                | AgentEvent::MessageCompleted { .. }
+                | AgentEvent::ApprovalRequested { .. }
+                | AgentEvent::ApprovalResolved { .. }
+        )
+    }
+
     fn ingest(self: &Arc<Self>, pane_id: &str, event: AgentEvent) {
         if let Some(store) = self.inner.lock().session_states.as_ref() {
             if let Some(snap) = store.apply_agent_event(pane_id, &event) {
                 crate::session::state::push_agent_state(store.as_ref(), snap);
             }
+        }
+
+        if Self::should_flush_before(&event) {
+            self.flush_coalesced(pane_id);
         }
 
         if let AgentEvent::MessageDelta { message_id, .. } = &event {

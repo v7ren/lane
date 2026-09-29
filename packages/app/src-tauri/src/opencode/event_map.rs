@@ -12,6 +12,10 @@ pub fn map_opencode_event(
     session_id: &str,
     turn_counter: &Arc<AtomicU64>,
 ) -> Vec<AgentEvent> {
+    if !event_matches_session(value, session_id) {
+        return Vec::new();
+    }
+
     let mut out = Vec::new();
     let event_type = value
         .get("type")
@@ -82,8 +86,24 @@ pub fn map_opencode_event(
         }
     }
 
-    let _ = session_id;
     out
+}
+
+pub fn event_matches_session(value: &Value, session_id: &str) -> bool {
+    let Some(found) = event_session_id(value) else {
+        return true;
+    };
+    found == session_id
+}
+
+pub fn event_session_id(value: &Value) -> Option<&str> {
+    value
+        .pointer("/properties/sessionID")
+        .and_then(|v| v.as_str())
+        .or_else(|| value.pointer("/properties/sessionId").and_then(|v| v.as_str()))
+        .or_else(|| value.pointer("/properties/session/id").and_then(|v| v.as_str()))
+        .or_else(|| value.get("sessionID").and_then(|v| v.as_str()))
+        .or_else(|| value.get("sessionId").and_then(|v| v.as_str()))
 }
 
 fn map_message_part(value: &Value, turn_id: &str) -> Option<Vec<AgentEvent>> {
@@ -201,4 +221,27 @@ fn map_permission(value: &Value) -> Option<AgentEvent> {
 pub fn next_turn(turn_counter: &Arc<AtomicU64>) -> String {
     turn_counter.fetch_add(1, Ordering::SeqCst);
     turn_counter.load(Ordering::SeqCst).to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn idle_scoped_to_session() {
+        let counter = Arc::new(AtomicU64::new(1));
+        let other = map_opencode_event(
+            &json!({"type":"session.status","properties":{"sessionID":"other","status":"idle"}}),
+            "mine",
+            &counter,
+        );
+        assert!(other.is_empty());
+        let mine = map_opencode_event(
+            &json!({"type":"session.status","properties":{"sessionID":"mine","status":"idle"}}),
+            "mine",
+            &counter,
+        );
+        assert!(matches!(mine.first(), Some(AgentEvent::TurnCompleted { .. })));
+    }
 }

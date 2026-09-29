@@ -17,6 +17,13 @@ pub fn path_for_spawn() -> &'static str {
     &INTERACTIVE_PATH
 }
 
+/// Set interactive PATH on a child command without clearing other inherited env (OAuth, config dirs).
+pub fn apply_path_to_command(cmd: &mut std::process::Command) {
+    cmd.env("PATH", path_for_spawn());
+    #[cfg(windows)]
+    cmd.env("Path", path_for_spawn());
+}
+
 /// Apply the interactive PATH to the current process (bridge, MCP helpers, etc.).
 pub fn apply_to_process() {
     let path = path_for_spawn();

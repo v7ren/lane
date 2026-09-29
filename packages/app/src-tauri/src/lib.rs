@@ -2,7 +2,7 @@ pub mod agents;
 mod app_lifecycle;
 pub mod protocol;
 pub mod session;
-mod codex;
+pub mod codex;
 mod app_paths;
 mod bridge;
 mod bridge_auth;

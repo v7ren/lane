@@ -222,6 +222,14 @@ fn fallback_pty(
     Ok(pane_id)
 }
 
+pub fn build_codex_attach_pty_command(
+    catalog: &AgentCatalog,
+    cwd: &str,
+    attach_argv: &[String],
+) -> Result<CommandBuilder, String> {
+    build_codex_attach_command(catalog, cwd, attach_argv)
+}
+
 fn build_codex_attach_command(
     catalog: &AgentCatalog,
     cwd: &str,

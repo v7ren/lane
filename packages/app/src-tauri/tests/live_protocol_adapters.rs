@@ -10,6 +10,7 @@ use loomria_app_lib::protocol::{
     adapter_for, AgentError, AgentEvent, CodexThreadOptions, Endpoint,
 };
 use loomria_app_lib::session::ProtocolHub;
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
@@ -32,8 +33,7 @@ fn live_codex_prompt() {
         Duration::from_secs(120),
         |h| h.iter().any(|e| matches!(e.event, AgentEvent::TurnCompleted { .. })),
     );
-    let types = event_types_from_history(&history);
-    assert_prompt_sequence(&types);
+    assert_prompt_sequence(&history);
     write_live_fixture("codex", "prompt", &history);
     let active = live.tree.active_process_count().expect("job query");
     assert!(active >= 1, "expected server still running before teardown");
@@ -86,6 +86,7 @@ fn live_codex_approval_deny() {
                 && types.iter().any(|t| t == "turn_completed")
         },
     );
+    assert_approval_sequence(&history);
     write_live_fixture("codex", "approval_deny", &history);
     live.teardown("codex-approval");
 }
@@ -117,8 +118,16 @@ fn live_codex_cancel() {
 }
 
 #[test]
-#[ignore = "live codex tui attach"]
+#[ignore = "live codex tui attach — run in live_final_codex_tui"]
 fn live_codex_tui_attach() {
+    let live = CodexLive::spawn(None);
+    codex_tui_attach_smoke(live.port, &live.thread_id, &live.cwd).expect("tui attach");
+    live.teardown("codex-tui");
+}
+
+#[test]
+#[ignore = "final live: codex TUI attach only"]
+fn live_final_codex_tui() {
     let live = CodexLive::spawn(None);
     live.hub
         .send_prompt(&live.pane_id, PROMPT_OK.into())
@@ -130,7 +139,63 @@ fn live_codex_tui_attach() {
         |h| h.iter().any(|e| matches!(e.event, AgentEvent::TurnCompleted { .. })),
     );
     codex_tui_attach_smoke(live.port, &live.thread_id, &live.cwd).expect("tui attach");
-    live.teardown("codex-tui");
+    live.teardown("codex-tui-final");
+}
+
+#[test]
+#[ignore = "final live: opencode prompt"]
+fn live_final_opencode_prompt() {
+    let live = OpenCodeLive::spawn();
+    live.hub
+        .send_prompt(&live.pane_id, PROMPT_OK.into())
+        .expect("prompt");
+    let history = wait_for_history(
+        &live.hub,
+        &live.pane_id,
+        Duration::from_secs(300),
+        |h| h.iter().any(|e| matches!(e.event, AgentEvent::TurnCompleted { .. })),
+    );
+    assert_prompt_sequence(&history);
+    write_live_fixture("opencode", "prompt", &history);
+    live.teardown("opencode-prompt-final");
+}
+
+#[test]
+#[ignore = "final live: claude prompt"]
+fn live_final_claude_prompt() {
+    std::env::set_var("LOOMRIA_CLAUDE_PERMISSION_MODE", "dontAsk");
+    let adapter = adapter_for(ProtocolKind::ClaudeStreamJson).expect("adapter");
+    let hub = ProtocolHub::new();
+    let pane_id = "live-claude-final".to_string();
+    let cwd = std::env::var("USERPROFILE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| live_temp_dir("claude-final"));
+    hub.register(
+        pane_id.clone(),
+        adapter,
+        Endpoint {
+            url: String::new(),
+            session_id: Some(uuid::Uuid::new_v4().to_string()),
+            cwd: Some(cwd.to_string_lossy().to_string()),
+            codex: None,
+        },
+    )
+    .expect("register");
+    let child_pid = hub.protocol_child_pid(&pane_id).expect("child pid");
+    let tree = loomria_app_lib::process::ProcessTree::new();
+    tree.assign_pid(child_pid).expect("assign");
+    hub.send_prompt(&pane_id, PROMPT_OK.into()).expect("prompt");
+    let history = wait_for_history(
+        &hub,
+        &pane_id,
+        Duration::from_secs(120),
+        |h| h.iter().any(|e| matches!(e.event, AgentEvent::TurnCompleted { .. })),
+    );
+    assert_prompt_sequence(&history);
+    write_live_fixture("claude", "prompt", &history);
+    hub.unregister(&pane_id);
+    drop(hub);
+    wait_job_empty(&tree, "claude-final");
 }
 
 #[test]
@@ -146,8 +211,7 @@ fn live_opencode_prompt() {
         Duration::from_secs(300),
         |h| h.iter().any(|e| matches!(e.event, AgentEvent::TurnCompleted { .. })),
     );
-    let types = event_types_from_history(&history);
-    assert_prompt_sequence(&types);
+    assert_prompt_sequence(&history);
     write_live_fixture("opencode", "prompt", &history);
     live.teardown("opencode-prompt");
 }
@@ -181,6 +245,7 @@ fn live_opencode_approval_deny() {
                 && types.iter().any(|t| t == "turn_completed")
         },
     );
+    assert_approval_sequence(&history);
     write_live_fixture("opencode", "approval_deny", &history);
     live.teardown("opencode-approval");
 }
@@ -239,8 +304,7 @@ fn live_claude_prompt() {
         Duration::from_secs(120),
         |h| h.iter().any(|e| matches!(e.event, AgentEvent::TurnCompleted { .. })),
     );
-    let types = event_types_from_history(&history);
-    assert_prompt_sequence(&types);
+    assert_prompt_sequence(&history);
     write_live_fixture("claude", "prompt", &history);
 
     hub.unregister(&pane_id);

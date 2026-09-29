@@ -102,6 +102,7 @@ impl CodexWsClient {
             .ok_or_else(|| AgentError::Protocol("codex thread not ready".into()))?;
         let turn_id = self.turn_counter.fetch_add(1, Ordering::SeqCst).to_string();
         *self.active_turn_id.lock() = Some(turn_id.clone());
+        let _ = turn_id;
         let mut params = json!({
             "threadId": thread_id,
             "input": [{ "type": "text", "text": text }],

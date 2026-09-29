@@ -12,20 +12,6 @@
       "type": "message_delta"
     },
     {
-      "input_summary": "",
-      "name": "bash",
-      "tool_id": "<id>",
-      "turn_id": "<id>",
-      "type": "tool_started"
-    },
-    {
-      "input_summary": "",
-      "name": "bash",
-      "tool_id": "<id>",
-      "turn_id": "<id>",
-      "type": "tool_started"
-    },
-    {
       "approval_id": "<id>",
       "detail": "per_0edd9aa3d001Hq7YYMrt2luj6l",
       "kind": "other",
@@ -43,20 +29,16 @@
       "type": "approval_resolved"
     },
     {
-      "input_summary": "",
-      "name": "bash",
-      "tool_id": "<id>",
+      "status": "ok",
       "turn_id": "<id>",
-      "type": "tool_started"
+      "type": "turn_completed"
     }
   ],
   "types": [
     "turn_started",
     "message_delta",
-    "tool_started",
-    "tool_started",
     "approval_requested",
     "approval_resolved",
-    "tool_started"
+    "turn_completed"
   ]
 }

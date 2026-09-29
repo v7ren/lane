@@ -12,22 +12,22 @@
       "type": "message_delta"
     },
     {
-      "status": "ok",
-      "turn_id": "<id>",
-      "type": "turn_completed"
-    },
-    {
       "message_id": "<id>",
       "role": "assistant",
       "text": "ok",
       "turn_id": "<id>",
       "type": "message_delta"
+    },
+    {
+      "status": "ok",
+      "turn_id": "<id>",
+      "type": "turn_completed"
     }
   ],
   "types": [
     "turn_started",
     "message_delta",
-    "turn_completed",
-    "message_delta"
+    "message_delta",
+    "turn_completed"
   ]
 }

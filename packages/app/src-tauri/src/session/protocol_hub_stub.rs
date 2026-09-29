@@ -8,6 +8,9 @@ use parking_lot::Mutex;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::thread;
+use std::time::Duration;
+
+const COALESCE_MS: u64 = 32;
 
 struct StubPane {
     capabilities: Capabilities,
@@ -20,12 +23,16 @@ struct StubPane {
 
 pub struct ProtocolHub {
     panes: Mutex<HashMap<String, StubPane>>,
+    coalesce: Mutex<HashMap<String, HashMap<String, AgentEvent>>>,
+    flush_scheduled: Mutex<HashMap<String, bool>>,
 }
 
 impl ProtocolHub {
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
             panes: Mutex::new(HashMap::new()),
+            coalesce: Mutex::new(HashMap::new()),
+            flush_scheduled: Mutex::new(HashMap::new()),
         })
     }
 
@@ -38,6 +45,8 @@ impl ProtocolHub {
 
     pub fn unregister(self: &Arc<Self>, pane_id: &str) {
         self.panes.lock().remove(pane_id);
+        self.coalesce.lock().remove(pane_id);
+        self.flush_scheduled.lock().remove(pane_id);
     }
 
     pub fn has_session(self: &Arc<Self>, pane_id: &str) -> bool {
@@ -140,7 +149,67 @@ impl ProtocolHub {
         session.cancel_turn().map_err(|e| e.to_string())
     }
 
+    fn should_flush_before(event: &AgentEvent) -> bool {
+        matches!(
+            event,
+            AgentEvent::TurnCompleted { .. }
+                | AgentEvent::MessageCompleted { .. }
+                | AgentEvent::ApprovalRequested { .. }
+                | AgentEvent::ApprovalResolved { .. }
+        )
+    }
+
     fn ingest(self: &Arc<Self>, pane_id: &str, event: AgentEvent) {
+        if Self::should_flush_before(&event) {
+            self.flush_coalesced(pane_id);
+        }
+
+        if let AgentEvent::MessageDelta { message_id, .. } = &event {
+            self.coalesce
+                .lock()
+                .entry(pane_id.to_string())
+                .or_default()
+                .insert(message_id.clone(), event.clone());
+            self.schedule_flush(pane_id);
+            return;
+        }
+
+        self.commit_event(pane_id, event);
+    }
+
+    fn schedule_flush(self: &Arc<Self>, pane_id: &str) {
+        let already = self
+            .flush_scheduled
+            .lock()
+            .insert(pane_id.to_string(), true)
+            .unwrap_or(false);
+        if already {
+            return;
+        }
+        let hub = Arc::clone(self);
+        let pane_id = pane_id.to_string();
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(COALESCE_MS));
+            hub.flush_coalesced(&pane_id);
+        });
+    }
+
+    fn flush_coalesced(self: &Arc<Self>, pane_id: &str) {
+        self.flush_scheduled
+            .lock()
+            .insert(pane_id.to_string(), false);
+        let deltas: Vec<AgentEvent> = self
+            .coalesce
+            .lock()
+            .remove(pane_id)
+            .map(|m| m.into_values().collect())
+            .unwrap_or_default();
+        for event in deltas {
+            self.commit_event(pane_id, event);
+        }
+    }
+
+    fn commit_event(self: &Arc<Self>, pane_id: &str, event: AgentEvent) {
         let mut panes = self.panes.lock();
         let Some(pane) = panes.get_mut(pane_id) else {
             return;

@@ -20,11 +20,17 @@
       "approval_id": "<id>",
       "decision": "deny",
       "type": "approval_resolved"
+    },
+    {
+      "status": "ok",
+      "turn_id": "<id>",
+      "type": "turn_completed"
     }
   ],
   "types": [
     "turn_started",
     "approval_requested",
-    "approval_resolved"
+    "approval_resolved",
+    "turn_completed"
   ]
 }

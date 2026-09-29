@@ -5,27 +5,35 @@
       "type": "turn_started"
     },
     {
-      "status": "ok",
+      "message_id": "<id>",
+      "role": "assistant",
+      "text": "ok",
       "turn_id": "<id>",
-      "type": "turn_completed"
-    },
-    {
-      "input_tokens": 0,
-      "output_tokens": 0,
-      "type": "usage"
+      "type": "message_delta"
     },
     {
       "message_id": "<id>",
       "role": "assistant",
-      "text": "Failed to authenticate: OAuth session ex…",
+      "text": "ok",
       "turn_id": "<id>",
-      "type": "message_delta"
+      "type": "message_completed"
+    },
+    {
+      "input_tokens": 1,
+      "output_tokens": 1,
+      "type": "usage"
+    },
+    {
+      "status": "ok",
+      "turn_id": "<id>",
+      "type": "turn_completed"
     }
   ],
   "types": [
     "turn_started",
-    "turn_completed",
+    "message_delta",
+    "message_completed",
     "usage",
-    "message_delta"
+    "turn_completed"
   ]
 }

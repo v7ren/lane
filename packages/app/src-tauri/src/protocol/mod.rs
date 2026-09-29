@@ -1,11 +1,12 @@
-mod claude_stream_json;
+pub mod claude_stream_json;
 mod codex_app_server;
-mod codex_notifications;
+pub mod codex_notifications;
 #[cfg(feature = "codex-ws")]
 mod codex_ws;
 #[cfg(not(feature = "codex-ws"))]
 mod codex_ws_stub;
 mod opencode_http;
+mod event_contract;
 mod types;
 
 #[cfg(not(feature = "codex-ws"))]
@@ -13,6 +14,11 @@ pub(crate) use codex_ws_stub::CodexWsClient;
 #[cfg(feature = "codex-ws")]
 pub(crate) use codex_ws::CodexWsClient;
 
+pub use event_contract::{
+    assert_approval_flow_contract, assert_no_error_events, assert_prompt_turn_contract,
+    assert_turn_completed_is_last_turn_scoped, assemble_assistant_text,
+    is_claude_auth_failure_text, latest_turn_id,
+};
 pub use types::{
     AgentError, AgentEvent, AgentEventEnvelope, ApprovalDecision, ApprovalKind, Capabilities,
     CodexThreadOptions, Endpoint, MessageRole, ProtocolAdapter, ProtocolSession, ToolStatus,

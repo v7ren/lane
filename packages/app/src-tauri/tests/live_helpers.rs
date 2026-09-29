@@ -9,10 +9,10 @@ use loomria_app_lib::session::{build_attach_argv, spawn_manifest_server, Protoco
 use serde_json::Value;
 use std::collections::HashSet;
 use std::fs;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
-use std::sync::Arc;
+use std::io::Read;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 pub fn live_temp_dir(agent: &str) -> PathBuf {
@@ -50,19 +50,14 @@ pub fn wait_for_history(
     hub.history(pane_id)
 }
 
-pub fn assert_prompt_sequence(types: &[String]) {
-    assert!(
-        types.iter().any(|t| t == "turn_started"),
-        "missing turn_started in {types:?}"
-    );
-    assert!(
-        types.iter().any(|t| t == "message_delta" || t == "message_completed"),
-        "missing assistant message in {types:?}"
-    );
-    assert!(
-        types.iter().any(|t| t == "turn_completed"),
-        "missing turn_completed in {types:?}"
-    );
+pub fn assert_prompt_sequence(history: &[AgentEventEnvelope]) {
+    let events: Vec<AgentEvent> = history.iter().map(|e| e.event.clone()).collect();
+    loomria_app_lib::protocol::assert_prompt_turn_contract(&events, Some("ok"));
+}
+
+pub fn assert_approval_sequence(history: &[AgentEventEnvelope]) {
+    let events: Vec<AgentEvent> = history.iter().map(|e| e.event.clone()).collect();
+    loomria_app_lib::protocol::assert_approval_flow_contract(&events);
 }
 
 pub fn assert_turn_ok(types: &[String]) {
@@ -296,7 +291,7 @@ impl CodexLive {
 }
 
 pub fn codex_tui_attach_smoke(port: u16, thread_id: &str, cwd: &Path) -> Result<(), String> {
-    use portable_pty::{native_pty_system, CommandBuilder, PtySize};
+    use portable_pty::{native_pty_system, PtySize};
 
     let catalog = AgentCatalog::load();
     let manifest = catalog.get("codex").expect("codex");
@@ -309,7 +304,11 @@ pub fn codex_tui_attach_smoke(port: u16, thread_id: &str, cwd: &Path) -> Result<
         thread_id,
         &cwd.to_string_lossy(),
     );
-    let exe = loomria_app_lib::shell_env::resolve_codex_executable()?;
+    let cmd = loomria_app_lib::codex::build_codex_attach_pty_command(
+        &catalog,
+        &cwd.to_string_lossy(),
+        &argv,
+    )?;
     let pty_system = native_pty_system();
     let pair = pty_system
         .openpty(PtySize {
@@ -319,13 +318,28 @@ pub fn codex_tui_attach_smoke(port: u16, thread_id: &str, cwd: &Path) -> Result<
             pixel_height: 0,
         })
         .map_err(|e| format!("openpty: {e}"))?;
-    let mut cmd = CommandBuilder::new(&exe);
-    for arg in argv {
-        cmd.arg(arg);
-    }
-    cmd.cwd(cwd);
-    cmd.env("TERM", "xterm-256color");
-    cmd.env("COLORTERM", "truecolor");
+    let mut reader = pair
+        .master
+        .try_clone_reader()
+        .map_err(|e| format!("clone_reader: {e}"))?;
+    let scroll_tail = Arc::new(Mutex::new(Vec::<u8>::new()));
+    let scroll_clone = Arc::clone(&scroll_tail);
+    std::thread::spawn(move || {
+        let mut buf = [0u8; 4096];
+        loop {
+            match reader.read(&mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    let mut guard = scroll_clone.lock().unwrap();
+                    guard.extend_from_slice(&buf[..n]);
+                    if guard.len() > 16_384 {
+                        let drain = guard.len() - 16_384;
+                        guard.drain(..drain);
+                    }
+                }
+            }
+        }
+    });
     let mut child = pair
         .slave
         .spawn_command(cmd)
@@ -334,20 +348,20 @@ pub fn codex_tui_attach_smoke(port: u16, thread_id: &str, cwd: &Path) -> Result<
     drop(pair.slave);
     let tree = ProcessTree::new();
     tree.assign_pid(pid).expect("assign attach");
-    let mut reader = pair
-        .master
-        .try_clone_reader()
-        .map_err(|e| format!("pty reader: {e}"))?;
-    let mut buf = String::new();
-    let _ = reader.read_to_string(&mut buf);
     std::thread::sleep(Duration::from_secs(4));
-    let _ = child.kill();
-    drop(child);
-    drop(tree);
-    let lower = buf.to_lowercase();
-    if lower.contains("refusing to start") || lower.contains("stdin is not a terminal") {
-        return Err(format!("codex attach output: {buf}"));
+    if let Some(status) = child.try_wait().ok().flatten() {
+        if !status.success() {
+            let bytes = scroll_tail.lock().unwrap().clone();
+            let tail = String::from_utf8_lossy(&bytes);
+            return Err(format!(
+                "codex attach exited with {status}; argv={argv:?}; pty_tail={tail}"
+            ));
+        }
+    } else {
+        let _ = child.kill();
+        let _ = child.wait();
     }
+    drop(tree);
     Ok(())
 }
 
