@@ -44,6 +44,7 @@ export function SidebarPanel({
     if (picked) {
       const next = await pushRecentWorkspace(picked);
       setRecent(next);
+      await onProjectPathChange(picked);
       await onOpenWorkspace(picked);
     }
   };
@@ -52,9 +53,10 @@ export function SidebarPanel({
     async (path: string) => {
       const next = await pushRecentWorkspace(path);
       setRecent(next);
+      await onProjectPathChange(path);
       await onOpenWorkspace(path);
     },
-    [onOpenWorkspace],
+    [onOpenWorkspace, onProjectPathChange],
   );
 
   const displayRecent = useMemo(() => {

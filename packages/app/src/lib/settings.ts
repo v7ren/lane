@@ -132,7 +132,7 @@ function store(): LazyStore {
 
   if (!cached) {
 
-    cached = new LazyStore(SETTINGS_STORE_FILENAME, { defaults: {}, autoSave: true });
+    cached = new LazyStore(SETTINGS_STORE_FILENAME, { defaults: {}, autoSave: false });
 
   }
 
