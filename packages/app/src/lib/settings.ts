@@ -88,7 +88,12 @@ export function resetSettingsFileQueueForTests(): void {
 
 export function enqueueSettingsFileWrite<T>(fn: () => Promise<T>): Promise<T> {
 
-  const run = settingsFileQueue.then(() => fn());
+  const run = settingsFileQueue.then(async () => {
+    cached = null;
+    await migrateLegacySettingsFile();
+    await store().reload();
+    return fn();
+  });
 
   settingsFileQueue = run.then(
 
@@ -302,8 +307,6 @@ export async function loadSettings(): Promise<Settings> {
 
   return enqueueSettingsFileWrite(async () => {
 
-    await migrateLegacySettingsFile();
-
     try {
 
       const raw = await store().get<Settings>(SETTINGS_KEY);
@@ -363,8 +366,6 @@ async function persistSettingsMerged(next: Settings): Promise<Settings> {
 export async function updateSettings(patch: SettingsPatch): Promise<Settings> {
 
   return enqueueSettingsFileWrite(async () => {
-
-    await migrateLegacySettingsFile();
 
     const raw = await store().get<Settings>(SETTINGS_KEY);
 

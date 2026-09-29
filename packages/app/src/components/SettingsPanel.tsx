@@ -37,9 +37,10 @@ export function SettingsPanel({
   };
 
   const handleSave = async () => {
-    await updateSettings(settings);
-    if (settings.project_path && onProjectPathChange) {
-      await onProjectPathChange(settings.project_path);
+    const { project_path: panelProjectPath, ...rest } = settings;
+    await updateSettings((current) => ({ ...current, ...rest }));
+    if (panelProjectPath && onProjectPathChange) {
+      await onProjectPathChange(panelProjectPath);
     }
     onClose();
   };

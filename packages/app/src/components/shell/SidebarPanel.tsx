@@ -42,21 +42,19 @@ export function SidebarPanel({
   const openFolder = async () => {
     const picked = await pickProjectFolder(projectPath);
     if (picked) {
+      await onOpenWorkspace(picked);
       const next = await pushRecentWorkspace(picked);
       setRecent(next);
-      await onProjectPathChange(picked);
-      await onOpenWorkspace(picked);
     }
   };
 
   const openWorkspace = useCallback(
     async (path: string) => {
+      await onOpenWorkspace(path);
       const next = await pushRecentWorkspace(path);
       setRecent(next);
-      await onProjectPathChange(path);
-      await onOpenWorkspace(path);
     },
-    [onOpenWorkspace, onProjectPathChange],
+    [onOpenWorkspace],
   );
 
   const displayRecent = useMemo(() => {

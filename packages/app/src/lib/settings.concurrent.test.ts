@@ -18,6 +18,8 @@ const mockStore = {
 
   save: vi.fn(async () => {}),
 
+  reload: vi.fn(async () => {}),
+
 };
 
 
