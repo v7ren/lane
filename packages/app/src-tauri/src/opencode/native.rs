@@ -72,7 +72,7 @@ pub fn spawn_native_pane(
     let mut serve_child = spawned.child;
     let serve_pid = serve_child.id();
 
-    let session = match client::create_session(&base_url, &format!("loomria {pane_id}")) {
+    let session = match client::create_session(&base_url) {
         Ok(session) => session,
         Err(err) => {
             let _ = serve_child.kill();

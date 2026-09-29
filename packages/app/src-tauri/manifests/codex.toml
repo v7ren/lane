@@ -4,6 +4,7 @@ label = "Codex CLI"
 description = "OpenAI Codex CLI"
 icon = "CX"
 is_tui = true
+show_in_new_pane_menu = true
 
 [launch.tui.windows]
 command = "codex"

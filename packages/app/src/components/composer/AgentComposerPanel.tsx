@@ -76,6 +76,7 @@ export function AgentComposerPanel({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [focused, setFocused] = useState(false);
   const [allowlistBlocked, setAllowlistBlocked] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
 
   useEffect(() => {
     if (openCode && isTauriRuntime() && !composerAllowlistOk()) {
@@ -122,37 +123,48 @@ export function AgentComposerPanel({
   useEffect(() => {
     if (!openCode || demo) return;
     if (!isTauriRuntime()) return;
-    void opencodeClient.listAgents(paneId).then((list) => {
-      setAgents(
-        list.map((a) => ({
-          name: (a as { name?: string; id?: string }).name ?? (a as { id?: string }).id ?? 'build',
-          description: (a as { description?: string }).description,
-        })),
-      );
-      if (list[0]?.name) setAgent(list[0].name);
-    });
-    void opencodeClient.listProviders(paneId).then((providers) => {
-      const choices: ModelChoice[] = [];
-      const raw = providers as unknown;
-      const list = Array.isArray(raw)
-        ? (raw as { id: string; models?: { id: string }[] }[])
-        : Object.values(raw as Record<string, { id: string; models?: { id: string }[] }>);
-      for (const p of list) {
-        for (const m of p.models ?? []) {
-          choices.push({
-            providerID: p.id,
-            modelID: m.id,
-            label: `${p.id}/${m.id}`,
-          });
+    setCatalogError(null);
+    void opencodeClient
+      .listAgents(paneId)
+      .then((list) => {
+        setAgents(
+          list.map((a) => ({
+            name: (a as { name?: string; id?: string }).name ?? (a as { id?: string }).id ?? 'build',
+            description: (a as { description?: string }).description,
+          })),
+        );
+        if (list[0]?.name) setAgent(list[0].name);
+      })
+      .catch((err) => {
+        setCatalogError(err instanceof Error ? err.message : String(err));
+      });
+    void opencodeClient
+      .listProviders(paneId)
+      .then((providers) => {
+        const choices: ModelChoice[] = [];
+        const raw = providers as unknown;
+        const list = Array.isArray(raw)
+          ? (raw as { id: string; models?: { id: string }[] }[])
+          : Object.values(raw as Record<string, { id: string; models?: { id: string }[] }>);
+        for (const p of list) {
+          for (const m of p.models ?? []) {
+            choices.push({
+              providerID: p.id,
+              modelID: m.id,
+              label: `${p.id}/${m.id}`,
+            });
+          }
         }
-      }
-      setModels(choices);
-      if (choices[0]) setModel(choices[0]);
-    });
+        setModels(choices);
+        if (choices[0]) setModel(choices[0]);
+      })
+      .catch((err) => {
+        setCatalogError((prev) => prev ?? (err instanceof Error ? err.message : String(err)));
+      });
     void opencodeClient.listCommands(paneId).then((cmds) =>
       setCommands(cmds.map((c) => ({ name: c.name, description: c.description }))),
     );
-  }, [openCode, paneId]);
+  }, [demo, openCode, paneId]);
 
   useEffect(() => {
     if (picker !== 'mention' || !openCode) return;
@@ -280,6 +292,11 @@ export function AgentComposerPanel({
           Some composer actions are unavailable because the desktop proxy allowlist is missing routes.
         </p>
       )}
+      {catalogError && (
+        <p className="text-meta text-status-error px-3 pb-1" data-testid="composer-catalog-error">
+          Agent/model catalog failed: {catalogError}
+        </p>
+      )}
       <div className="px-3 pb-2">
         <div
           className="rounded-lg border border-border-subtle bg-canvas focus-within:ring-2 focus-within:ring-accent/50"
@@ -320,10 +337,11 @@ export function AgentComposerPanel({
             )}
             {features.agentPicker && (
               <Pill
-                label={agent}
+                label={catalogError ? 'Agent error' : agent}
                 open={picker === 'agent'}
                 onClick={() => setPicker((p) => (p === 'agent' ? null : 'agent'))}
                 testId="picker-agent"
+                error={Boolean(catalogError)}
               />
             )}
             {features.permissionPicker && (
@@ -337,12 +355,13 @@ export function AgentComposerPanel({
             <div className="flex-1" />
             {features.modelPicker && (
               <Pill
-                label={modelPillLabel}
-                sublabel={modelPillPrimary ? modelPillProvider : undefined}
+                label={catalogError ? 'Model error' : modelPillLabel}
+                sublabel={catalogError ? undefined : modelPillPrimary ? modelPillProvider : undefined}
                 open={picker === 'model'}
                 onClick={() => setPicker((p) => (p === 'model' ? null : 'model'))}
                 testId="picker-model"
                 wide
+                error={Boolean(catalogError)}
               />
             )}
             {showStop && features.stop ? (
@@ -467,6 +486,7 @@ function Pill({
   open,
   testId,
   wide,
+  error,
 }: {
   label: string;
   sublabel?: string;
@@ -474,14 +494,15 @@ function Pill({
   open: boolean;
   testId?: string;
   wide?: boolean;
+  error?: boolean;
 }) {
   return (
     <button
       type="button"
       data-testid={testId}
-      className={`h-8 px-3 rounded-full border border-border-subtle bg-elevated text-meta hover:bg-hover inline-flex items-center gap-1 min-w-0 ${
-        wide ? 'max-w-[14rem]' : ''
-      } ${open ? 'ring-2 ring-accent/40' : ''}`}
+      className={`h-8 px-3 rounded-full border bg-elevated text-meta hover:bg-hover inline-flex items-center gap-1 min-w-0 ${
+        error ? 'border-status-error/60 text-status-error' : 'border-border-subtle'
+      } ${wide ? 'max-w-[14rem]' : ''} ${open ? 'ring-2 ring-accent/40' : ''}`}
       onClick={onClick}
     >
       <span className={`truncate ${sublabel ? 'text-text' : 'text-text'}`}>{label}</span>

@@ -11,6 +11,7 @@ import { assembleMessageText, selectPermissions } from '../opencode/selectors.js
 import type { ShellSession } from '../shell-data';
 import { isUserShellPane } from '../pane-surface';
 import { buildPaneDisplayNames } from '../pane-display-name';
+import { displayOpenCodeSessionTitle } from './session-display-title';
 
 export function isOpenCodePane(pane: PaneData): boolean {
   return pane.info.agent_type === 'opencode_native';
@@ -93,7 +94,7 @@ export function buildOpenCodeShellSessions(args: {
       paneId,
       sessionId,
       parentSessionId: session.parentID,
-      title: session.title?.trim() || `Session ${sessionId.slice(0, 8)}`,
+      title: displayOpenCodeSessionTitle(state, sessionId, session.title),
       agentLabel: session.agent ?? agentLabel,
       status,
       updatedAt,

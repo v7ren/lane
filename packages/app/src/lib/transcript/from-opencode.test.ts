@@ -37,6 +37,83 @@ describe('fromOpenCode adapter', () => {
     expect(assistant?.items.some((i) => i.kind === 'step_usage')).toBe(true);
   });
 
+  it('orders assistant items by part start time', () => {
+    let state = createEmptyOpenCodeStore('pane-test');
+    const sessionId = 'sess_order';
+    const messageId = 'msg_asst';
+    state = applyOpenCodeWireEvent(state, {
+      id: 'e1',
+      type: 'message.updated',
+      properties: {
+        info: { id: messageId, sessionID: sessionId, role: 'assistant', time: { created: 1 } },
+      },
+    } as OpenCodeWireEvent);
+    state = applyOpenCodeWireEvent(state, {
+      id: 'e2',
+      type: 'message.part.updated',
+      properties: {
+        messageID: messageId,
+        part: {
+          id: 'part_text',
+          messageID: messageId,
+          type: 'text',
+          text: 'hello',
+          time: { start: 20, end: 21 },
+        },
+      },
+    } as OpenCodeWireEvent);
+    state = applyOpenCodeWireEvent(state, {
+      id: 'e3',
+      type: 'message.part.updated',
+      properties: {
+        messageID: messageId,
+        part: {
+          id: 'part_tool',
+          messageID: messageId,
+          type: 'tool',
+          tool: 'read',
+          state: { status: 'completed' },
+          time: { start: 5, end: 10 },
+        },
+      },
+    } as OpenCodeWireEvent);
+
+    const vm = fromOpenCode(state, sessionId);
+    const assistant = vm.turns.find((t) => t.role === 'assistant');
+    const kinds = assistant?.items.map((i) => i.kind);
+    expect(kinds?.indexOf('tool_call')).toBeLessThan(kinds?.indexOf('assistant_text') ?? 999);
+  });
+
+  it('builds user turn from part deltas when prompt only streams', () => {
+    let state = createEmptyOpenCodeStore('pane-test');
+    const sessionId = 'sess_tui';
+    const messageId = 'msg_user';
+    state = applyOpenCodeWireEvent(state, {
+      id: 'e1',
+      type: 'message.updated',
+      properties: {
+        info: { id: messageId, sessionID: sessionId, role: 'user', time: { created: 1 } },
+      },
+    } as OpenCodeWireEvent);
+    state = applyOpenCodeWireEvent(state, {
+      id: 'e2',
+      type: 'message.part.delta',
+      properties: {
+        messageID: messageId,
+        partID: 'part_u',
+        field: 'text',
+        delta: 'from tui',
+      },
+    } as OpenCodeWireEvent);
+
+    const vm = fromOpenCode(state, sessionId);
+    const user = vm.turns.find((t) => t.role === 'user');
+    expect(user?.items[0]?.kind).toBe('user_prompt');
+    if (user?.items[0]?.kind === 'user_prompt') {
+      expect(user.items[0].text).toBe('from tui');
+    }
+  });
+
   it('replays live-turn.json without throwing', () => {
     const events = loadFixture('live-turn.json');
     const state = replay(events);

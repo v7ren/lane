@@ -4,6 +4,7 @@ label = "Claude Code"
 description = "Anthropic Claude Code CLI"
 icon = "CC"
 is_tui = true
+show_in_new_pane_menu = true
 
 [launch.tui.windows]
 command = "claude"
