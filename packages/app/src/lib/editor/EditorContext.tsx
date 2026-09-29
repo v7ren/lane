@@ -30,7 +30,6 @@ import {
 } from './conflict';
 import { fsReadFile, fsStartWatcher, fsWriteFile } from './fs-client';
 import { findFiles, findInFiles, type FindMatch } from './opencode-file-actions';
-import { registerEditorCommands } from '../commands/editor';
 import { readDemoUrlFlags } from '../demo-mode';
 import { useDemoFixtures } from '../demo/DemoContext';
 
@@ -294,21 +293,6 @@ export function EditorProvider({
     }
     if (params.get('palette') === '1' || shot === 'quick-open') setQuickOpenOpen(true);
   }, [demoFixtures, openFile, runSearch]);
-
-  useEffect(() => {
-    const registryStub = {
-      register: () => {},
-    };
-    registerEditorCommands(registryStub, {
-      onQuickOpen: () => setQuickOpenOpen(true),
-      onSearchPanel: () => setExplorerView('search'),
-      onReview: () => setMainView('review'),
-      onSave: () => void saveActive(),
-      onCloseTab: () => {
-        if (activeId) closeTab(activeId);
-      },
-    });
-  }, [activeId, closeTab, saveActive]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

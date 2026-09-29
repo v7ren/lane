@@ -310,6 +310,7 @@ function AppShellInner({
           setNewPaneOpen={setNewPaneOpen}
           dragBase={dragBase}
           layoutEpoch={layoutEpoch}
+          markBottomPanelResized={markBottomPanelResized}
         />
       </SessionActionsProvider>
     </ShellToastProvider>
@@ -363,6 +364,7 @@ function AppShellChrome(props: {
   setNewPaneOpen: (open: boolean) => void;
   dragBase: MutableRefObject<number>;
   layoutEpoch: number;
+  markBottomPanelResized: () => void;
 }) {
   const actions = useSessionActions();
   const {
@@ -410,6 +412,7 @@ function AppShellChrome(props: {
     setNewPaneOpen,
     dragBase,
     layoutEpoch,
+    markBottomPanelResized,
   } = props;
 
   const editor = useEditor();
@@ -626,7 +629,7 @@ function AppShellChrome(props: {
                   tuiSurfaceLive={tuiSurfaceLive}
                   onHideTui={() => setShowTui(false)}
                   onClosePane={onClosePane}
-                  onEnterAgent={(id) => setSelectedPaneId(id)}
+                  onEnterAgent={(id) => selectSession(id)}
                 />
                 <PanelErrorBoundary region="bottom">
                 <BottomPanel

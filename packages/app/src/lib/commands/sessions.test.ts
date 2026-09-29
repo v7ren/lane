@@ -27,7 +27,14 @@ describe('command registry', () => {
           onSwitchTerminalTab: () => {},
         }),
       registerAgentCommands,
-      registerEditorCommands,
+      registerEditorCommands: (r) =>
+        registerEditorCommands(r, {
+          onQuickOpen: () => {},
+          onSearchPanel: () => {},
+          onReview: () => {},
+          onSave: () => {},
+          onCloseTab: () => {},
+        }),
     });
     expect(commands.some((c) => c.id === 'settings')).toBe(true);
     expect(commands.some((c) => c.section === 'Session')).toBe(false);

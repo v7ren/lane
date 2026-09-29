@@ -12,7 +12,7 @@ export type OpenCodeRequestArgs = {
 
 async function request<T = unknown>(args: OpenCodeRequestArgs): Promise<T> {
   const custom = getOpenCodeTransport();
-  if (custom) return custom<T>(args);
+  if (custom) return (await custom(args)) as T;
   return invoke<T>('opencode_request', { args });
 }
 
