@@ -155,14 +155,14 @@ export function AgentView({
           <div className="text-sm font-medium truncate">{agentLabel}</div>
           <div className="text-[10px] text-lr-muted truncate font-mono">{paneId.slice(0, 12)}</div>
         </div>
-        {capabilities.attach_tui && (
+        {capabilities.attach_tui && !showTui && (
           <button
             type="button"
             className="px-2 py-1 text-xs rounded-md border border-lr-border hover:bg-lr-raised"
             onClick={onToggleTui}
-            aria-pressed={showTui}
+            aria-pressed={false}
           >
-            {showTui ? 'Hide TUI' : 'Show TUI'}
+            Show TUI
           </button>
         )}
         <button
