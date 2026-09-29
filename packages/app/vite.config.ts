@@ -28,6 +28,9 @@ export default defineConfig({
     proxy: bridgeProxyConfig,
   },
   envPrefix: ['VITE_', 'TAURI_'],
+  worker: {
+    format: 'es',
+  },
   build: {
     target: 'es2022',
     minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,

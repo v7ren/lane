@@ -1,4 +1,7 @@
-import { useEffect } from 'react';
+import {
+  agentTuiSurfaceTopPx,
+  terminalSurfaceTopPx,
+} from '../lib/shell-pane-chrome';
 import type { AgentCatalog } from '@loomria/shared';
 import type { PaneRegistryApi } from '../hooks/usePaneRegistry';
 import type { SessionRailState } from '../hooks/useSessionRail';
@@ -45,15 +48,13 @@ export function PersistentPaneSurfaces({
 }: Props) {
   const { paneList, replacePaneAgent } = registry;
   const panes = paneList.filter((pane) => !pane.info.id.startsWith('loomria-orchestrator-'));
-
-  useEffect(() => {
-    if (bottomTab !== 'agent' || !showTui || !agentPaneId) return;
-  }, [agentPaneId, bottomTab, showTui, layoutEpoch]);
+  const agentTuiOpen =
+    bottomTab === 'agent' && showTui && Boolean(agentPaneId);
 
   return (
     <div
       className="absolute inset-0 overflow-visible pointer-events-none z-[5]"
-      data-agent-tui-layout="parked"
+      data-agent-tui-layout={agentTuiOpen ? 'open' : 'parked'}
     >
       {panes.map((pane) => {
         const isSelectedAgent = pane.info.id === agentPaneId;
@@ -80,11 +81,11 @@ export function PersistentPaneSurfaces({
           ? {
               left: `${chatWidthPercent ?? 40}%`,
               right: 0,
-              top: 0,
+              top: agentTuiSurfaceTopPx(),
               bottom: 0,
             }
           : terminalTabVisible
-            ? { left: 0, right: 0, top: 28, bottom: 0 }
+            ? { left: 0, right: 0, top: terminalSurfaceTopPx(), bottom: 0 }
             : { left: 0, right: 0, top: 0, bottom: 0 };
 
         const surfaceClass = hidden
@@ -107,6 +108,7 @@ export function PersistentPaneSurfaces({
             style={hidden ? undefined : visibleStyle}
             data-pane-id={pane.info.id}
             data-surface-visible={visibleInLayout ? '1' : '0'}
+            data-pane-surface-host={visibleInLayout ? '1' : '0'}
           >
             {agentTuiVisible && (
               <AgentTuiHeader

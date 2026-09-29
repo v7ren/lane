@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { SessionRailState } from './useSessionRail';
+import { isEditableKeyboardTarget, isModifierCombo } from './keyboard-target';
 import { DISPLAY_STATUS_ORDER, mergePaneAndSessionStatus } from '../lib/display-status';
 import type { AppMode } from './useWorkspaceMode';
 import type { ApprovalDecision } from '../lib/agent-events';
@@ -24,6 +25,7 @@ export function useAppKeyboard({
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (!isModifierCombo(e) && isEditableKeyboardTarget(e.target)) return;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key === '`') {
         e.preventDefault();

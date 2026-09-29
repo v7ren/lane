@@ -1,10 +1,13 @@
 import { PanelRight, Plus } from 'lucide-react';
+import type { RefObject } from 'react';
 
 export function ShellTitleBar({
+  newPaneButtonRef,
   onNewPane,
   showRightRailToggle,
   onToggleRightRail,
 }: {
+  newPaneButtonRef?: RefObject<HTMLButtonElement>;
   onNewPane: () => void;
   showRightRailToggle?: boolean;
   onToggleRightRail?: () => void;
@@ -31,9 +34,11 @@ export function ShellTitleBar({
       </span>
       <div className="flex-1 flex justify-end">
         <button
+          ref={newPaneButtonRef}
           type="button"
           onClick={onNewPane}
           className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-meta text-text-2 hover:text-text hover:bg-hover transition-colors duration-ui"
+          data-testid="new-pane-button"
         >
           <Plus size={16} strokeWidth={1.5} aria-hidden />
           New pane

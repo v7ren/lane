@@ -8,12 +8,15 @@ export function AgentTuiHeader({
   onHide: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 border-b border-lr-border bg-lr-panel shrink-0">
-      <span className="text-xs font-medium text-lr-text truncate flex-1">{agentLabel}</span>
-      <span className="text-[10px] uppercase tracking-wide text-lr-muted shrink-0">Native TUI</span>
+    <div
+      className="flex items-center gap-2 px-3 py-2 border-b border-border-subtle bg-surface shrink-0 z-[2] relative"
+      data-testid="agent-tui-header"
+    >
+      <span className="text-xs font-medium text-text truncate flex-1">{agentLabel}</span>
+      <span className="text-[10px] uppercase tracking-wide text-text-3 shrink-0">Native TUI</span>
       <button
         type="button"
-        className="px-2 py-1 text-xs rounded-md border border-lr-border hover:bg-lr-raised shrink-0"
+        className="px-2 py-1 text-xs rounded-md border border-border-subtle hover:bg-hover shrink-0"
         onClick={onHide}
       >
         Hide TUI

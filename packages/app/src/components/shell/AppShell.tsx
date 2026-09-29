@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MutableRefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type MutableRefObject,
+  type RefObject,
+} from 'react';
 import type { AgentCatalog, AgentId } from '@loomria/shared';
 import type { PaneData } from '../../hooks/usePaneRegistry';
 import { AgentView } from '../agent/AgentView';
@@ -43,6 +52,7 @@ import { EditorWorkspace } from '../editor/EditorWorkspace';
 import { SidebarPanel } from './SidebarPanel';
 import { RevertBanner } from '../sessions/RevertBanner';
 import { PanelErrorBoundary } from './PanelErrorBoundary';
+import { AnchoredPopover } from './AnchoredPopover';
 
 export type AppShellProps = {
   agentCatalog: AgentCatalog;
@@ -418,6 +428,7 @@ function AppShellChrome(props: {
   } = props;
 
   const editor = useEditor();
+  const newPaneAnchorRef = useRef<HTMLButtonElement>(null);
 
   const paletteCommands = useMemo(
     () =>
@@ -514,6 +525,7 @@ function AppShellChrome(props: {
   return (
     <div className="flex flex-col h-full min-h-0 bg-canvas text-text" data-testid="app-shell">
       <ShellTitleBar
+        newPaneButtonRef={newPaneAnchorRef}
         onNewPane={() => setNewPaneOpen(true)}
         showRightRailToggle={viewportWidth < 1100}
         onToggleRightRail={toggleRightRail}
@@ -694,6 +706,7 @@ function AppShellChrome(props: {
                         selectedPaneId={shell.selectedTerminalPaneId}
                         onSelect={(id) => shell.setSelectedTerminalPaneId(id)}
                         onNewShell={() => void handleNewShell()}
+                        onCloseShell={(id) => onClosePane(id)}
                       />
                       <div className="flex-1 min-h-0 relative">
                         {!isTauriRuntime() && (
@@ -744,16 +757,16 @@ function AppShellChrome(props: {
         )}
       </div>
 
-      {newPaneOpen && (
-        <NewPaneMenu
-          agentCatalog={agentCatalog}
-          onPick={(agent) => {
-            setNewPaneOpen(false);
-            void onNewSession(agent);
-          }}
-          onClose={() => setNewPaneOpen(false)}
-        />
-      )}
+      <NewPaneMenu
+        open={newPaneOpen}
+        anchorRef={newPaneAnchorRef}
+        agentCatalog={agentCatalog}
+        onPick={(agent) => {
+          setNewPaneOpen(false);
+          void onNewSession(agent);
+        }}
+        onClose={() => setNewPaneOpen(false)}
+      />
 
       <CommandPalette
         open={shell.paletteOpen}
@@ -847,32 +860,31 @@ export function AppShell(props: AppShellProps) {
 }
 
 function NewPaneMenu({
+  open,
+  anchorRef,
   agentCatalog,
   onPick,
   onClose,
 }: {
+  open: boolean;
+  anchorRef: RefObject<HTMLButtonElement>;
   agentCatalog: AgentCatalog;
   onPick: (agent: AgentId) => void;
   onClose: () => void;
 }) {
   const presets = listLaunchPresets(agentCatalog);
   return (
-    <div
-      className="fixed inset-0 z-[90] flex items-start justify-center pt-16 bg-canvas/60"
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="w-56 rounded-lg border border-border bg-elevated shadow-xl py-1">
-        {presets.map((p) => (
-          <button
-            key={p.type}
-            type="button"
-            className="w-full text-left px-3 py-2 text-body hover:bg-hover"
-            onClick={() => onPick(p.type)}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-    </div>
+    <AnchoredPopover open={open} anchorRef={anchorRef} onClose={onClose} testId="new-pane-menu">
+      {presets.map((p) => (
+        <button
+          key={p.type}
+          type="button"
+          className="w-full text-left px-3 py-2 text-body hover:bg-hover"
+          onClick={() => onPick(p.type)}
+        >
+          {p.label}
+        </button>
+      ))}
+    </AnchoredPopover>
   );
 }

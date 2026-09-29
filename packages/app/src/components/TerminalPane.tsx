@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   getPreset,
   listLaunchPresets,
@@ -57,12 +57,31 @@ export function TerminalPane({
 }: Props) {
   const [switching, setSwitching] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const { containerRef } = useTerminalSession({
+  const { containerRef, nudgeReflow } = useTerminalSession({
     paneId: pane.info.id,
     sessionKey: pane.info.created_at,
     subscribePaneData,
     reflowKey,
   });
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const host = container.closest('[data-pane-surface-host="1"]');
+    if (!(host instanceof HTMLElement)) return;
+    if (typeof ResizeObserver === 'undefined') return;
+    let debounce = 0;
+    const ro = new ResizeObserver(() => {
+      window.clearTimeout(debounce);
+      debounce = window.setTimeout(() => nudgeReflow(), 80);
+    });
+    ro.observe(host);
+    nudgeReflow();
+    return () => {
+      ro.disconnect();
+      window.clearTimeout(debounce);
+    };
+  }, [containerRef, nudgeReflow, reflowKey]);
 
   const agent = pane.info.agent_type;
   const presets = switchPresetsFor(agentCatalog, agent);
@@ -82,7 +101,9 @@ export function TerminalPane({
   return (
     <div
       ref={rootRef}
-      className="flex flex-col h-full rounded-lg border border-lr-border bg-lr-bg overflow-hidden relative"
+      className={`flex flex-col h-full overflow-hidden relative ${
+        compactChrome ? 'rounded-none border-0 bg-transparent' : 'rounded-lg border border-lr-border bg-lr-bg'
+      }`}
     >
       {switching && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-lr-bg/80 text-xs text-lr-muted">

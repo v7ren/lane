@@ -29,18 +29,10 @@ export function CommandPalette({
 
   const filtered = useMemo(() => {
     const base = fileMode
-      ? [
-          {
-            id: 'file-phase5',
-            label: 'File search — coming in Phase 5',
-            section: 'Files',
-            run: onClose,
-          },
-          ...commands,
-        ]
+      ? commands.filter((c) => c.section === 'Files' || c.id.startsWith('file-'))
       : commands;
     return filterPaletteCommands(base, query);
-  }, [commands, fileMode, onClose, query]);
+  }, [commands, fileMode, query]);
 
   useEffect(() => {
     if (!open) return;

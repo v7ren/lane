@@ -13,6 +13,9 @@ export function UserTurnRow({
   const prompt = turn.items.find((i) => i.kind === 'user_prompt');
   const [open, setOpen] = useState(!(prompt?.kind === 'user_prompt' && prompt.collapsedDefault));
   if (!prompt || prompt.kind !== 'user_prompt') return null;
+  const multiline = prompt.text.includes('\n');
+  const showChevron = multiline || open;
+  const chevronGlyph = open ? '▾' : '▸';
   return (
     <div
       className="group rounded-md border border-border-subtle bg-elevated shadow-sm"
@@ -25,8 +28,17 @@ export function UserTurnRow({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
-        <span className="text-text-3 mt-0.5">{open ? '▾' : '▸'}</span>
-        <span className="text-text-3 font-mono">&gt;</span>
+        {showChevron ? (
+          <span className="text-text-3 mt-0.5 w-3 shrink-0 text-center">{chevronGlyph}</span>
+        ) : (
+          <>
+            <span className="w-3 shrink-0 group-hover:hidden" aria-hidden />
+            <span className="hidden group-hover:inline text-text-3 mt-0.5 w-3 shrink-0 text-center">
+              {chevronGlyph}
+            </span>
+          </>
+        )}
+        <span className="text-text-3 font-mono shrink-0">&gt;</span>
         <span className="flex-1 text-body text-text whitespace-pre-wrap break-words">
           {open ? prompt.text : prompt.text.split('\n')[0]}
         </span>
@@ -57,12 +69,18 @@ export function UserTurnRow({
   );
 }
 
-export function AssistantTurnBlock({ turn }: { turn: TranscriptTurn }) {
+export function AssistantTurnBlock({
+  turn,
+  projectRoot,
+}: {
+  turn: TranscriptTurn;
+  projectRoot?: string | null;
+}) {
   const metaLine = turn.meta ? formatAssistantMetaLine(turn.meta) : undefined;
   return (
     <div className="space-y-2 py-2" data-testid="assistant-turn">
       {turn.items.map((item) => (
-        <TranscriptItemView key={item.id} item={item} />
+        <TranscriptItemView key={item.id} item={item} projectRoot={projectRoot} />
       ))}
       {metaLine && (
         <p className="text-meta text-text-3 pt-1 border-t border-border-subtle/50" data-testid="meta-footer">
