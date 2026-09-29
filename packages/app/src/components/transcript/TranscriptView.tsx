@@ -9,10 +9,12 @@ export function TranscriptView({
   vm,
   nativeTuiOnly,
   onForkFromMessage,
+  projectRoot,
 }: {
   vm: TranscriptViewModel;
   nativeTuiOnly: boolean;
   onForkFromMessage?: (messageId: string) => void;
+  projectRoot?: string | null;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [stuckBottom, setStuckBottom] = useState(true);
@@ -104,7 +106,7 @@ export function TranscriptView({
                   {row.turn.role === 'user' ? (
                     <UserTurnRow turn={row.turn} onForkFromHere={onForkFromMessage} />
                   ) : (
-                    <AssistantTurnBlock turn={row.turn} />
+                    <AssistantTurnBlock turn={row.turn} projectRoot={projectRoot} />
                   )}
                 </div>
               );
@@ -115,7 +117,7 @@ export function TranscriptView({
             row.turn.role === 'user' ? (
               <UserTurnRow key={row.id} turn={row.turn} onForkFromHere={onForkFromMessage} />
             ) : (
-              <AssistantTurnBlock key={row.id} turn={row.turn} />
+              <AssistantTurnBlock key={row.id} turn={row.turn} projectRoot={projectRoot} />
             ),
           )
         )}

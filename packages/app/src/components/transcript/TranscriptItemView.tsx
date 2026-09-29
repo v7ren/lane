@@ -3,6 +3,14 @@ import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import type { TranscriptItem, TranscriptToolCall } from '../../lib/transcript';
 import { formatDuration } from '../../lib/transcript';
 import { MarkdownBody } from './MarkdownBody';
+import {
+  displayPathChip,
+  formatJsonFallback,
+  KNOWN_TOOL_NAMES,
+  resolveToolFields,
+  toolDisplayLabel,
+  filePathFromToolInput,
+} from './tool-render';
 
 function ToolStatusDot({ status }: { status: TranscriptToolCall['status'] }) {
   if (status === 'running') {
@@ -47,9 +55,17 @@ function TruncatedMono({
   );
 }
 
-function ToolCard({ tool }: { tool: TranscriptToolCall }) {
+function ToolCard({
+  tool,
+  projectRoot,
+}: {
+  tool: TranscriptToolCall;
+  projectRoot?: string | null;
+}) {
   const [open, setOpen] = useState(tool.status === 'running' || tool.status === 'completed');
-  const name = tool.name.toLowerCase();
+  const { name, input, output, diff } = resolveToolFields(tool);
+  const headerLabel = toolDisplayLabel(tool);
+
   return (
     <div
       className="rounded-md border border-border-subtle bg-surface overflow-hidden"
@@ -67,7 +83,7 @@ function ToolCard({ tool }: { tool: TranscriptToolCall }) {
           <ChevronRight className="w-3.5 h-3.5 text-text-3 shrink-0" />
         )}
         <ToolStatusDot status={tool.status} />
-        <span className="font-mono text-[12px] text-text">{tool.title ?? tool.name}</span>
+        <span className="font-mono text-[12px] text-text">{headerLabel}</span>
         {tool.durationMs != null && (
           <span className="ml-auto text-meta text-text-3">{formatDuration(tool.durationMs)}</span>
         )}
@@ -76,47 +92,66 @@ function ToolCard({ tool }: { tool: TranscriptToolCall }) {
         <div className="px-3 pb-3 space-y-2 border-t border-border-subtle">
           {(name === 'bash' || name === 'shell') && (
             <>
-              <TruncatedMono text={String(tool.input ?? '')} />
-              {tool.output != null && (
-                <TruncatedMono text={String(tool.output)} max={800} />
-              )}
+              <TruncatedMono text={String(input ?? '')} />
+              {output != null && <TruncatedMono text={String(output)} max={800} />}
             </>
           )}
           {(name === 'read' || name === 'read_file') && (
             <div className="flex flex-wrap gap-2 items-center text-[12px]">
-              <span className="font-mono px-2 py-0.5 rounded-full bg-elevated border border-border-subtle">
-                {String((tool.input as { path?: string })?.path ?? tool.input)}
-              </span>
-              {(tool.input as { start?: number; end?: number })?.start != null && (
+              {(() => {
+                const full =
+                  filePathFromToolInput(input) ??
+                  (typeof (input as { path?: string })?.path === 'string'
+                    ? (input as { path: string }).path
+                    : undefined);
+                if (!full) return null;
+                const chip = displayPathChip(full, projectRoot);
+                return (
+                  <span
+                    className="font-mono px-2 py-0.5 rounded-full bg-elevated border border-border-subtle"
+                    title={chip.title}
+                  >
+                    {chip.label}
+                  </span>
+                );
+              })()}
+              {(input as { start?: number; end?: number })?.start != null && (
                 <span className="text-text-3">
-                  L{(tool.input as { start?: number }).start}–
-                  {(tool.input as { end?: number }).end ?? '?'}
+                  L{(input as { start?: number }).start}–
+                  {(input as { end?: number }).end ?? '?'}
                 </span>
               )}
             </div>
           )}
           {(name === 'write' || name === 'edit' || name === 'apply_patch') && (
             <div className="space-y-1">
-              <span className="font-mono text-[12px] text-text-2">
-                {String((tool.input as { path?: string })?.path ?? '')}
-              </span>
-              {tool.diff && <TruncatedMono text={tool.diff} max={1200} />}
+              {(() => {
+                const full = filePathFromToolInput(input);
+                if (!full) return null;
+                const chip = displayPathChip(full, projectRoot);
+                return (
+                  <span className="font-mono text-[12px] text-text-2" title={chip.title}>
+                    {chip.label}
+                  </span>
+                );
+              })()}
+              {diff && <TruncatedMono text={diff} max={1200} />}
             </div>
           )}
           {(name === 'grep' || name === 'glob') && (
             <p className="text-[12px] text-text-2">
-              <span className="font-mono">{String(tool.input)}</span>
-              {tool.output != null && (
-                <span className="text-text-3"> · {String(tool.output)} matches</span>
+              <span className="font-mono">{String(input)}</span>
+              {output != null && (
+                <span className="text-text-3"> · {String(output)} matches</span>
               )}
             </p>
           )}
           {(name === 'webfetch' || name === 'web_fetch') && (
-            <p className="font-mono text-[12px] text-link break-all">{String(tool.input)}</p>
+            <p className="font-mono text-[12px] text-link break-all">{String(input)}</p>
           )}
-          {name === 'todowrite' && Array.isArray(tool.output) && (
+          {(name === 'todowrite' || name === 'todo_write') && Array.isArray(output) && (
             <ul className="space-y-1 text-[12px]">
-              {(tool.output as { content?: string; status?: string }[]).map((t, i) => (
+              {(output as { content?: string; status?: string }[]).map((t, i) => (
                 <li key={i} className="flex gap-2">
                   <span className="text-text-3">{t.status}</span>
                   <span>{t.content}</span>
@@ -124,14 +159,13 @@ function ToolCard({ tool }: { tool: TranscriptToolCall }) {
               ))}
             </ul>
           )}
-          {!['bash', 'shell', 'read', 'read_file', 'write', 'edit', 'apply_patch', 'grep', 'glob', 'webfetch', 'web_fetch', 'todowrite'].includes(
-            name,
-          ) && (
+          {name === 'task' && (
+            <TruncatedMono text={formatJsonFallback(input)} max={600} />
+          )}
+          {!KNOWN_TOOL_NAMES.has(name) && (
             <div className="grid gap-2 md:grid-cols-2">
-              <TruncatedMono text={JSON.stringify(tool.input, null, 2)} max={600} />
-              {tool.output != null && (
-                <TruncatedMono text={JSON.stringify(tool.output, null, 2)} max={600} />
-              )}
+              <TruncatedMono text={formatJsonFallback(input)} max={600} />
+              {output != null && <TruncatedMono text={formatJsonFallback(output)} max={600} />}
             </div>
           )}
         </div>
@@ -140,7 +174,13 @@ function ToolCard({ tool }: { tool: TranscriptToolCall }) {
   );
 }
 
-export function TranscriptItemView({ item }: { item: TranscriptItem }) {
+export function TranscriptItemView({
+  item,
+  projectRoot,
+}: {
+  item: TranscriptItem;
+  projectRoot?: string | null;
+}) {
   switch (item.kind) {
     case 'assistant_text':
       return (
@@ -159,7 +199,7 @@ export function TranscriptItemView({ item }: { item: TranscriptItem }) {
       return <CollapsibleMuted label={label} body={item.text} defaultOpen />;
     }
     case 'tool_call':
-      return <ToolCard tool={item} />;
+      return <ToolCard tool={item} projectRoot={projectRoot} />;
     case 'patch':
       return (
         <div className="flex flex-wrap gap-1 px-1">

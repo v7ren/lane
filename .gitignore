@@ -1,4 +1,5 @@
 .orphan-check/
+loomria-target-*/
 node_modules/
 packages/app/dist/
 packages/*/dist/

@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
+import { AnchoredPopover } from '../shell/AnchoredPopover';
 import { ArrowUp, Paperclip, Plus, Square } from 'lucide-react';
 import type { Capabilities } from '../../lib/agent-events';
 import {
@@ -73,7 +82,12 @@ export function AgentComposerPanel({
   const [fileParts, setFileParts] = useState<PromptPart[]>([]);
   const historyRef = useRef<string[]>([]);
   const historyIdx = useRef<number | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const agentPickerRef = useRef<HTMLButtonElement | null>(null);
+  const modelPickerRef = useRef<HTMLButtonElement | null>(null);
+  const permissionPickerRef = useRef<HTMLButtonElement | null>(null);
+  const mentionPickerRef = useRef<HTMLElement | null>(null);
+  const slashPickerRef = useRef<HTMLElement | null>(null);
   const [focused, setFocused] = useState(false);
   const [allowlistBlocked, setAllowlistBlocked] = useState(false);
 
@@ -286,7 +300,11 @@ export function AgentComposerPanel({
           title={focused ? '! for shell · / for commands · @ for files' : undefined}
         >
           <textarea
-            ref={textareaRef}
+            ref={(el) => {
+              textareaRef.current = el;
+              mentionPickerRef.current = el;
+              slashPickerRef.current = el;
+            }}
             data-agent-composer
             rows={2}
             className="w-full bg-transparent px-3 py-2 text-body text-text resize-none min-h-[3rem] max-h-40 focus:outline-none overflow-y-auto"
@@ -320,6 +338,7 @@ export function AgentComposerPanel({
             )}
             {features.agentPicker && (
               <Pill
+                ref={agentPickerRef}
                 label={agent}
                 open={picker === 'agent'}
                 onClick={() => setPicker((p) => (p === 'agent' ? null : 'agent'))}
@@ -328,6 +347,7 @@ export function AgentComposerPanel({
             )}
             {features.permissionPicker && (
               <Pill
+                ref={permissionPickerRef}
                 label={permissionMode === 'allow' ? 'Allow' : 'Ask'}
                 open={picker === 'permission'}
                 onClick={() => setPicker((p) => (p === 'permission' ? null : 'permission'))}
@@ -337,6 +357,7 @@ export function AgentComposerPanel({
             <div className="flex-1" />
             {features.modelPicker && (
               <Pill
+                ref={modelPickerRef}
                 label={modelPillLabel}
                 sublabel={modelPillPrimary ? modelPillProvider : undefined}
                 open={picker === 'model'}
@@ -383,61 +404,66 @@ export function AgentComposerPanel({
             ))}
           </div>
         )}
-        {picker === 'agent' && (
-          <PopoverList
-            items={agents.map((a) => ({ id: a.name, label: a.name, detail: a.description }))}
-            onPick={(id) => {
-              setAgent(id);
-              setPicker(null);
-            }}
-          />
-        )}
-        {picker === 'model' && (
-          <PopoverList
-            items={filteredModels.map((m) => ({ id: m.label, label: m.label }))}
-            onPick={(id) => {
-              const hit = models.find((m) => m.label === id);
-              if (hit) setModel(hit);
-              setPicker(null);
-            }}
-            testId="model-popover"
-          />
-        )}
-        {picker === 'permission' && (
-          <PopoverList
-            items={[
-              { id: 'allow', label: 'Allow' },
-              { id: 'ask', label: 'Ask' },
-            ]}
-            onPick={(id) => {
-              setPermissionMode(id === 'ask' ? 'ask' : 'allow');
-              setPicker(null);
-            }}
-          />
-        )}
-        {picker === 'mention' && (
-          <PopoverList
-            items={mentionHits.map((h) => ({ id: h.path, label: h.path }))}
-            onPick={(id) => {
-              setDraft((d) => `${d.replace(/@[^@]*$/, '')}@${id} `);
-              setFileParts((prev) => [
-                ...prev,
-                { type: 'file', mime: 'text/plain', url: `file://${id}`, filename: id.split('/').pop() },
-              ]);
-              setPicker(null);
-            }}
-            testId="mention-popover"
-          />
-        )}
-        {picker === 'slash' && (
-          <PopoverList
-            items={commands.map((c) => ({ id: c.name, label: `/${c.name}`, detail: c.description }))}
-            onPick={(id) => {
-              setDraft(`/${id} `);
-              setPicker(null);
-            }}
-          />
-        )}
+        <PickerPopover
+          open={picker === 'agent'}
+          anchorRef={agentPickerRef}
+          onClose={() => setPicker(null)}
+          items={agents.map((a) => ({ id: a.name, label: a.name, detail: a.description }))}
+          onPick={(id) => {
+            setAgent(id);
+            setPicker(null);
+          }}
+        />
+        <PickerPopover
+          open={picker === 'model'}
+          anchorRef={modelPickerRef}
+          onClose={() => setPicker(null)}
+          testId="model-popover"
+          items={filteredModels.map((m) => ({ id: m.label, label: m.label }))}
+          onPick={(id) => {
+            const hit = models.find((m) => m.label === id);
+            if (hit) setModel(hit);
+            setPicker(null);
+          }}
+        />
+        <PickerPopover
+          open={picker === 'permission'}
+          anchorRef={permissionPickerRef}
+          onClose={() => setPicker(null)}
+          items={[
+            { id: 'allow', label: 'Allow' },
+            { id: 'ask', label: 'Ask' },
+          ]}
+          onPick={(id) => {
+            setPermissionMode(id === 'ask' ? 'ask' : 'allow');
+            setPicker(null);
+          }}
+        />
+        <PickerPopover
+          open={picker === 'mention'}
+          anchorRef={mentionPickerRef}
+          onClose={() => setPicker(null)}
+          testId="mention-popover"
+          items={mentionHits.map((h) => ({ id: h.path, label: h.path }))}
+          onPick={(id) => {
+            setDraft((d) => `${d.replace(/@[^@]*$/, '')}@${id} `);
+            setFileParts((prev) => [
+              ...prev,
+              { type: 'file', mime: 'text/plain', url: `file://${id}`, filename: id.split('/').pop() },
+            ]);
+            setPicker(null);
+          }}
+        />
+        <PickerPopover
+          open={picker === 'slash'}
+          anchorRef={slashPickerRef}
+          onClose={() => setPicker(null)}
+          items={commands.map((c) => ({ id: c.name, label: `/${c.name}`, detail: c.description }))}
+          onPick={(id) => {
+            setDraft(`/${id} `);
+            setPicker(null);
+          }}
+        />
         {focused && (
           <p className="text-[11px] text-text-3 mt-1 px-0.5">
             Enter send · Shift+Enter newline · ! for shell · / for commands · @ for files
@@ -460,23 +486,20 @@ export function AgentComposerPanel({
   );
 }
 
-function Pill({
-  label,
-  sublabel,
-  onClick,
-  open,
-  testId,
-  wide,
-}: {
-  label: string;
-  sublabel?: string;
-  onClick: () => void;
-  open: boolean;
-  testId?: string;
-  wide?: boolean;
-}) {
+const Pill = forwardRef<
+  HTMLButtonElement,
+  {
+    label: string;
+    sublabel?: string;
+    onClick: () => void;
+    open: boolean;
+    testId?: string;
+    wide?: boolean;
+  }
+>(function Pill({ label, sublabel, onClick, open, testId, wide }, ref) {
   return (
     <button
+      ref={ref}
       type="button"
       data-testid={testId}
       className={`h-8 px-3 rounded-full border border-border-subtle bg-elevated text-meta hover:bg-hover inline-flex items-center gap-1 min-w-0 ${
@@ -488,34 +511,39 @@ function Pill({
       {sublabel && <span className="truncate text-text-3">{sublabel}</span>}
     </button>
   );
-}
+});
 
-function PopoverList({
+function PickerPopover({
+  open,
+  anchorRef,
+  onClose,
   items,
   onPick,
   testId,
 }: {
+  open: boolean;
+  anchorRef: RefObject<HTMLElement | null>;
+  onClose: () => void;
   items: { id: string; label: string; detail?: string }[];
   onPick: (id: string) => void;
   testId?: string;
 }) {
   return (
-    <div
-      className="mt-2 max-h-40 overflow-auto rounded-lg border border-border-subtle bg-elevated shadow-lg"
-      data-testid={testId}
-    >
-      {items.length === 0 && <p className="px-3 py-2 text-meta text-text-3">No matches</p>}
-      {items.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          className="w-full text-left px-3 py-2 hover:bg-hover text-body text-text"
-          onClick={() => onPick(item.id)}
-        >
-          <div>{item.label}</div>
-          {item.detail && <div className="text-meta text-text-3">{item.detail}</div>}
-        </button>
-      ))}
-    </div>
+    <AnchoredPopover open={open} anchorRef={anchorRef} onClose={onClose} testId={testId}>
+      <div className="max-h-40 overflow-auto">
+        {items.length === 0 && <p className="px-3 py-2 text-meta text-text-3">No matches</p>}
+        {items.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className="w-full text-left px-3 py-2 hover:bg-hover text-body text-text"
+            onClick={() => onPick(item.id)}
+          >
+            <div>{item.label}</div>
+            {item.detail && <div className="text-meta text-text-3">{item.detail}</div>}
+          </button>
+        ))}
+      </div>
+    </AnchoredPopover>
   );
 }

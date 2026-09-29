@@ -24,6 +24,7 @@ export function SessionRow({
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(session.title);
   const inputRef = useRef<HTMLInputElement>(null);
+  const menuAnchorRef = useRef<HTMLButtonElement>(null);
   const actions = useSessionActions();
 
   useEffect(() => {
@@ -97,6 +98,7 @@ export function SessionRow({
             <p className="text-[11px] leading-snug text-text-3 truncate pl-[18px] mt-0.5">{metaLine}</p>
           </button>
           <button
+            ref={menuAnchorRef}
             type="button"
             aria-label="Session menu"
             className="absolute right-1 top-1.5 p-0.5 rounded opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:bg-hover text-text-3 transition-opacity"
@@ -112,6 +114,7 @@ export function SessionRow({
       <SessionContextMenu
         session={session}
         open={menuOpen}
+        anchorRef={menuAnchorRef}
         onClose={() => setMenuOpen(false)}
         onStartRename={() => {
           setDraft(session.title);

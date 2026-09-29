@@ -345,6 +345,7 @@ export function AgentView({
           <TranscriptView
             vm={transcript}
             nativeTuiOnly={nativeTuiOnly}
+            projectRoot={paneCwd ?? null}
             onForkFromMessage={
               openCodePane && sessionId
                 ? (messageId) => {

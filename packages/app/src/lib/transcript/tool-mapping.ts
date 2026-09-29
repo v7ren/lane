@@ -50,7 +50,7 @@ export function normalizeToolPayload(
   if (name === 'read' || name === 'read_file') {
     return {
       input: {
-        path: stateIn?.path ?? stateIn?.file ?? input,
+        path: stateIn?.path ?? stateIn?.filePath ?? stateIn?.file ?? input,
         start: stateIn?.startLine ?? stateIn?.start,
         end: stateIn?.endLine ?? stateIn?.end,
       },

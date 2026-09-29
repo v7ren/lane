@@ -7,6 +7,7 @@ import { PersistentPaneSurfaces } from './PersistentPaneSurfaces';
 
 const disposeSpy = vi.fn();
 const terminalMountSpy = vi.fn();
+const nudgeReflowSpy = vi.fn();
 
 vi.mock('../terminal', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../terminal')>();
@@ -23,6 +24,7 @@ vi.mock('../terminal', async (importOriginal) => {
         disposeSpy();
       }
       nudgeReflow() {
+        nudgeReflowSpy();
         return true;
       }
       setPtyDimensions() {}
@@ -116,6 +118,19 @@ let container: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
+  if (typeof globalThis.ResizeObserver === 'undefined') {
+    globalThis.ResizeObserver = class {
+      private readonly cb: ResizeObserverCallback;
+      constructor(cb: ResizeObserverCallback) {
+        this.cb = cb;
+      }
+      observe(target: Element) {
+        this.cb([{ target } as ResizeObserverEntry], this);
+      }
+      disconnect() {}
+      unobserve() {}
+    } as typeof ResizeObserver;
+  }
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -126,6 +141,7 @@ afterEach(() => {
   container.remove();
   disposeSpy.mockClear();
   terminalMountSpy.mockClear();
+  nudgeReflowSpy.mockClear();
 });
 
 function renderSurfaces(props: Partial<ComponentProps<typeof PersistentPaneSurfaces>> = {}) {
@@ -198,6 +214,27 @@ describe('PersistentPaneSurfaces', () => {
     expect(parked.getAttribute('data-surface-visible')).toBe('0');
     expect(parked.className).toContain('absolute');
     expect(disposeSpy).not.toHaveBeenCalled();
+  });
+
+  it('sets agent TUI layout open when TUI is visible', () => {
+    renderSurfaces({ showTui: true, chatWidthPercent: 50 });
+    const layout = container.querySelector('[data-agent-tui-layout]');
+    expect(layout?.getAttribute('data-agent-tui-layout')).toBe('open');
+  });
+
+  it('nudges terminal reflow when TUI surface host is resized', async () => {
+    renderSurfaces({ showTui: true, chatWidthPercent: 40 });
+    const host = container.querySelector('[data-pane-surface-host="1"]') as HTMLElement;
+    expect(host).not.toBeNull();
+    nudgeReflowSpy.mockClear();
+    act(() => {
+      host.style.width = '320px';
+      host.getBoundingClientRect();
+    });
+    if (typeof ResizeObserver !== 'undefined') {
+      await new Promise((r) => setTimeout(r, 120));
+      expect(nudgeReflowSpy.mock.calls.length).toBeGreaterThan(0);
+    }
   });
 
   it('does not dispose when toggling TUI and layout epoch', () => {
