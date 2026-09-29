@@ -1,0 +1,105 @@
+{
+  "sse_inputs": [
+    {
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_fixture_hi",
+        "info": {
+          "id": "msg_user_hi",
+          "role": "user",
+          "time": { "created": 1790705276679 }
+        }
+      }
+    },
+    {
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_fixture_hi",
+        "part": {
+          "type": "text",
+          "text": "hi",
+          "messageID": "msg_user_hi"
+        }
+      }
+    },
+    {
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_fixture_hi",
+        "info": {
+          "id": "msg_user_hi",
+          "role": "user",
+          "time": { "created": 1790705276679, "completed": 1790705276680 }
+        }
+      }
+    },
+    {
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_fixture_hi",
+        "info": {
+          "id": "msg_asst_hi",
+          "role": "assistant",
+          "agent": "build",
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": { "created": 1790705276703 }
+        }
+      }
+    },
+    {
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_fixture_hi",
+        "part": {
+          "type": "reasoning",
+          "text": "Simple greeting; reply concisely.",
+          "messageID": "msg_asst_hi",
+          "time": { "start": 1790705280564, "end": 1790705282769 }
+        }
+      }
+    },
+    {
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_fixture_hi",
+        "part": {
+          "type": "text",
+          "text": "Hi!",
+          "messageID": "msg_asst_hi",
+          "time": { "start": 1790705282771, "end": 1790705282800 }
+        }
+      }
+    },
+    {
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_fixture_hi",
+        "part": {
+          "type": "step-finish",
+          "messageID": "msg_asst_hi",
+          "cost": 0.0010443776,
+          "tokens": { "input": 7226, "output": 4, "reasoning": 95 }
+        }
+      }
+    },
+    {
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_fixture_hi",
+        "info": {
+          "id": "msg_asst_hi",
+          "role": "assistant",
+          "agent": "build",
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": { "created": 1790705276703, "completed": 1790705282809 }
+        }
+      }
+    },
+    {
+      "type": "session.status",
+      "properties": { "sessionID": "ses_fixture_hi", "status": "idle" }
+    }
+  ]
+}

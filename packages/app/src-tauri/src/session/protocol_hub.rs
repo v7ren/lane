@@ -379,6 +379,8 @@ mod tests {
                 message_id: "m1".into(),
                 role: crate::protocol::MessageRole::Assistant,
                 text: text.to_string(),
+                content_kind: crate::protocol::MessageContentKind::Text,
+                text_mode: crate::protocol::MessageTextMode::Append,
             })
             .ok();
             thread::sleep(Duration::from_millis(5));

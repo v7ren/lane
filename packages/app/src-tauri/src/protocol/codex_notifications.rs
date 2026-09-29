@@ -119,6 +119,8 @@ pub fn map_codex_notification(
                     .to_string(),
                 role: MessageRole::Assistant,
                 text: text.to_string(),
+                content_kind: crate::protocol::MessageContentKind::Text,
+                text_mode: crate::protocol::MessageTextMode::Append,
             }]
         }
         "item/agentMessage/completed" | "thread/item/completed" => {
@@ -135,6 +137,8 @@ pub fn map_codex_notification(
                     .to_string(),
                 role: MessageRole::Assistant,
                 text: text.to_string(),
+                content_kind: crate::protocol::MessageContentKind::Text,
+                duration_ms: None,
             }]
         }
         "exec/command/requestApproval"

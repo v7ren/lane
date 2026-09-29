@@ -91,7 +91,9 @@ describe('agent contract fixture sequences', () => {
       if (typeNames.includes('message_delta') || typeNames.includes('message_completed')) {
         expect(vm.messages.length).toBeGreaterThan(0);
         const last = vm.messages[vm.messages.length - 1];
-        expect(last.streaming).toBe(typeNames.includes('message_completed') ? false : true);
+        const finalized =
+          typeNames.includes('message_completed') || typeNames.includes('turn_completed');
+        expect(last.streaming).toBe(finalized ? false : true);
       }
 
       if (typeNames.includes('tool_started') && typeNames.includes('tool_completed')) {

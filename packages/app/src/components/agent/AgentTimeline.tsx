@@ -1,9 +1,40 @@
 import { useState } from 'react';
 import type { ApprovalDecision } from '../../lib/agent-events';
-import type { AgentTimelineViewModel, TimelineTool } from '../../lib/agent-timeline-reducer';
+import type { AgentTimelineViewModel, TimelineMessage, TimelineTool } from '../../lib/agent-timeline-reducer';
+
+function formatReasoningLabel(message: TimelineMessage): string {
+  if (message.reasoningDurationMs != null) {
+    return `Thought · ${(message.reasoningDurationMs / 1000).toFixed(1)}s`;
+  }
+  return message.reasoningStreaming ? 'Thought…' : 'Thought';
+}
+
+function ReasoningBlock({ message }: { message: TimelineMessage }) {
+  const [open, setOpen] = useState(false);
+  if (!message.reasoning) return null;
+  return (
+    <div className="text-[11px] border border-lr-border/60 rounded-md overflow-hidden">
+      <button
+        type="button"
+        className="w-full flex items-center gap-1.5 px-2 py-1 text-left text-lr-warn hover:bg-lr-raised/40"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span className="text-lr-muted">{open ? '▾' : '▸'}</span>
+        <span>{formatReasoningLabel(message)}</span>
+      </button>
+      {open && (
+        <p className="px-2 pb-2 text-lr-muted whitespace-pre-wrap border-t border-lr-border/40">
+          {message.reasoning}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function ToolRow({ tool }: { tool: TimelineTool }) {
   const [open, setOpen] = useState(tool.status === 'running');
+  const label = tool.title ?? tool.name;
   return (
     <div className="rounded-lg border border-lr-border bg-lr-bg/60 text-xs">
       <button
@@ -13,7 +44,10 @@ function ToolRow({ tool }: { tool: TimelineTool }) {
         aria-expanded={open}
       >
         <span className="text-lr-muted">{open ? '▾' : '▸'}</span>
-        <span className="font-mono text-lr-accent">{tool.name}</span>
+        <span className="font-mono text-lr-accent">{label}</span>
+        {tool.status === 'pending' && (
+          <span className="text-[10px] text-lr-muted">pending</span>
+        )}
         {tool.status === 'running' && (
           <span className="text-[10px] text-lr-warn animate-pulse">running</span>
         )}
@@ -22,7 +56,9 @@ function ToolRow({ tool }: { tool: TimelineTool }) {
       </button>
       {open && (
         <div className="px-2.5 pb-2 space-y-1 text-lr-muted border-t border-lr-border/60">
-          <p className="whitespace-pre-wrap pt-1">{tool.inputSummary}</p>
+          {tool.inputSummary && (
+            <p className="whitespace-pre-wrap pt-1">{tool.inputSummary}</p>
+          )}
           {tool.outputSummary && (
             <p className="whitespace-pre-wrap text-lr-text">{tool.outputSummary}</p>
           )}
@@ -128,23 +164,37 @@ export function AgentTimeline({
       ))}
       {vm.messages.map((message) => {
         const isUser = message.role === 'user';
-        const text = message.text;
-        if (!text) return null;
+        const hasBody = Boolean(message.text || message.reasoning);
+        if (!hasBody) return null;
         return (
           <div key={message.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
             <div
-              className={`max-w-[92%] rounded-lg px-2.5 py-1.5 text-xs leading-relaxed whitespace-pre-wrap break-words border ${
+              className={`max-w-[92%] rounded-lg px-2.5 py-1.5 text-xs leading-relaxed whitespace-pre-wrap break-words border space-y-1.5 ${
                 isUser
                   ? 'bg-lr-accent/10 border-lr-accent/25 text-lr-text'
                   : 'bg-lr-bg border-lr-border text-lr-text'
               }`}
             >
-              {!isUser && (
-                <div className="text-[10px] uppercase tracking-wide text-lr-muted mb-0.5">
-                  Assistant{message.streaming ? ' · typing…' : ''}
+              {isUser ? (
+                <div className="text-[10px] uppercase tracking-wide text-lr-muted mb-0.5">You</div>
+              ) : (
+                <div className="text-[10px] text-lr-muted mb-0.5 space-y-0.5">
+                  {message.headerLine && <div>{message.headerLine}</div>}
+                  {message.streaming && (
+                    <div className="uppercase tracking-wide">Assistant · typing…</div>
+                  )}
                 </div>
               )}
-              {text}
+              {!isUser && <ReasoningBlock message={message} />}
+              {message.text && <div>{message.text}</div>}
+              {message.turnUsage && (
+                <p className="text-[10px] text-lr-muted pt-0.5">
+                  tokens in {message.turnUsage.input_tokens ?? '—'} · out{' '}
+                  {message.turnUsage.output_tokens ?? '—'}
+                  {message.turnUsage.cost_usd != null &&
+                    ` · $${message.turnUsage.cost_usd.toFixed(4)}`}
+                </p>
+              )}
             </div>
           </div>
         );
@@ -164,7 +214,7 @@ export function AgentTimeline({
           ))}
         </div>
       )}
-      {vm.usage && (
+      {vm.usage && !vm.messages.some((m) => m.turnUsage) && (
         <p className="text-[10px] text-lr-muted">
           tokens in {vm.usage.input_tokens ?? '—'} · out {vm.usage.output_tokens ?? '—'}
           {vm.usage.cost_usd != null && ` · $${vm.usage.cost_usd.toFixed(4)}`}

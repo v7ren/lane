@@ -238,6 +238,8 @@ impl ClaudeStreamMapper {
                         message_id: self.message_id.clone(),
                         role: MessageRole::Assistant,
                         text,
+                        content_kind: crate::protocol::MessageContentKind::Text,
+                        text_mode: crate::protocol::MessageTextMode::Append,
                     });
                 }
             }
@@ -258,6 +260,8 @@ impl ClaudeStreamMapper {
                         .get("input")
                         .map(|v| v.to_string())
                         .unwrap_or_default(),
+                    tool_state: None,
+                    title: None,
                 });
             }
             Some("tool_result") => {
@@ -273,6 +277,8 @@ impl ClaudeStreamMapper {
                         .get("content")
                         .map(|v| v.to_string())
                         .unwrap_or_default(),
+                    tool_state: None,
+                    title: None,
                 });
             }
             Some("result") => {
@@ -327,6 +333,8 @@ fn finish_turn(
             message_id: message_id.to_string(),
             role: MessageRole::Assistant,
             text: assistant_text.to_string(),
+            content_kind: crate::protocol::MessageContentKind::Text,
+            duration_ms: None,
         });
     }
     if let Some(usage) = usage {

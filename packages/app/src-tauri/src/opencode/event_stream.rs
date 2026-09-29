@@ -1,7 +1,8 @@
 //! OpenCode `/event` SSE stream reader.
 
-use super::event_map::map_opencode_event;
+use super::event_map::{map_opencode_event, OpenCodeMapperState};
 use crate::protocol::AgentEvent;
+use parking_lot::Mutex;
 use std::io::{BufRead, BufReader};
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
@@ -15,6 +16,7 @@ pub fn spawn_event_reader(
     tx: broadcast::Sender<AgentEvent>,
     turn_counter: Arc<AtomicU64>,
 ) -> thread::JoinHandle<()> {
+    let mapper_state = Arc::new(Mutex::new(OpenCodeMapperState::default()));
     thread::Builder::new()
         .name("opencode-sse".into())
         .spawn(move || {
@@ -36,7 +38,8 @@ pub fn spawn_event_reader(
                     let Ok(value) = serde_json::from_str::<serde_json::Value>(data) else {
                         continue;
                     };
-                    for event in map_opencode_event(&value, &session_id, &turn_counter) {
+                    let mut state = mapper_state.lock();
+                    for event in map_opencode_event(&value, &session_id, &turn_counter, &mut state) {
                         let _ = tx.send(event);
                     }
                 }

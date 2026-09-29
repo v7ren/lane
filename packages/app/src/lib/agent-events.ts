@@ -9,6 +9,9 @@ export type Capabilities = {
   attach_tui: boolean;
 };
 
+export type MessageContentKind = 'text' | 'reasoning';
+export type MessageTextMode = 'append' | 'replace';
+
 export type AgentEvent =
   | { type: 'turn_started'; turn_id: string }
   | {
@@ -17,6 +20,8 @@ export type AgentEvent =
       message_id: string;
       role: 'assistant' | 'user';
       text: string;
+      content_kind?: MessageContentKind;
+      text_mode?: MessageTextMode;
     }
   | {
       type: 'message_completed';
@@ -24,6 +29,17 @@ export type AgentEvent =
       message_id: string;
       role: 'assistant' | 'user';
       text: string;
+      content_kind?: MessageContentKind;
+      duration_ms?: number;
+    }
+  | {
+      type: 'message_meta';
+      turn_id: string;
+      message_id: string;
+      agent?: string;
+      model?: string;
+      provider?: string;
+      duration_ms?: number;
     }
   | {
       type: 'tool_started';
@@ -31,6 +47,8 @@ export type AgentEvent =
       tool_id: string;
       name: string;
       input_summary: string;
+      tool_state?: string;
+      title?: string;
     }
   | {
       type: 'tool_completed';
@@ -38,6 +56,8 @@ export type AgentEvent =
       tool_id: string;
       status: 'ok' | 'error';
       output_summary: string;
+      tool_state?: string;
+      title?: string;
     }
   | {
       type: 'approval_requested';

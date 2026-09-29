@@ -1,6 +1,6 @@
 //! Replay sanitized live captures and raw SSE/WS payloads through mappers + contract checks.
 
-use loomria_app_lib::opencode::event_map::map_opencode_event;
+use loomria_app_lib::opencode::event_map::{map_opencode_event, OpenCodeMapperState};
 use loomria_app_lib::protocol::codex_notifications::{map_codex_notification, map_codex_server_request};
 use loomria_app_lib::protocol::claude_stream_json::ClaudeStreamMapper;
 use loomria_app_lib::protocol::{
@@ -85,15 +85,17 @@ fn replay_opencode_mapper_prompt_sequence() {
     let session_id = "ses_test";
     let counter = Arc::new(AtomicU64::new(1));
     let inputs = [
+        serde_json::json!({"type":"message.updated","properties":{"sessionID":session_id,"info":{"id":"m1","role":"assistant"}}}),
         serde_json::json!({"type":"message.part.updated","properties":{"sessionID":session_id,"part":{"type":"text","text":"ok","messageID":"m1","done":false}}}),
         serde_json::json!({"type":"message.part.updated","properties":{"sessionID":session_id,"part":{"type":"text","text":"ok","messageID":"m1","done":true}}}),
         serde_json::json!({"type":"session.status","properties":{"sessionID":session_id,"status":"idle"}}),
     ];
+    let mut state = OpenCodeMapperState::default();
     let mut events = vec![AgentEvent::TurnStarted {
         turn_id: "1".into(),
     }];
     for input in inputs {
-        events.extend(map_opencode_event(&input, session_id, &counter));
+        events.extend(map_opencode_event(&input, session_id, &counter, &mut state));
     }
     assert_prompt_turn_contract(&events, Some("ok"));
 }
@@ -102,6 +104,7 @@ fn replay_opencode_mapper_prompt_sequence() {
 fn replay_opencode_mapper_approval_sequence() {
     let session_id = "ses_test";
     let counter = Arc::new(AtomicU64::new(1));
+    let mut state = OpenCodeMapperState::default();
     let mut events = vec![AgentEvent::TurnStarted {
         turn_id: "1".into(),
     }];
@@ -109,6 +112,7 @@ fn replay_opencode_mapper_approval_sequence() {
         &serde_json::json!({"type":"permission.asked","properties":{"sessionID":session_id,"id":"perm1","type":"bash","pattern":"echo hi"}}),
         session_id,
         &counter,
+        &mut state,
     ));
     events.push(AgentEvent::ApprovalResolved {
         approval_id: "perm1".into(),
@@ -118,8 +122,60 @@ fn replay_opencode_mapper_approval_sequence() {
         &serde_json::json!({"type":"session.status","properties":{"sessionID":session_id,"status":"idle"}}),
         session_id,
         &counter,
+        &mut state,
     ));
     assert_approval_flow_contract(&events);
+}
+
+#[test]
+fn replay_opencode_hi_chat_mapper_sequence() {
+    let session_id = "ses_fixture_hi";
+    let counter = Arc::new(AtomicU64::new(1));
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/live/opencode_hi_chat.json");
+    let raw = fs::read_to_string(path).expect("read fixture");
+    let doc: Value = serde_json::from_str(&raw).expect("parse fixture");
+    let inputs = doc
+        .get("sse_inputs")
+        .and_then(|v| v.as_array())
+        .expect("sse_inputs");
+    let mut state = OpenCodeMapperState::default();
+    let mut events = vec![AgentEvent::TurnStarted {
+        turn_id: "1".into(),
+    }];
+    for input in inputs {
+        events.extend(map_opencode_event(input, session_id, &counter, &mut state));
+    }
+    use loomria_app_lib::protocol::{MessageContentKind, MessageRole};
+    assert!(
+        events.iter().any(|e| {
+            matches!(
+                e,
+                AgentEvent::MessageCompleted {
+                    role: MessageRole::User,
+                    content_kind: MessageContentKind::Text,
+                    ..
+                }
+            )
+        }),
+        "user message completed"
+    );
+    assert!(
+        events.iter().any(|e| {
+            matches!(
+                e,
+                AgentEvent::MessageCompleted {
+                    role: MessageRole::Assistant,
+                    content_kind: MessageContentKind::Reasoning,
+                    ..
+                }
+            )
+        }),
+        "reasoning completed"
+    );
+    assert!(events.iter().any(|e| matches!(e, AgentEvent::MessageMeta { .. })));
+    assert!(events.iter().any(|e| matches!(e, AgentEvent::Usage { .. })));
+    assert_prompt_turn_contract(&events, Some("Hi!"));
 }
 
 #[test]

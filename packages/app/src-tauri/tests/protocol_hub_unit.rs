@@ -95,6 +95,8 @@ fn hub_seq_ring_and_coalesce() {
 
     for text in ["a", "ab", "abc"] {
         tx.send(AgentEvent::MessageDelta {
+            content_kind: loomria_app_lib::protocol::MessageContentKind::Text,
+            text_mode: loomria_app_lib::protocol::MessageTextMode::Append,
             turn_id: "t".into(),
             message_id: "m1".into(),
             role: MessageRole::Assistant,

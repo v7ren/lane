@@ -70,24 +70,52 @@ pub enum AgentEvent {
         message_id: String,
         role: MessageRole,
         text: String,
+        #[serde(default)]
+        content_kind: MessageContentKind,
+        #[serde(default)]
+        text_mode: MessageTextMode,
     },
     MessageCompleted {
         turn_id: String,
         message_id: String,
         role: MessageRole,
         text: String,
+        #[serde(default)]
+        content_kind: MessageContentKind,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        duration_ms: Option<u64>,
+    },
+    MessageMeta {
+        turn_id: String,
+        message_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        agent: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        model: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        provider: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        duration_ms: Option<u64>,
     },
     ToolStarted {
         turn_id: String,
         tool_id: String,
         name: String,
         input_summary: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tool_state: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
     },
     ToolCompleted {
         turn_id: String,
         tool_id: String,
         status: ToolStatus,
         output_summary: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tool_state: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
     },
     ApprovalRequested {
         approval_id: String,
@@ -132,6 +160,22 @@ pub enum AgentEvent {
 pub enum MessageRole {
     Assistant,
     User,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum MessageContentKind {
+    #[default]
+    Text,
+    Reasoning,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum MessageTextMode {
+    #[default]
+    Append,
+    Replace,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -219,24 +263,40 @@ mod tests {
                 message_id: "m1".into(),
                 role: MessageRole::Assistant,
                 text: "hi".into(),
+                content_kind: MessageContentKind::Text,
+                text_mode: MessageTextMode::Append,
             },
             AgentEvent::MessageCompleted {
                 turn_id: "t1".into(),
                 message_id: "m1".into(),
                 role: MessageRole::Assistant,
                 text: "hello".into(),
+                content_kind: MessageContentKind::Text,
+                duration_ms: None,
+            },
+            AgentEvent::MessageMeta {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                agent: Some("build".into()),
+                model: Some("mimo-v2.5".into()),
+                provider: Some("opencode-go".into()),
+                duration_ms: Some(6100),
             },
             AgentEvent::ToolStarted {
                 turn_id: "t1".into(),
                 tool_id: "tool1".into(),
                 name: "bash".into(),
                 input_summary: "ls".into(),
+                tool_state: Some("running".into()),
+                title: None,
             },
             AgentEvent::ToolCompleted {
                 turn_id: "t1".into(),
                 tool_id: "tool1".into(),
                 status: ToolStatus::Ok,
                 output_summary: "ok".into(),
+                tool_state: Some("completed".into()),
+                title: None,
             },
             AgentEvent::ApprovalRequested {
                 approval_id: "a1".into(),
@@ -286,6 +346,7 @@ mod tests {
             AgentEvent::TurnStarted { .. } => "turn_started",
             AgentEvent::MessageDelta { .. } => "message_delta",
             AgentEvent::MessageCompleted { .. } => "message_completed",
+            AgentEvent::MessageMeta { .. } => "message_meta",
             AgentEvent::ToolStarted { .. } => "tool_started",
             AgentEvent::ToolCompleted { .. } => "tool_completed",
             AgentEvent::ApprovalRequested { .. } => "approval_requested",

@@ -1,6 +1,6 @@
 //! Shared turn / prompt assertions for live runs and fixture replay.
 
-use super::{AgentEvent, MessageRole, TurnStatus};
+use super::{AgentEvent, MessageContentKind, MessageRole, TurnStatus};
 
 const TURN_SCOPED: &[&str] = &[
     "turn_started",
@@ -18,6 +18,7 @@ fn event_type(event: &AgentEvent) -> &'static str {
         AgentEvent::TurnStarted { .. } => "turn_started",
         AgentEvent::MessageDelta { .. } => "message_delta",
         AgentEvent::MessageCompleted { .. } => "message_completed",
+        AgentEvent::MessageMeta { .. } => "message_meta",
         AgentEvent::ToolStarted { .. } => "tool_started",
         AgentEvent::ToolCompleted { .. } => "tool_completed",
         AgentEvent::ApprovalRequested { .. } => "approval_requested",
@@ -46,8 +47,18 @@ pub fn assemble_assistant_text(events: &[AgentEvent]) -> String {
     let mut parts = Vec::new();
     for event in events {
         match event {
-            AgentEvent::MessageDelta { role, text, .. }
-            | AgentEvent::MessageCompleted { role, text, .. } if *role == MessageRole::Assistant => {
+            AgentEvent::MessageDelta {
+                role,
+                text,
+                content_kind: MessageContentKind::Text,
+                ..
+            }
+            | AgentEvent::MessageCompleted {
+                role,
+                text,
+                content_kind: MessageContentKind::Text,
+                ..
+            } if *role == MessageRole::Assistant => {
                 parts.push(text.as_str());
             }
             _ => {}
