@@ -30,7 +30,7 @@ Fresh `git clone` + `npm install` alone is **not** sufficient for green verifica
 
 ### app / four-pane smoke
 
-- **Manual (operator):** launch Claude, Codex, OpenCode, PowerShell panes — type, resize, kill each. Record: _pending operator run at gate 0._
+- **Manual (operator):** launch Claude, Codex, OpenCode, PowerShell panes — type, resize, kill each. Record: _not automated in CI; run before release gates on a dev machine with agents installed._
 - **Fake-agent smoke:** use `scripts/fixtures/fake-agent.mjs` via manifest after Phase 5.
 
 ### orphan check (`scripts/orphan-check.ps1`)
