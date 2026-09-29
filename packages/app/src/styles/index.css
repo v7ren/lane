@@ -260,3 +260,23 @@ body,
 .lr-agent-panel {
   min-width: 0;
 }
+
+.lr-rail-needs-approval {
+  box-shadow: inset 0 0 0 1px rgb(var(--lr-warn) / 0.22);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lr-rail-needs-approval {
+    animation: lr-rail-glow 2s ease-in-out infinite;
+  }
+}
+
+@keyframes lr-rail-glow {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1px rgb(var(--lr-warn) / 0.22);
+  }
+  50% {
+    box-shadow: inset 0 0 0 1px rgb(var(--lr-warn) / 0.45);
+  }
+}

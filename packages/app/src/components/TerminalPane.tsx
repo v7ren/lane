@@ -21,6 +21,7 @@ interface Props {
   onOpenAgent?: (paneId: string) => void;
   reflowKey?: number | string;
   displayStatus?: DisplayStatus;
+  chromeTitle?: string;
   compactChrome?: boolean;
 }
 
@@ -51,6 +52,7 @@ export function TerminalPane({
   onOpenAgent,
   reflowKey,
   displayStatus,
+  chromeTitle,
   compactChrome = false,
 }: Props) {
   const [switching, setSwitching] = useState(false);
@@ -104,7 +106,7 @@ export function TerminalPane({
             ))}
           </select>
           <span className="text-lr-muted truncate" title={pane.info.cwd}>
-            {preset?.label ?? pane.info.agent_type} · pid {pane.info.pid}
+            {chromeTitle ?? preset?.label ?? pane.info.agent_type} · pid {pane.info.pid}
           </span>
           <div className="flex-1" />
           {onOpenAgent && (

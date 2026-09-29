@@ -5,12 +5,12 @@ export type AppMode = 'workspace' | 'agent';
 export function useWorkspaceMode() {
   const [mode, setMode] = useState<AppMode>('workspace');
   const [agentPaneId, setAgentPaneId] = useState<string | null>(null);
-  const [showTui, setShowTui] = useState(true);
+  const [showTui, setShowTui] = useState(false);
 
   const enterAgentMode = useCallback((paneId: string) => {
     setAgentPaneId(paneId);
     setMode('agent');
-    setShowTui(true);
+    setShowTui(false);
   }, []);
 
   const exitToWorkspace = useCallback(() => {

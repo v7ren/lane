@@ -58,17 +58,18 @@ function pane(
   id: string,
   agent_type: string,
   status: PaneData['status'],
+  opts?: { pid?: number; cwd?: string },
 ): PaneData {
   const now = Date.now();
   return {
     info: {
       id,
       agent_type,
-      pid: 1000 + id.length,
+      pid: opts?.pid ?? 1000 + id.length,
       status,
       created_at: now - 60_000,
       last_output_at: now,
-      cwd: 'C:\\Users\\demo\\loomria',
+      cwd: opts?.cwd ?? 'C:\\Users\\demo\\loomria',
       cols: 120,
       rows: 32,
     },
@@ -191,11 +192,17 @@ export function buildDemoFixtures(variant: DemoVariant): DemoFixtures {
   };
 
   const paneList: PaneData[] = [
-    pane(paneIds.codex, 'codex', 'running'),
-    pane(paneIds.claude, 'claude', 'idle'),
-    pane(paneIds.opencode, 'opencode_native', 'waiting_input'),
-    pane(paneIds.shell, 'powershell', 'idle'),
-    pane(paneIds.codexRate, 'codex', 'running'),
+    pane(paneIds.codex, 'codex', 'running', {
+      pid: 1011,
+      cwd: 'C:\\Users\\demo\\loomria\\packages\\api',
+    }),
+    pane(paneIds.claude, 'claude', 'idle', { pid: 1020 }),
+    pane(paneIds.opencode, 'opencode_native', 'waiting_input', { pid: 1030 }),
+    pane(paneIds.shell, 'powershell', 'idle', { pid: 1040 }),
+    pane(paneIds.codexRate, 'codex', 'running', {
+      pid: 1013,
+      cwd: 'C:\\Users\\demo\\loomria\\packages\\web',
+    }),
   ];
 
   const now = Date.now();

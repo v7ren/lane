@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { listLaunchPresets, type AgentCatalog, type AgentId } from '@loomria/shared';
 import type { AppMode } from '../hooks/useWorkspaceMode';
 import type { PaneData, PaneRegistryApi } from '../hooks/usePaneRegistry';
 import type { SessionRailState } from '../hooks/useSessionRail';
 import { mergePaneAndSessionStatus } from '../lib/display-status';
+import { AgentTuiHeader, AgentTuiPlaceholder } from './agent/AgentTuiColumn';
 import { TerminalPane } from './TerminalPane';
 
 interface Props {
@@ -15,6 +16,9 @@ interface Props {
   registry: PaneRegistryApi;
   projectPath: string | null;
   sessionStates: Map<string, SessionRailState>;
+  agentPaneTitle: string | null;
+  tuiSurfaceLive: boolean;
+  onHideTui: () => void;
   onClosePane: (paneId: string) => void;
   onEnterAgent: (paneId: string) => void;
 }
@@ -28,6 +32,9 @@ export function PersistentPaneSurfaces({
   registry,
   projectPath,
   sessionStates,
+  agentPaneTitle,
+  tuiSurfaceLive,
+  onHideTui,
   onClosePane,
   onEnterAgent,
 }: Props) {
@@ -38,22 +45,15 @@ export function PersistentPaneSurfaces({
   const workspaceGridClass =
     mode === 'workspace'
       ? 'grid grid-cols-1 xl:grid-cols-2 gap-2 auto-rows-[minmax(260px,auto)] p-2'
-      : 'relative flex-1 min-h-0';
+      : 'relative flex-1 min-w-0 min-h-0 flex flex-col';
 
   const addPane = async (agent: AgentId) => {
     setShowAdd(false);
     await spawnPane({ agent_type: agent, cwd: projectPath ?? undefined });
   };
 
-  const paneStatusMap = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const p of panes) m.set(p.info.id, p.status);
-    return m;
-  }, [panes]);
-
   useEffect(() => {
     if (mode !== 'agent' || !showTui || !agentPaneId) return;
-    // reflow handled via layoutEpoch on TerminalPane
   }, [agentPaneId, mode, showTui, layoutEpoch]);
 
   return (
@@ -66,38 +66,49 @@ export function PersistentPaneSurfaces({
         const hiddenInAgent = mode === 'agent' && (!isSelected || !showTui);
         const session = sessionStates.get(pane.info.id);
         const displayStatus = mergePaneAndSessionStatus(pane.status, session?.state);
+        const agentTuiVisible = mode === 'agent' && isSelected && showTui;
 
         let surfaceClass =
-          'resize-both min-w-[300px] min-h-[220px] h-[260px] overflow-hidden rounded-lg border border-lr-border/60 lr-pane-surface';
+          'resize-both min-w-[300px] min-h-[220px] h-[260px] overflow-hidden rounded-lg border border-lr-border/60 lr-pane-surface flex flex-col';
         if (mode === 'agent') {
           if (hiddenInAgent) {
             surfaceClass =
-              'lr-pane-surface lr-pane-surface--parked absolute -left-[10000px] w-[480px] h-[320px] opacity-0 pointer-events-none overflow-hidden';
+              'lr-pane-surface lr-pane-surface--parked absolute -left-[10000px] w-[480px] h-[320px] opacity-0 pointer-events-none overflow-hidden flex flex-col';
           } else {
             surfaceClass =
-              'lr-pane-surface lr-pane-surface--agent-tui flex-1 min-w-0 min-h-0 h-full rounded-none border-0 resize-none overflow-hidden';
+              'lr-pane-surface lr-pane-surface--agent-tui flex-1 min-w-0 min-h-0 h-full rounded-none border-0 border-l border-lr-border resize-none overflow-hidden flex flex-col bg-lr-bg';
           }
         }
 
         return (
           <div key={pane.info.id} className={surfaceClass} data-pane-id={pane.info.id}>
-            <TerminalPane
-              agentCatalog={agentCatalog}
-              pane={pane}
-              subscribePaneData={registry.subscribePaneData}
-              onClose={onClosePane}
-              onSwitchAgent={(id, agent) =>
-                void replacePaneAgent(id, agent, projectPath ?? undefined)
-              }
-              onOpenAgent={() => onEnterAgent(pane.info.id)}
-              displayStatus={displayStatus}
-              compactChrome={mode === 'agent' && isSelected}
-              reflowKey={`${layoutEpoch}-${mode}-${showTui ? 'tui' : 'chat'}`}
-            />
+            {agentTuiVisible && (
+              <AgentTuiHeader
+                agentLabel={agentPaneTitle ?? pane.info.agent_type}
+                onHide={onHideTui}
+              />
+            )}
+            <div className="relative flex-1 min-h-0 flex flex-col">
+              {agentTuiVisible && !tuiSurfaceLive && <AgentTuiPlaceholder />}
+              <TerminalPane
+                agentCatalog={agentCatalog}
+                pane={pane}
+                subscribePaneData={registry.subscribePaneData}
+                onClose={onClosePane}
+                onSwitchAgent={(id, agent) =>
+                  void replacePaneAgent(id, agent, projectPath ?? undefined)
+                }
+                onOpenAgent={() => onEnterAgent(pane.info.id)}
+                displayStatus={displayStatus}
+                chromeTitle={agentPaneTitle ?? undefined}
+                compactChrome={agentTuiVisible}
+                reflowKey={`${layoutEpoch}-${mode}-${showTui ? 'tui' : 'chat'}`}
+              />
+            </div>
           </div>
         );
       })}
-      {mode === 'workspace' && (
+      {mode === 'workspace' && panes.length > 0 && (
         <div className="relative min-h-[220px]">
           <button
             type="button"

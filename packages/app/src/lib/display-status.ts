@@ -44,25 +44,87 @@ export function mergePaneAndSessionStatus(
   return 'idle';
 }
 
-export function displayStatusCssVar(status: DisplayStatus): string {
+export function displayStatusDotClass(status: DisplayStatus): string {
   switch (status) {
     case 'needs_approval':
-      return 'var(--lr-status-warn)';
+      return 'bg-lr-warn';
     case 'error':
-      return 'var(--lr-status-err)';
+      return 'bg-lr-err';
     case 'rate_limited':
-      return 'var(--lr-status-info)';
+      return 'bg-lr-info';
     case 'working':
-      return 'var(--lr-status-accent)';
+      return 'bg-lr-accent';
     case 'done':
-      return 'var(--lr-status-ok)';
+      return 'bg-lr-ok';
     case 'idle':
-      return 'var(--lr-status-muted)';
+      return 'bg-lr-muted';
     case 'connecting':
-      return 'var(--lr-status-muted)';
+      return 'bg-lr-muted/70';
     default: {
       const _exhaustive: never = status;
       return _exhaustive;
     }
   }
+}
+
+export function displayStatusTextClass(status: DisplayStatus): string {
+  switch (status) {
+    case 'needs_approval':
+      return 'text-lr-warn font-semibold';
+    case 'error':
+      return 'text-lr-err font-medium';
+    case 'rate_limited':
+      return 'text-lr-info font-medium';
+    case 'working':
+      return 'text-lr-accent';
+    case 'done':
+      return 'text-lr-ok';
+    case 'idle':
+      return 'text-lr-muted';
+    case 'connecting':
+      return 'text-lr-muted';
+    default: {
+      const _exhaustive: never = status;
+      return _exhaustive;
+    }
+  }
+}
+
+export function displayStatusRailAccentClass(status: DisplayStatus): string {
+  switch (status) {
+    case 'needs_approval':
+      return 'border-l-lr-warn';
+    case 'error':
+      return 'border-l-lr-err';
+    case 'rate_limited':
+      return 'border-l-lr-info';
+    case 'working':
+      return 'border-l-lr-accent';
+    case 'done':
+      return 'border-l-lr-ok';
+    case 'idle':
+      return 'border-l-lr-muted/60';
+    case 'connecting':
+      return 'border-l-lr-muted/40';
+    default: {
+      const _exhaustive: never = status;
+      return _exhaustive;
+    }
+  }
+}
+
+export function displayStatusRailSurfaceClass(status: DisplayStatus, selected: boolean): string {
+  if (status === 'needs_approval') {
+    return selected
+      ? 'border-lr-warn/55 bg-lr-warn/12 lr-rail-needs-approval'
+      : 'border-lr-warn/40 bg-lr-warn/8 lr-rail-needs-approval';
+  }
+  if (status === 'error') {
+    return selected ? 'border-lr-err/50 bg-lr-err/10' : 'border-lr-err/35 bg-lr-err/5';
+  }
+  if (status === 'rate_limited') {
+    return selected ? 'border-lr-info/45 bg-lr-info/10' : 'border-lr-info/30 bg-lr-info/5';
+  }
+  if (selected) return 'border-lr-accent/50 bg-lr-accent/10';
+  return 'border-lr-border/60 bg-lr-bg/40 hover:bg-lr-raised/60';
 }

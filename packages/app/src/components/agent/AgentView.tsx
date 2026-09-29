@@ -18,7 +18,9 @@ export function AgentView({
   agentCatalog,
   paneStatus,
   sessionState,
+  paneTitle,
   showTui,
+  chatWidthPercent,
   onToggleTui,
   onExitWorkspace,
   muted,
@@ -28,7 +30,9 @@ export function AgentView({
   agentCatalog: AgentCatalog;
   paneStatus?: string;
   sessionState?: SessionRailState | null;
+  paneTitle?: string | null;
   showTui: boolean;
+  chatWidthPercent?: number;
   onToggleTui: () => void;
   onExitWorkspace: () => void;
   muted: boolean;
@@ -45,6 +49,7 @@ export function AgentView({
 
   const displayStatus = mergePaneAndSessionStatus(paneStatus, railState);
   const agentLabel =
+    paneTitle ??
     getPreset(agentCatalog, (sessionState?.agent_type as never) ?? 'powershell')?.label ??
     sessionState?.agent_type ??
     'Session';
@@ -133,9 +138,16 @@ export function AgentView({
 
   return (
     <div
-      className={`flex flex-col min-h-0 bg-lr-panel border-lr-border lr-agent-panel ${
-        showTui ? 'w-[min(52%,42rem)] border-r' : 'flex-1'
+      className={`flex flex-col min-h-0 bg-lr-panel border-lr-border lr-agent-panel shrink-0 ${
+        showTui ? 'border-r' : 'flex-1 min-w-0'
       }`}
+      style={
+        showTui && chatWidthPercent != null
+          ? { flex: `0 0 ${chatWidthPercent}%`, maxWidth: '78%', minWidth: '38%' }
+          : showTui
+            ? { flex: '0 0 60%', maxWidth: '78%', minWidth: '38%' }
+            : undefined
+      }
     >
       <div className="flex items-center gap-2 px-3 py-2 border-b border-lr-border shrink-0">
         <DisplayStatusDot status={displayStatus} pulse={displayStatus === 'needs_approval'} />

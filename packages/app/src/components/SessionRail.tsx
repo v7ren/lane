@@ -3,6 +3,9 @@ import type { SessionRailState } from '../hooks/useSessionRail';
 import {
   DISPLAY_STATUS_LABEL,
   DISPLAY_STATUS_ORDER,
+  displayStatusRailAccentClass,
+  displayStatusRailSurfaceClass,
+  displayStatusTextClass,
   mergePaneAndSessionStatus,
   type DisplayStatus,
 } from '../lib/display-status';
@@ -76,25 +79,16 @@ export function SessionRail({
               key={row.pane_id}
               type="button"
               onClick={() => onSelect(row.pane_id)}
-              className={`w-full text-left rounded-lg px-2 py-2 border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-lr-accent/50 ${
-                selected
-                  ? 'border-lr-accent/50 bg-lr-accent/10'
-                  : 'border-lr-border/60 bg-lr-bg/40 hover:bg-lr-raised/60'
-              }`}
+              className={`w-full text-left rounded-lg px-2 py-2 border border-l-4 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-lr-accent/50 ${displayStatusRailAccentClass(status)} ${displayStatusRailSurfaceClass(status, selected)}`}
               title={row.detail ?? row.pane_id}
             >
               <div className="flex items-center gap-2">
                 <DisplayStatusDot status={status} pulse={status === 'needs_approval'} />
                 <span className="text-xs font-medium text-lr-text truncate flex-1">{title}</span>
-                {status === 'needs_approval' && (
-                  <span className="text-[9px] uppercase font-semibold text-lr-warn lr-status-pulse px-1 rounded bg-lr-warn/15">
-                    !
-                  </span>
-                )}
               </div>
-              <div className="mt-0.5 flex items-center justify-between gap-1 pl-4">
+              <div className="mt-0.5 flex items-center justify-between gap-1 pl-[18px]">
                 <span className="text-[10px] text-lr-muted truncate">{agentLabel}</span>
-                <span className="text-[10px] text-lr-muted shrink-0">
+                <span className={`text-[10px] shrink-0 ${displayStatusTextClass(status)}`}>
                   {DISPLAY_STATUS_LABEL[status]}
                 </span>
               </div>

@@ -96,6 +96,9 @@ describe('PersistentPaneSurfaces', () => {
           registry={registry}
           projectPath={null}
           sessionStates={new Map()}
+          agentPaneTitle={null}
+          tuiSurfaceLive={false}
+          onHideTui={() => {}}
           onClosePane={() => {}}
           onEnterAgent={() => {}}
         />,
@@ -110,12 +113,15 @@ describe('PersistentPaneSurfaces', () => {
         <PersistentPaneSurfaces
           mode="agent"
           agentPaneId="pane-a"
-          showTui={true}
+          showTui={false}
           layoutEpoch={1}
           agentCatalog={agentCatalog}
           registry={registry}
           projectPath={null}
           sessionStates={new Map()}
+          agentPaneTitle="Pane A"
+          tuiSurfaceLive={false}
+          onHideTui={() => {}}
           onClosePane={() => {}}
           onEnterAgent={() => {}}
         />,

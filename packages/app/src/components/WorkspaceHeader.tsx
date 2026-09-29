@@ -8,7 +8,7 @@ interface Props {
   agentCatalog: AgentCatalog;
   projectPath: string | null;
   mode: AppMode;
-  onModeToggle: () => void;
+  onModeChange: (mode: AppMode) => void;
   canEnterAgent: boolean;
   onProjectPathChange: (path: string) => Promise<void>;
   onKillAll: () => void;
@@ -20,7 +20,7 @@ export function WorkspaceHeader({
   agentCatalog,
   projectPath,
   mode,
-  onModeToggle,
+  onModeChange,
   canEnterAgent,
   onProjectPathChange,
   onKillAll,
@@ -43,19 +43,40 @@ export function WorkspaceHeader({
 
   return (
     <header className="flex items-center gap-2 px-3 py-2 border-b border-lr-border bg-lr-panel shrink-0">
-      <span className="text-sm font-semibold tracking-tight text-lr-text">Loomria</span>
-      <span className="text-[10px] uppercase tracking-wider text-lr-muted px-1.5 py-0.5 rounded border border-lr-border">
-        {mode === 'workspace' ? 'Workspace' : 'Agent'}
-      </span>
-      <button
-        type="button"
-        disabled={!canEnterAgent && mode === 'workspace'}
-        onClick={onModeToggle}
-        className="px-2 py-1 text-xs rounded-md border border-lr-border bg-lr-bg hover:bg-lr-raised disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-lr-accent/50"
-        aria-label={mode === 'workspace' ? 'Switch to Agent Mode' : 'Switch to Workspace Mode'}
+      <span className="text-sm font-semibold tracking-tight text-lr-text mr-1">Loomria</span>
+      <div
+        className="inline-flex rounded-md border border-lr-border bg-lr-bg p-0.5"
+        role="tablist"
+        aria-label="Workspace mode"
       >
-        {mode === 'workspace' ? 'Agent mode' : 'Workspace'}
-      </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'workspace'}
+          onClick={() => onModeChange('workspace')}
+          className={`px-2.5 py-1 text-xs rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-lr-accent/50 ${
+            mode === 'workspace'
+              ? 'bg-lr-raised text-lr-text font-medium shadow-sm'
+              : 'text-lr-muted hover:text-lr-text'
+          }`}
+        >
+          Workspace
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'agent'}
+          disabled={!canEnterAgent && mode === 'workspace'}
+          onClick={() => onModeChange('agent')}
+          className={`px-2.5 py-1 text-xs rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-lr-accent/50 disabled:opacity-40 ${
+            mode === 'agent'
+              ? 'bg-lr-raised text-lr-text font-medium shadow-sm'
+              : 'text-lr-muted hover:text-lr-text'
+          }`}
+        >
+          Agent
+        </button>
+      </div>
       <button
         type="button"
         onClick={() => void pickPath()}
@@ -101,7 +122,7 @@ export function WorkspaceHeader({
       <button
         type="button"
         onClick={onKillAll}
-        className="px-2 py-1 text-xs rounded-md border border-lr-err/40 text-lr-err hover:bg-lr-err/10"
+        className="px-2 py-1 text-xs rounded-md border border-lr-border/80 text-lr-muted hover:text-lr-err hover:border-lr-err/30 hover:bg-lr-err/5"
       >
         Kill all
       </button>

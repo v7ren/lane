@@ -6,7 +6,6 @@ import {
   type MessageView,
   type PendingQuestion,
 } from '../../lib/opencode-chat';
-import { escapeAgentText } from '../../lib/safe-agent-text';
 import { tauri } from '../../lib/tauri';
 
 const STATE_LABEL: Record<string, string> = {
@@ -59,7 +58,7 @@ function ChatBubble({ message }: { message: MessageView }) {
         {!isUser && (
           <div className="text-[10px] uppercase tracking-wide text-pm-muted mb-0.5">Assistant</div>
         )}
-        {escapeAgentText(text)}
+        {text}
         {message.finish && (
           <div className="mt-1 text-[10px] text-pm-muted">finish: {message.finish}</div>
         )}
@@ -80,7 +79,7 @@ function QuestionCard({
   return (
     <div className="rounded-lg border border-sky-500/35 bg-sky-500/10 p-2.5 space-y-2 shadow-sm">
       <div className="text-[11px] font-medium text-sky-100">Agent question</div>
-      <p className="text-xs text-pm-text whitespace-pre-wrap">{escapeAgentText(question.question)}</p>
+      <p className="text-xs text-pm-text whitespace-pre-wrap">{question.question}</p>
       <div className="flex flex-wrap gap-1.5">
         {question.options.map((opt) => (
           <button
@@ -91,7 +90,7 @@ function QuestionCard({
             className="px-2.5 py-1 text-xs rounded-md border border-sky-400/40 bg-pm-panel hover:bg-sky-500/20 disabled:opacity-50"
             onClick={() => onAnswer(opt.label)}
           >
-            {escapeAgentText(opt.label)}
+            {opt.label}
           </button>
         ))}
       </div>

@@ -1,4 +1,7 @@
-/** Render agent-produced text as plain text only (no HTML). */
+/**
+ * Escape text for non-React sinks (attributes, HTML strings). Do not use on strings rendered
+ * as React children — React already escapes text nodes.
+ */
 
 const HTML_ESCAPE: Record<string, string> = {
   '&': '&amp;',

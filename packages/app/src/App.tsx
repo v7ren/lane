@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AgentId } from '@loomria/shared';
-import { getPreset } from '@loomria/shared';
 import { AgentView } from './components/agent/AgentView';
 import { EmptyWorkspace } from './components/EmptyWorkspace';
 import { PersistentPaneSurfaces } from './components/PersistentPaneSurfaces';
 import { SessionRail } from './components/SessionRail';
 import { SettingsPanel } from './components/SettingsPanel';
-import { StatusLegend } from './components/StatusLegend';
 import { WorkspaceHeader } from './components/WorkspaceHeader';
 import { useAgentCatalog } from './hooks/useAgentCatalog';
+import { useAgentChatSplit } from './hooks/useAgentChatSplit';
 import { useAppKeyboard } from './hooks/useAppKeyboard';
 import { usePaneRegistry } from './hooks/usePaneRegistry';
 import { useProjectPath } from './hooks/useProjectPath';
@@ -18,8 +17,9 @@ import { useWorkspaceMode } from './hooks/useWorkspaceMode';
 import { useDemoFixtures } from './lib/demo/DemoContext';
 import { readDemoUrlFlags } from './lib/demo-mode';
 import { isTauriRuntime } from './lib/is-tauri';
+import { buildPaneDisplayNames } from './lib/pane-display-name';
 import { isSessionMuted } from './lib/session-notify-prefs';
-import { loadSettings, saveSettings, syncPublicSettingsToBridge } from './lib/settings';
+import { loadSettings, syncPublicSettingsToBridge } from './lib/settings';
 import { tauri } from './lib/tauri';
 
 export default function App() {
@@ -44,6 +44,9 @@ export default function App() {
   const [mutedMap, setMutedMap] = useState<Record<string, boolean>>({});
 
   const panes = registry.paneList.filter((p) => !p.info.id.startsWith('loomria-orchestrator-'));
+  const agentSplitActive = mode === 'agent' && Boolean(agentPaneId);
+  const { chatPercent, startDrag } = useAgentChatSplit(agentSplitActive);
+
   useEffect(() => {
     if (demo) {
       setRailConnecting(false);
@@ -85,21 +88,20 @@ export default function App() {
 
   useEffect(() => {
     setLayoutEpoch((n) => n + 1);
-  }, [mode, showTui, agentPaneId]);
+  }, [mode, showTui, agentPaneId, chatPercent]);
 
   useSessionNotifications(sessionStates, mode, agentPaneId);
 
-  const paneTitles = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const pane of panes) {
-      const label = getPreset(agentCatalog, pane.info.agent_type)?.label ?? pane.info.agent_type;
-      m.set(pane.info.id, label);
-    }
-    return m;
-  }, [agentCatalog, panes]);
+  const paneTitles = useMemo(
+    () => buildPaneDisplayNames(panes, agentCatalog),
+    [agentCatalog, panes],
+  );
 
   const selectedPane = panes.find((p) => p.info.id === agentPaneId);
   const sessionForAgent = agentPaneId ? sessionStates.get(agentPaneId) : undefined;
+  const agentPaneTitle = agentPaneId ? (paneTitles.get(agentPaneId) ?? null) : null;
+
+  const tuiSurfaceLive = isTauriRuntime() && Boolean(selectedPane && selectedPane.status !== 'error');
 
   const handleClose = async (paneId: string) => {
     await registry.killPane(paneId);
@@ -137,6 +139,15 @@ export default function App() {
 
   const showEmpty = panes.length === 0;
 
+  const handleModeChange = (next: 'workspace' | 'agent') => {
+    if (next === 'agent') {
+      const target = agentPaneId ?? panes[0]?.info.id;
+      if (target) enterAgentMode(target);
+    } else {
+      exitToWorkspace();
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 lr-app-shell">
       <SessionRail
@@ -147,23 +158,20 @@ export default function App() {
         connecting={railConnecting}
         onSelect={enterAgentMode}
       />
-      <div className="flex flex-col flex-1 min-w-0 min-h-0">
+      <div className="flex flex-col flex-1 min-w-0 min-h-0 relative">
         <WorkspaceHeader
           agentCatalog={agentCatalog}
           projectPath={projectPath}
           mode={mode}
           canEnterAgent={Boolean(agentPaneId ?? panes[0]?.info.id)}
-          onModeToggle={() => {
-            const target = agentPaneId ?? panes[0]?.info.id;
-            if (mode === 'workspace' && target) enterAgentMode(target);
-            else exitToWorkspace();
-          }}
+          onModeChange={handleModeChange}
           onProjectPathChange={setProjectPath}
           onKillAll={() => void registry.killAll()}
           onNewSession={handleNewSession}
           onOpenSettings={() => setSettingsOpen(true)}
         />
         <div
+          data-agent-split-row
           className={`flex flex-1 min-h-0 lr-mode-transition ${mode === 'agent' ? 'flex-row' : 'flex-col'}`}
         >
           {mode === 'agent' && agentPaneId && (
@@ -172,11 +180,25 @@ export default function App() {
               agentCatalog={agentCatalog}
               paneStatus={selectedPane?.status}
               sessionState={sessionForAgent ?? null}
+              paneTitle={agentPaneTitle}
               showTui={showTui}
+              chatWidthPercent={showTui ? chatPercent : undefined}
               onToggleTui={() => setShowTui((v) => !v)}
               onExitWorkspace={exitToWorkspace}
               muted={Boolean(mutedMap[agentPaneId])}
               onMutedChange={(muted) => setMutedMap((prev) => ({ ...prev, [agentPaneId]: muted }))}
+            />
+          )}
+          {mode === 'agent' && showTui && agentPaneId && (
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize chat and terminal"
+              className="w-1 shrink-0 bg-lr-border hover:bg-lr-accent/50 cursor-col-resize touch-none"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                startDrag();
+              }}
             />
           )}
           <PersistentPaneSurfaces
@@ -188,6 +210,9 @@ export default function App() {
             registry={registry}
             projectPath={projectPath}
             sessionStates={sessionStates}
+            agentPaneTitle={agentPaneTitle}
+            tuiSurfaceLive={tuiSurfaceLive}
+            onHideTui={() => setShowTui(false)}
             onClosePane={(id) => void handleClose(id)}
             onEnterAgent={enterAgentMode}
           />
@@ -195,7 +220,6 @@ export default function App() {
         {showEmpty && (
           <EmptyWorkspace agentCatalog={agentCatalog} onLaunch={(a) => void handleNewSession(a)} />
         )}
-        <StatusLegend compact />
       </div>
       <SettingsPanel
         open={settingsOpen}

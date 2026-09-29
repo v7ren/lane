@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { ApprovalDecision } from '../../lib/agent-events';
 import type { AgentTimelineViewModel, TimelineTool } from '../../lib/agent-timeline-reducer';
-import { escapeAgentText } from '../../lib/safe-agent-text';
 
 function ToolRow({ tool }: { tool: TimelineTool }) {
   const [open, setOpen] = useState(tool.status === 'running');
@@ -23,9 +22,9 @@ function ToolRow({ tool }: { tool: TimelineTool }) {
       </button>
       {open && (
         <div className="px-2.5 pb-2 space-y-1 text-lr-muted border-t border-lr-border/60">
-          <p className="whitespace-pre-wrap pt-1">{escapeAgentText(tool.inputSummary)}</p>
+          <p className="whitespace-pre-wrap pt-1">{tool.inputSummary}</p>
           {tool.outputSummary && (
-            <p className="whitespace-pre-wrap text-lr-text">{escapeAgentText(tool.outputSummary)}</p>
+            <p className="whitespace-pre-wrap text-lr-text">{tool.outputSummary}</p>
           )}
         </div>
       )}
@@ -44,8 +43,8 @@ function ApprovalStrip({
 }) {
   return (
     <div className="rounded-lg border border-lr-warn/50 bg-lr-warn/10 p-3 space-y-2 shadow-sm lr-approval-pulse">
-      <div className="text-xs font-semibold text-lr-warn">{escapeAgentText(approval.title)}</div>
-      <p className="text-xs text-lr-text whitespace-pre-wrap">{escapeAgentText(approval.detail)}</p>
+      <div className="text-xs font-semibold text-lr-warn">{approval.title}</div>
+      <p className="text-xs text-lr-text whitespace-pre-wrap">{approval.detail}</p>
       <div className="flex flex-wrap gap-1.5">
         {approval.options.includes('allow_once') && (
           <button
@@ -111,12 +110,12 @@ export function AgentTimeline({
     <div className="flex-1 overflow-auto p-3 space-y-3 min-h-0">
       {vm.rateLimit && (
         <div className="text-xs rounded-lg border border-lr-info/40 bg-lr-info/10 p-2 text-lr-info">
-          {escapeAgentText(vm.rateLimit.message)}
+          {vm.rateLimit.message}
         </div>
       )}
       {vm.lastError && (
         <div className="text-xs rounded-lg border border-lr-err/40 bg-lr-err/10 p-2 text-lr-err">
-          {escapeAgentText(vm.lastError)}
+          {vm.lastError}
         </div>
       )}
       {vm.pendingApprovals.map((a) => (
@@ -145,12 +144,14 @@ export function AgentTimeline({
                   Assistant{message.streaming ? ' · typing…' : ''}
                 </div>
               )}
-              {escapeAgentText(text)}
+              {text}
             </div>
           </div>
         );
       })}
-      {vm.tools.map((t) => <ToolRow key={t.id} tool={t} />)}
+      {vm.tools.map((t) => (
+        <ToolRow key={t.id} tool={t} />
+      ))}
       {vm.filePaths.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {vm.filePaths.map((p) => (
