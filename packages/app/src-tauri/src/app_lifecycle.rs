@@ -6,7 +6,7 @@ use std::process::Command;
 #[cfg(target_os = "macos")]
 use std::path::PathBuf;
 
-const PRODUCT_NAME: &str = "Puppet Master";
+const PRODUCT_NAME: &str = "Loomria";
 const BUNDLE_ID: &str = "com.puppetmaster.app";
 
 #[derive(Debug, Clone, Serialize)]

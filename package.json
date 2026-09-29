@@ -1,8 +1,8 @@
 {
-  "name": "puppet-master",
+  "name": "loomria",
   "version": "0.1.4",
   "private": true,
-  "description": "Puppet Master — multi-agent terminal orchestrator (Tauri + React + MCP)",
+  "description": "Loomria — universal agent surface (Tauri + React)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Potato-dev-inc/puppet-master.git"
@@ -22,18 +22,11 @@
     "build": "npm run build --workspaces --if-present",
     "build:rust": "node scripts/with-cargo-path.mjs build",
     "publish:release-assets": "node scripts/publish-github-release-assets.mjs",
-    "mcp": "npm run start --workspace=@puppet-master/mcp",
-    "worker": "npm run start --workspace=@puppet-master/cli -- worker",
-    "build:mcp": "npm run build --workspace=@puppet-master/mcp",
-    "cli": "npm run start --workspace=@puppet-master/cli",
     "test": "npm run test --workspaces --if-present",
-    "test:mcp-package": "node scripts/test-mcp-package.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "clean": "rimraf \"packages/*/dist\" \"packages/*/.turbo\" \"packages/app/src-tauri/target\""
   },
   "devDependencies": {
-    "@ngrok/ngrok": "^1.4.1",
-    "cloudflared": "0.7.1",
     "esbuild": "0.28.1",
     "rimraf": "^6.0.1",
     "typescript": "^5.6.3"

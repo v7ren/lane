@@ -1,5 +1,6 @@
-import type { McpLogEntry, OrchestratorChatEvent, PaneInfo } from '@puppet-master/shared';
+import type { McpLogEntry, OrchestratorChatEvent, PaneInfo } from '@loomria/shared';
 import type { PublicSettings } from './bridge-settings';
+import { bridgeAuthHeaders } from './bridge-auth';
 import { ngrokRequestHeaders } from './bridge-ngrok';
 import { mergeBridgeHeaders } from './mobile-pairing-auth';
 import type { BridgeEvent } from './bridge';
@@ -87,7 +88,10 @@ export function subscribeBridgeEventsViaFetch(
       abort = new AbortController();
       try {
         const res = await fetch(`${baseUrl}/events`, {
-          headers: mergeBridgeHeaders(ngrokRequestHeaders(baseUrl)),
+          headers: mergeBridgeHeaders({
+            ...ngrokRequestHeaders(baseUrl),
+            ...bridgeAuthHeaders(),
+          }),
           signal: abort.signal,
         });
         if (!res.ok || !res.body) {

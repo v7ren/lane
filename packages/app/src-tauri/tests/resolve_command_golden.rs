@@ -1,6 +1,6 @@
 //! Golden snapshots for `pty::agents::resolve_command` — Phase 5 must match these.
 
-use puppet_master_app_lib::pty::agents::{AgentType, resolve_command};
+use loomria_app_lib::pty::agents::{AgentType, resolve_command};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::fs;

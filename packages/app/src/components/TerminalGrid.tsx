@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { isOrchestratorPaneId, listLaunchPresets, type AgentType } from '@puppet-master/shared';
+import { listLaunchPresets, type AgentType } from '@loomria/shared';
 import { TerminalPane } from './TerminalPane';
 import type { PaneRegistryApi } from '../hooks/usePaneRegistry';
 
@@ -16,7 +16,7 @@ export function TerminalGrid({
 }: Props) {
   const { paneList, spawnPane, replacePaneAgent } = registry;
   const workerPanes = useMemo(
-    () => paneList.filter((pane) => !isOrchestratorPaneId(pane.info.id)),
+    () => paneList.filter((pane) => !pane.info.id.startsWith('loomria-orchestrator-')),
     [paneList],
   );
   const workerPaneIds = useMemo(

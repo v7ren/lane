@@ -3,10 +3,9 @@
 use std::fs;
 use std::path::PathBuf;
 
-const APP_ID: &str = "com.puppetmaster.app";
-pub const BRIDGE_PORT_FILE_NAME: &str = "puppet-master.bridge.port";
-pub const PAIRING_FILE_NAME: &str = "puppet-master.pairing.json";
-pub const BRIDGE_PORT_FILE_ENV: &str = "PUPPET_MASTER_BRIDGE_PORT_FILE";
+const APP_ID: &str = "com.loomria.app";
+pub const BRIDGE_PORT_FILE_NAME: &str = "loomria.bridge.port";
+pub const BRIDGE_PORT_FILE_ENV: &str = "LOOMRIA_BRIDGE_PORT_FILE";
 
 pub fn app_data_dir() -> PathBuf {
     let home = crate::project_path::home_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -38,10 +37,6 @@ pub fn ensure_app_data_dir() -> Result<PathBuf, String> {
 
 pub fn bridge_port_file() -> PathBuf {
     app_data_dir().join(BRIDGE_PORT_FILE_NAME)
-}
-
-pub fn pairing_file() -> PathBuf {
-    app_data_dir().join(PAIRING_FILE_NAME)
 }
 
 pub fn bridge_port_file_env_value() -> String {

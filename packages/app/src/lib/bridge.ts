@@ -1,10 +1,6 @@
-import type {
-  AgentContextProfile,
-  AgentModelInspection,
-  McpLogEntry,
-  OrchestratorChatEvent,
-  PaneInfo,
-} from '@puppet-master/shared';
+import type { McpLogEntry, OrchestratorChatEvent, PaneInfo } from '@loomria/shared';
+import type { AgentModelInspection } from './tauri';
+import { bridgeAuthHeaders, eventsUrlWithToken, loadBridgeSession, setBridgeSession } from './bridge-auth';
 import type { PublicSettings } from './bridge-settings';
 import { isNgrokHost, ngrokRequestHeaders } from './bridge-ngrok';
 import { mergeBridgeHeaders } from './mobile-pairing-auth';
@@ -278,7 +274,7 @@ export interface BridgeClient {
   readBuffer(paneId: string, lines: number): Promise<string>;
   readRawBuffer(paneId: string, lines: number): Promise<number[]>;
   readSnapshot(paneId: string): Promise<string>;
-  listAgentContexts(): Promise<AgentContextProfile[]>;
+  listAgentContexts(): Promise<unknown[]>;
   readAgentContext(args: { agent_type?: string; pane_id?: string }): Promise<unknown>;
   inspectAgentModel(paneId: string, lines?: number): Promise<AgentModelInspection>;
   switchAgentModel(
@@ -367,9 +363,16 @@ export interface BridgeClient {
   }): Promise<void>;
 }
 
-export function makeBridgeClient(baseUrl: string): BridgeClient {
+export function makeBridgeClient(baseUrl: string, authToken?: string): BridgeClient {
+  if (authToken) {
+    setBridgeSession(baseUrl, authToken);
+  }
   async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const headers = mergeBridgeHeaders({ ...ngrokRequestHeaders(baseUrl) });
+    const headers = mergeBridgeHeaders({
+      ...ngrokRequestHeaders(baseUrl),
+      ...bridgeAuthHeaders(),
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    });
     if (body) headers['Content-Type'] = 'application/json';
     const res = await fetch(`${baseUrl}${path}`, {
       method,
@@ -403,7 +406,7 @@ export function makeBridgeClient(baseUrl: string): BridgeClient {
       if (args.pane_id) {
         return call('GET', `/panes/${encodeURIComponent(args.pane_id)}/agent-context`);
       }
-      const contexts = await call<Array<AgentContextProfile & { agent_type: string }>>('GET', '/agent-contexts');
+      const contexts = await call<Array<{ agent_type: string }>>('GET', '/agent-contexts');
       const context = contexts.find((candidate) => candidate.agent_type === args.agent_type);
       if (!context) throw new Error(`unknown agent_type: ${args.agent_type}`);
       return context;
@@ -498,18 +501,8 @@ export function makeBridgeClient(baseUrl: string): BridgeClient {
  * each port. Returns the first responding base URL.
  */
 export async function findBridgeUrl(): Promise<string | null> {
-  for (let p = 17321; p <= 17399; p++) {
-    try {
-      const res = await fetch(`http://${DEFAULT_POLL_HOST}:${p}/health`, {
-        signal: AbortSignal.timeout(200),
-      });
-      if (res.ok) {
-        return `http://${DEFAULT_POLL_HOST}:${p}`;
-      }
-    } catch {
-      /* try next */
-    }
-  }
+  const session = await loadBridgeSession();
+  if (session?.baseUrl) return session.baseUrl;
   return null;
 }
 
@@ -554,7 +547,7 @@ export function subscribeBridgeEvents(
 
   function connect() {
     if (cancelled) return;
-    es = new EventSource(`${baseUrl}/events`);
+    es = new EventSource(eventsUrlWithToken(baseUrl));
     es.addEventListener('panes', (ev) => {
       try {
         const panes = JSON.parse((ev as MessageEvent).data) as PaneInfo[];

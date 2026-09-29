@@ -25,7 +25,7 @@ function run(cmd, args) {
   }
 }
 
-run('npm', ['run', 'build', '-w', '@puppet-master/shared']);
+run('npm', ['run', 'build', '-w', '@loomria/shared']);
 
 const mcpDist = resolve(root, 'packages/mcp-server/dist/index.js');
 if (!existsSync(mcpDist)) {

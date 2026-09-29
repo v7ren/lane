@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Settings } from '@puppet-master/shared';
+import type { Settings } from '@loomria/shared';
 import { findBridgeUrl } from '../lib/bridge';
 import { loadSettings, saveSettings } from '../lib/settings';
 import type { UpdateCheckResult } from '../lib/app-update';

@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from 'react';
 import { useRef, useState } from 'react';
-import { listLaunchPresets, getPreset, type AgentPreset, type AgentType } from '@puppet-master/shared';
+import { listLaunchPresets, getPreset, type AgentPreset, type AgentType } from '@loomria/shared';
 import { useTerminalSession } from '../hooks/useTerminalSession';
 import type { PaneData } from '../hooks/usePaneRegistry';
 

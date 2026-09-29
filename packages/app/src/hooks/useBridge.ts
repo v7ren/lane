@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { loadBridgeSession } from '../lib/bridge-auth';
 import { findBridgeUrl, makeBridgeClient, subscribeBridgeEvents, type BridgeClient } from '../lib/bridge';
-import type { McpLogEntry, OrchestratorChatEvent, OrchestratorUserMessage, PaneInfo } from '@puppet-master/shared';
+import type { McpLogEntry, OrchestratorChatEvent, OrchestratorUserMessage, PaneInfo } from '@loomria/shared';
 import type { MobileOrchestratorViewport } from './useTerminalAuthorityCss';
 
 const MOBILE_VIEWPORT_STALE_MS = 15_000;
@@ -53,14 +54,15 @@ export function useBridge(bridgeUrl?: string): BridgeApi {
 
     async function tryConnect() {
       if (cancelled) return;
-      const url = bridgeUrl ?? await findBridgeUrl();
+      const session = await loadBridgeSession();
+      const url = bridgeUrl ?? session?.baseUrl ?? await findBridgeUrl();
       if (cancelled) return;
       if (!url) {
-        setError('Bridge not reachable. Is the Puppet Master GUI running?');
+        setError('Bridge not reachable. Is Loomria running?');
         pollTimer = setTimeout(tryConnect, 2000);
         return;
       }
-      const c = makeBridgeClient(url);
+      const c = makeBridgeClient(url, session?.token);
       clientRef.current = c;
       setClient(c);
       setIsReady(true);

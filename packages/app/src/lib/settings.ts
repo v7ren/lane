@@ -6,7 +6,7 @@ import {
   type LlmModel,
   type LlmProvider,
   type Settings,
-} from '@puppet-master/shared';
+} from '@loomria/shared';
 import { clampMobileInputDelayMs, toPublicSettings } from './bridge-settings';
 import {
   parseDevServerPort,

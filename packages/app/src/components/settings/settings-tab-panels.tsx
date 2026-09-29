@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { homeDir } from '@tauri-apps/api/path';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
-import type { Settings } from '@puppet-master/shared';
+import type { Settings } from '@loomria/shared';
 import { resolveSettingsFilePath } from '../../lib/settings';
 import type { UpdateCheckResult } from '../../lib/app-update';
 import { tauri, type AppInstallInfo } from '../../lib/tauri';

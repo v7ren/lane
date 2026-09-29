@@ -30,8 +30,8 @@ export function ensureWorkspaceBuilt(repoRoot) {
 
   if (!needsBuild(sharedDist, sharedSrc)) return;
 
-  console.error('[dev] building @puppet-master/shared…');
-  const result = spawnSync(npm, ['run', 'build', '-w', '@puppet-master/shared'], {
+  console.error('[dev] building @loomria/shared…');
+  const result = spawnSync(npm, ['run', 'build', '-w', '@loomria/shared'], {
     cwd: repoRoot,
     stdio: 'inherit',
     shell: true,

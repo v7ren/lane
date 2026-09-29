@@ -2,6 +2,7 @@ mod agent_adapters;
 mod app_lifecycle;
 mod app_paths;
 mod bridge;
+mod bridge_auth;
 mod commands;
 mod events;
 mod opencode;
@@ -24,7 +25,7 @@ pub fn run() {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                tracing_subscriber::EnvFilter::new("info,puppet_master_app_lib=debug")
+                tracing_subscriber::EnvFilter::new("info,loomria_app_lib=debug")
             }),
         )
         .with_target(false)
@@ -60,6 +61,7 @@ pub fn run() {
             commands::set_opencode_key_profile,
             commands::capture_opencode_key_profile,
             commands::rotate_opencode_key,
+            commands::get_bridge_session,
         ])
         .setup(|app| {
             let port_file = app_paths::bridge_port_file();

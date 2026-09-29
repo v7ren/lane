@@ -26,6 +26,14 @@ static SSE_CLIENTS: once_cell::sync::OnceCell<SseClients> = once_cell::sync::Onc
 static BRIDGE_APP: once_cell::sync::OnceCell<AppHandle> = once_cell::sync::OnceCell::new();
 static BRIDGE_REGISTRY: once_cell::sync::OnceCell<Arc<Mutex<PaneRegistry>>> =
     once_cell::sync::OnceCell::new();
+static BRIDGE_BASE_URL: once_cell::sync::OnceCell<String> = once_cell::sync::OnceCell::new();
+static BRIDGE_PORT: once_cell::sync::OnceCell<u16> = once_cell::sync::OnceCell::new();
+
+pub fn bridge_session() -> Option<(String, String)> {
+    let url = BRIDGE_BASE_URL.get()?.clone();
+    let token = crate::bridge_auth::token()?.to_string();
+    Some((url, token))
+}
 
 pub fn app_handle() -> Option<AppHandle> {
     BRIDGE_APP.get().cloned()
@@ -167,7 +175,10 @@ pub fn start_embedded_bridge(
     let _ = BRIDGE_REGISTRY.set(registry.clone());
     let _ = crate::app_paths::ensure_app_data_dir();
     let (listener, port) = bind_listener()?;
+    let _token = crate::bridge_auth::init_token();
+    let _ = BRIDGE_PORT.set(port);
     let url = format!("http://{HOST}:{port}");
+    let _ = BRIDGE_BASE_URL.set(url.clone());
     fs::write(&port_file, format!("{HOST}:{port}\n"))
         .map_err(|err| format!("write bridge port file {}: {err}", port_file.display()))?;
 
@@ -252,22 +263,53 @@ fn handle_connection(
     let body =
         &buf[body_start..body_start + content_length.min(buf.len().saturating_sub(body_start))];
 
+    let port = BRIDGE_PORT.get().copied().unwrap_or(PORT_MIN);
+    let host_header = header_value(&headers_raw, "host");
+    let origin_header = header_value(&headers_raw, "origin");
+    let cors_origin = crate::bridge_auth::cors_allow_origin(origin_header.as_deref(), cfg!(debug_assertions));
+
     if method == "OPTIONS" {
-        return write_json(&mut stream, 204, &json!({}));
+        return write_response(&mut stream, 204, &json!({}), cors_origin.as_deref());
+    }
+
+    if !crate::bridge_auth::host_allowed(host_header.as_deref(), port) {
+        return write_response(
+            &mut stream,
+            403,
+            &json!({ "error": "forbidden host" }),
+            cors_origin.as_deref(),
+        );
     }
 
     let (path, query) = split_target(target);
     let segments: Vec<&str> = path.split('/').filter(|part| !part.is_empty()).collect();
 
     if segments == ["events"] && method == "GET" {
-        handle_sse(&mut stream, registry, &app);
+        if !crate::bridge_auth::token_matches(&headers_raw, query) {
+            return write_response(
+                &mut stream,
+                401,
+                &json!({ "error": "unauthorized" }),
+                cors_origin.as_deref(),
+            );
+        }
+        handle_sse(&mut stream, registry, &app, cors_origin.as_deref());
         return Ok(());
+    }
+
+    if !crate::bridge_auth::token_matches(&headers_raw, query) {
+        return write_response(
+            &mut stream,
+            401,
+            &json!({ "error": "unauthorized" }),
+            cors_origin.as_deref(),
+        );
     }
 
     match route(method, &segments, query, body, registry, app) {
         Ok((0, _)) => Ok(()),
-        Ok((status, value)) => write_json(&mut stream, status, &value),
-        Err((status, value)) => write_json(&mut stream, status, &value),
+        Ok((status, value)) => write_response(&mut stream, status, &value, cors_origin.as_deref()),
+        Err((status, value)) => write_response(&mut stream, status, &value, cors_origin.as_deref()),
     }
 }
 
@@ -585,14 +627,22 @@ fn route(
     Err((404, json!({ "error": "not found" })))
 }
 
-fn handle_sse(stream: &mut TcpStream, registry: Arc<Mutex<PaneRegistry>>, app: &AppHandle) {
-    let headers = "HTTP/1.1 200 OK\r\n\
+fn handle_sse(
+    stream: &mut TcpStream,
+    registry: Arc<Mutex<PaneRegistry>>,
+    app: &AppHandle,
+    cors_origin: Option<&str>,
+) {
+    let cors = cors_header(cors_origin);
+    let headers = format!(
+        "HTTP/1.1 200 OK\r\n\
         Content-Type: text/event-stream\r\n\
         Cache-Control: no-cache\r\n\
         Connection: keep-alive\r\n\
-        Access-Control-Allow-Origin: *\r\n\
+        {cors}\
         \r\n\
-        : connected\n\n";
+        : connected\n\n"
+    );
     if stream.write_all(headers.as_bytes()).is_err() {
         return;
     }
@@ -671,10 +721,29 @@ fn query_param(query: &str, name: &str) -> Option<String> {
     })
 }
 
-fn write_json(
+fn header_value(headers_raw: &str, name: &str) -> Option<String> {
+    headers_raw.lines().find_map(|line| {
+        let (key, value) = line.split_once(':')?;
+        if key.eq_ignore_ascii_case(name) {
+            Some(value.trim().to_string())
+        } else {
+            None
+        }
+    })
+}
+
+fn cors_header(origin: Option<&str>) -> String {
+    match origin {
+        Some(o) => format!("Access-Control-Allow-Origin: {o}\r\nVary: Origin\r\n"),
+        None => String::new(),
+    }
+}
+
+fn write_response(
     stream: &mut TcpStream,
     status: u16,
     value: &serde_json::Value,
+    cors_origin: Option<&str>,
 ) -> Result<(), String> {
     let reason = match status {
         200 => "OK",
@@ -690,13 +759,14 @@ fn write_json(
     } else {
         serde_json::to_string(value).map_err(|err| format!("serialize response: {err}"))?
     };
+    let cors = cors_header(cors_origin);
     let response = format!(
         "HTTP/1.1 {status} {reason}\r\n\
          Content-Type: application/json; charset=utf-8\r\n\
          Content-Length: {}\r\n\
-         Access-Control-Allow-Origin: *\r\n\
+         {cors}\
          Access-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS\r\n\
-         Access-Control-Allow-Headers: Content-Type, Authorization, X-PM-Proxied\r\n\
+         Access-Control-Allow-Headers: Content-Type, Authorization, X-Loomria-Proxied\r\n\
          Connection: close\r\n\
          \r\n\
          {}",

@@ -289,3 +289,16 @@ pub fn rotate_opencode_key(
         restarted_panes: restarted,
     })
 }
+
+#[derive(Serialize)]
+pub struct BridgeSessionInfo {
+    pub base_url: String,
+    pub token: String,
+}
+
+#[tauri::command]
+pub fn get_bridge_session() -> Result<BridgeSessionInfo, String> {
+    let (base_url, token) = crate::bridge::bridge_session()
+        .ok_or_else(|| "bridge not started".to_string())?;
+    Ok(BridgeSessionInfo { base_url, token })
+}

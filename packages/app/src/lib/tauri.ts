@@ -2,12 +2,16 @@ import { invoke } from '@tauri-apps/api/core';
 import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
-import type {
-  AgentContextProfile,
-  AgentModelInspection,
-  PairedDeviceInfo,
-  PairingSession,
-} from '@puppet-master/shared';
+export type AgentModelInspection = {
+  pane_id: string;
+  agent_type: string;
+  buffer_tail: string;
+};
+
+export interface BridgeSessionInfo {
+  base_url: string;
+  token: string;
+}
 
 export type PaneInfo = {
   id: string;
@@ -192,8 +196,7 @@ export const tauri = {
     safeInvoke<string>('read_pane_snapshot', { paneId }, '', true),
   readRawBuffer: (paneId: string, lines: number) =>
     safeInvoke<number[]>('read_pane_raw_buffer', { paneId, lines }, [], true),
-  listAgentContexts: () =>
-    safeInvoke<AgentContextProfile[]>('list_agent_contexts', undefined, [], true),
+  listAgentContexts: () => safeInvoke<unknown[]>('list_agent_contexts', undefined, [], true),
   readAgentContext: (args: { agent_type?: string; pane_id?: string }) =>
     safeInvoke<unknown>('read_agent_context', { agentType: args.agent_type, paneId: args.pane_id }),
   inspectAgentModel: (paneId: string, lines?: number) =>
@@ -346,21 +349,16 @@ export const tauri = {
   resizeCurrentWindow,
   onCurrentWindowCloseRequested,
 
+  getBridgeSession: () =>
+    safeInvoke<BridgeSessionInfo>('get_bridge_session', undefined, { base_url: '', token: '' }, true),
   createMobilePairingSession: (bridgeUrl: string) =>
-    safeInvoke<PairingSession>(
+    safeInvoke<unknown>(
       'create_mobile_pairing_session',
       { bridgeUrl },
-      {
-        pairing_code: '',
-        expires_at: 0,
-        server_public_key: '',
-        bridge_url: bridgeUrl,
-        qr_payload: { v: 1, u: bridgeUrl, pk: '', c: '', e: 0 },
-      },
+      null,
       true,
     ),
-  listPairedMobileDevices: () =>
-    safeInvoke<PairedDeviceInfo[]>('list_paired_mobile_devices', undefined, [], true),
+  listPairedMobileDevices: () => safeInvoke<unknown[]>('list_paired_mobile_devices', undefined, [], true),
   revokePairedMobileDevice: (deviceId: string) =>
     safeInvoke<boolean>('revoke_paired_mobile_device', { deviceId }, false, true),
 

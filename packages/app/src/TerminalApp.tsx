@@ -3,7 +3,7 @@ import {
   getDefaultTerminalAgentType,
   listLaunchPresets,
   type AgentType,
-} from '@puppet-master/shared';
+} from '@loomria/shared';
 import { useBridge } from './hooks/useBridge';
 import { usePaneRegistry } from './hooks/usePaneRegistry';
 import { useProjectPath } from './hooks/useProjectPath';

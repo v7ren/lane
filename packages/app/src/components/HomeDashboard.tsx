@@ -1,7 +1,7 @@
 import { homeDir } from '@tauri-apps/api/path';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { useCallback, useEffect, useState } from 'react';
-import type { Settings } from '@puppet-master/shared';
+import type { Settings } from '@loomria/shared';
 import type { PaneRegistryApi } from '../hooks/usePaneRegistry';
 import { loadSettings, resolveSettingsFilePath } from '../lib/settings';
 import logoUrl from '../assets/branding/logo.svg';
@@ -83,7 +83,7 @@ export function HomeDashboard({
         <aside className="pm-home-rail">
           <div className="pm-home-rail-brand">
             <img src={logoUrl} alt="" className="pm-home-rail-logo" draggable={false} />
-            <span>Puppet Master</span>
+            <span>Loomria</span>
           </div>
           <nav className="pm-home-rail-nav">
             <button type="button" className="pm-home-rail-link pm-home-rail-link--active">

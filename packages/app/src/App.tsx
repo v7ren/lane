@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { AgentType } from '@puppet-master/shared';
+import type { AgentType } from '@loomria/shared';
 import { WorkspaceHeader } from './components/WorkspaceHeader';
 import { TerminalGrid } from './components/TerminalGrid';
 import { SettingsPanel } from './components/SettingsPanel';

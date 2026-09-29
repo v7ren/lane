@@ -17,7 +17,7 @@ describe('makeBridgeClient session routes', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const bridge = makeBridgeClient('http://127.0.0.1:17321');
+    const bridge = makeBridgeClient('http://127.0.0.1:17321', 'test-token');
     await expect(bridge.listMcpTools()).resolves.toEqual([{ name: 'read_session_context' }]);
     expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:17321/mcp/tools', expect.objectContaining({
       method: 'GET',
@@ -31,7 +31,7 @@ describe('makeBridgeClient session routes', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const bridge = makeBridgeClient('http://127.0.0.1:17321');
+    const bridge = makeBridgeClient('http://127.0.0.1:17321', 'test-token');
     await expect(bridge.updateSessionContext({ current_goal: 'Finish migration' })).resolves.toEqual({
       current_goal: 'Finish migration',
     });
@@ -48,7 +48,7 @@ describe('makeBridgeClient session routes', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const bridge = makeBridgeClient('http://127.0.0.1:17321');
+    const bridge = makeBridgeClient('http://127.0.0.1:17321', 'test-token');
     await expect(bridge.delegateTask({
       intent: 'Ship',
       acceptance_criteria: ['Tests pass'],

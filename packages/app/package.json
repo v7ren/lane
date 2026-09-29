@@ -1,12 +1,12 @@
 {
-  "name": "@puppet-master/app",
+  "name": "@loomria/app",
   "version": "0.1.4",
   "private": true,
   "type": "module",
   "scripts": {
     "predev": "node ../../scripts/ensure-workspace-built.mjs",
     "dev": "vite",
-    "build": "tsc -p tsconfig.json && vite build && node ../../scripts/bundle-cloudflared.mjs && node ../../scripts/stage-pwa-dist.mjs && node ../../scripts/bundle-mcp.mjs",
+    "build": "tsc -p tsconfig.json && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
     "typecheck": "tsc --noEmit",
@@ -14,7 +14,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@puppet-master/shared": "*",
+    "@loomria/shared": "*",
     "@tauri-apps/api": "^2.1.1",
     "@tauri-apps/plugin-dialog": "^2.0.1",
     "@tauri-apps/plugin-store": "^2.0.1",

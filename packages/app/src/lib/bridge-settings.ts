@@ -1,4 +1,4 @@
-import type { OrchestratorBackend, Settings } from '@puppet-master/shared';
+import type { OrchestratorBackend, Settings } from '@loomria/shared';
 
 export function clampMobileInputDelayMs(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 250;
