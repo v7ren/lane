@@ -1,16 +1,19 @@
-import { useEffect, useState } from 'react';
-import { listLaunchPresets, type AgentCatalog, type AgentId } from '@loomria/shared';
-import type { AppMode } from '../hooks/useWorkspaceMode';
-import type { PaneData, PaneRegistryApi } from '../hooks/usePaneRegistry';
+import { useEffect } from 'react';
+import type { AgentCatalog } from '@loomria/shared';
+import type { PaneRegistryApi } from '../hooks/usePaneRegistry';
 import type { SessionRailState } from '../hooks/useSessionRail';
+import type { BottomPanelTab } from '../lib/shell-selection-context';
 import { mergePaneAndSessionStatus } from '../lib/display-status';
+import { isAgentSessionPane, isUserShellPane } from '../lib/pane-surface';
 import { AgentTuiHeader, AgentTuiPlaceholder } from './agent/AgentTuiColumn';
 import { TerminalPane } from './TerminalPane';
 
 interface Props {
-  mode: AppMode;
+  bottomTab: BottomPanelTab;
   agentPaneId: string | null;
+  selectedTerminalPaneId: string | null;
   showTui: boolean;
+  chatWidthPercent?: number;
   layoutEpoch: number;
   agentCatalog: AgentCatalog;
   registry: PaneRegistryApi;
@@ -24,9 +27,11 @@ interface Props {
 }
 
 export function PersistentPaneSurfaces({
-  mode,
+  bottomTab,
   agentPaneId,
+  selectedTerminalPaneId,
   showTui,
+  chatWidthPercent,
   layoutEpoch,
   agentCatalog,
   registry,
@@ -38,73 +43,69 @@ export function PersistentPaneSurfaces({
   onClosePane,
   onEnterAgent,
 }: Props) {
-  const { paneList, spawnPane, replacePaneAgent } = registry;
+  const { paneList, replacePaneAgent } = registry;
   const panes = paneList.filter((pane) => !pane.info.id.startsWith('loomria-orchestrator-'));
-  const [showAdd, setShowAdd] = useState(false);
-
-  const agentTuiColumnOpen = mode === 'agent' && showTui;
-  const rootLayoutClass =
-    mode === 'workspace'
-      ? 'grid grid-cols-1 xl:grid-cols-2 gap-2 auto-rows-[minmax(260px,auto)] p-2'
-      : agentTuiColumnOpen
-        ? 'relative flex-1 min-w-0 min-h-0 flex flex-col'
-        : 'absolute inset-0 overflow-visible pointer-events-none z-0';
-
-  const addPane = async (agent: AgentId) => {
-    setShowAdd(false);
-    await spawnPane({ agent_type: agent, cwd: projectPath ?? undefined });
-  };
 
   useEffect(() => {
-    if (mode !== 'agent' || !showTui || !agentPaneId) return;
-  }, [agentPaneId, mode, showTui, layoutEpoch]);
+    if (bottomTab !== 'agent' || !showTui || !agentPaneId) return;
+  }, [agentPaneId, bottomTab, showTui, layoutEpoch]);
 
   return (
     <div
-      className={`min-h-0 lr-mode-transition ${mode === 'workspace' ? 'flex-1 overflow-auto bg-lr-bg' : agentTuiColumnOpen ? 'flex-1 overflow-auto bg-lr-bg' : ''} ${rootLayoutClass}`}
-      data-mode={mode}
-      data-agent-tui-layout={mode === 'agent' ? (agentTuiColumnOpen ? 'open' : 'parked') : undefined}
+      className="absolute inset-0 overflow-visible pointer-events-none z-[5]"
+      data-agent-tui-layout="parked"
     >
       {panes.map((pane) => {
-        const isSelected = pane.info.id === agentPaneId;
-        const hiddenInAgent = mode === 'agent' && (!isSelected || !showTui);
+        const isSelectedAgent = pane.info.id === agentPaneId;
+        const isSelectedTerminal = pane.info.id === selectedTerminalPaneId;
+        const isAgentPane = isAgentSessionPane(pane.info.agent_type);
+        const isShellPane = isUserShellPane(pane.info.agent_type);
+
+        const agentTuiVisible =
+          isAgentPane &&
+          bottomTab === 'agent' &&
+          isSelectedAgent &&
+          showTui;
+
+        const terminalTabVisible =
+          isShellPane && bottomTab === 'terminal' && isSelectedTerminal;
+
+        const visibleInLayout = agentTuiVisible || terminalTabVisible;
+        const hidden = !visibleInLayout;
+
         const session = sessionStates.get(pane.info.id);
         const displayStatus = mergePaneAndSessionStatus(pane.status, session?.state);
-        const agentTuiVisible = mode === 'agent' && isSelected && showTui;
 
-        let surfaceClass =
-          'resize-both min-w-[300px] min-h-[220px] h-[260px] overflow-hidden rounded-lg border border-lr-border/60 lr-pane-surface flex flex-col';
-        if (mode === 'agent') {
-          if (hiddenInAgent) {
-            surfaceClass =
-              'lr-pane-surface lr-pane-surface--parked absolute -left-[10000px] w-[480px] h-[320px] opacity-0 pointer-events-none overflow-hidden flex flex-col';
-          } else {
-            surfaceClass =
-              'lr-pane-surface lr-pane-surface--agent-tui flex-1 min-w-0 min-h-0 h-full rounded-none border-0 border-l border-lr-border resize-none overflow-hidden flex flex-col bg-lr-bg';
-          }
-        }
+        const visibleStyle = agentTuiVisible
+          ? {
+              left: `${chatWidthPercent ?? 40}%`,
+              right: 0,
+              top: 0,
+              bottom: 0,
+            }
+          : { left: 0, right: 0, top: 0, bottom: 0 };
+
+        const surfaceClass = hidden
+          ? 'lr-pane-surface lr-pane-surface--parked absolute -left-[10000px] w-[480px] h-[320px] opacity-0 pointer-events-none overflow-hidden flex flex-col'
+          : 'lr-pane-surface lr-pane-surface--agent-tui absolute overflow-hidden flex flex-col bg-canvas pointer-events-auto z-[6]';
 
         const isHeadless = pane.info.surface === 'headless';
-        if (mode === 'workspace' && isHeadless) {
+        if (isHeadless && hidden) {
           return (
-            <button
-              key={pane.info.id}
-              type="button"
-              data-pane-id={pane.info.id}
-              onClick={() => onEnterAgent(pane.info.id)}
-              className="min-h-[220px] h-[260px] rounded-lg border border-lr-border/60 bg-lr-panel/40 hover:bg-lr-panel/70 p-4 text-left flex flex-col justify-between"
-            >
-              <div>
-                <div className="text-sm font-medium">{pane.info.agent_type}</div>
-                <div className="text-xs text-lr-muted mt-1">Headless — open Agent Mode</div>
-              </div>
-              <div className="text-[10px] font-mono text-lr-muted truncate">{pane.info.id}</div>
-            </button>
+            <div key={pane.info.id} className={surfaceClass} data-pane-id={pane.info.id}>
+              <div className="flex-1 min-h-0" />
+            </div>
           );
         }
 
         return (
-          <div key={pane.info.id} className={surfaceClass} data-pane-id={pane.info.id}>
+          <div
+            key={pane.info.id}
+            className={surfaceClass}
+            style={hidden ? undefined : visibleStyle}
+            data-pane-id={pane.info.id}
+            data-surface-visible={visibleInLayout ? '1' : '0'}
+          >
             {agentTuiVisible && (
               <AgentTuiHeader
                 agentLabel={agentPaneTitle ?? pane.info.agent_type}
@@ -124,38 +125,13 @@ export function PersistentPaneSurfaces({
                 onOpenAgent={() => onEnterAgent(pane.info.id)}
                 displayStatus={displayStatus}
                 chromeTitle={agentPaneTitle ?? undefined}
-                compactChrome={agentTuiVisible}
-                reflowKey={`${layoutEpoch}-${mode}-${agentTuiVisible ? 'tui-open' : hiddenInAgent ? 'parked' : 'workspace'}`}
+                compactChrome={agentTuiVisible || terminalTabVisible}
+                reflowKey={`${layoutEpoch}-${bottomTab}-${agentTuiVisible ? 'tui-open' : terminalTabVisible ? 'terminal' : 'parked'}`}
               />
             </div>
           </div>
         );
       })}
-      {mode === 'workspace' && panes.length > 0 && (
-        <div className="relative min-h-[220px]">
-          <button
-            type="button"
-            onClick={() => setShowAdd((s) => !s)}
-            className="w-full h-full min-h-[220px] rounded-lg border border-dashed border-lr-border text-lr-muted hover:bg-lr-panel/30 text-sm transition-colors"
-          >
-            + New pane
-          </button>
-          {showAdd && (
-            <div className="absolute top-full left-0 mt-1 z-10 w-48 rounded-lg border border-lr-border bg-lr-panel shadow-lg">
-              {listLaunchPresets(agentCatalog).map((p) => (
-                <button
-                  key={p.type}
-                  type="button"
-                  onClick={() => void addPane(p.type)}
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-lr-border/40"
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

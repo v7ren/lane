@@ -31,6 +31,7 @@ export function AgentView({
   muted,
   onMutedChange,
   headlessClaude,
+  embedded,
 }: {
   paneId: string;
   agentCatalog: AgentCatalog;
@@ -44,6 +45,7 @@ export function AgentView({
   onExitWorkspace: () => void;
   muted: boolean;
   onMutedChange: (muted: boolean) => void;
+  embedded?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -206,13 +208,15 @@ export function AgentView({
         >
           {muted ? '🔕' : '🔔'}
         </button>
-        <button
-          type="button"
-          className="px-2 py-1 text-xs rounded-md border border-lr-border hover:bg-lr-raised"
-          onClick={onExitWorkspace}
-        >
-          Workspace
-        </button>
+        {!embedded && (
+          <button
+            type="button"
+            className="px-2 py-1 text-xs rounded-md border border-lr-border hover:bg-lr-raised"
+            onClick={onExitWorkspace}
+          >
+            Workspace
+          </button>
+        )}
       </div>
 
       <div

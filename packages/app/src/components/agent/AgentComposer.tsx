@@ -35,6 +35,7 @@ export function AgentComposer({
       )}
       <div className="flex gap-1.5">
         <textarea
+          data-agent-composer
           className="flex-1 text-xs px-2 py-1.5 rounded-md border border-lr-border bg-lr-bg resize-none min-h-[2.5rem] max-h-32 focus:outline-none focus:ring-1 focus:ring-lr-accent/40"
           rows={2}
           value={draft}

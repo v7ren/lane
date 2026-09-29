@@ -41,6 +41,7 @@ export function SessionRail({
   selectedPaneId,
   connecting,
   onSelect,
+  embedded,
 }: {
   states: Map<string, SessionRailState>;
   agentCatalog: AgentCatalog;
@@ -48,14 +49,16 @@ export function SessionRail({
   selectedPaneId: string | null;
   connecting?: boolean;
   onSelect: (paneId: string) => void;
+  embedded?: boolean;
 }) {
   const rows = sortRows([...states.values()]);
 
+  const shellClass = embedded
+    ? 'w-full flex flex-col min-h-0 flex-1'
+    : 'w-52 shrink-0 border-r border-lr-border bg-lr-panel flex flex-col min-h-0';
+
   return (
-    <aside
-      className="w-52 shrink-0 border-r border-lr-border bg-lr-panel flex flex-col min-h-0"
-      aria-label="Sessions"
-    >
+    <aside className={shellClass} aria-label="Sessions">
       <div className="px-3 py-2 border-b border-lr-border text-[11px] font-semibold uppercase tracking-wide text-lr-muted">
         Sessions
       </div>
