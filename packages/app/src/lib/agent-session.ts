@@ -18,7 +18,7 @@ export async function sessionHistory(paneId: string): Promise<AgentEventEnvelope
 
 export async function sessionSendPrompt(paneId: string, text: string): Promise<void> {
   if (!isTauriRuntime()) return;
-  await invoke('session_send_prompt', { paneId, text });
+  await invoke('session_send_prompt', { args: { paneId, text } });
 }
 
 export async function sessionRespondApproval(
@@ -27,7 +27,7 @@ export async function sessionRespondApproval(
   decision: ApprovalDecision,
 ): Promise<void> {
   if (!isTauriRuntime()) return;
-  await invoke('session_respond_approval', { paneId, approvalId, decision });
+  await invoke('session_respond_approval', { args: { paneId, approvalId, decision } });
 }
 
 export async function sessionCancelTurn(paneId: string): Promise<void> {

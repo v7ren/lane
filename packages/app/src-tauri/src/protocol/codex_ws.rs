@@ -164,9 +164,16 @@ fn run_ws_loop(
     Err("codex ws closed".into())
 }
 
+fn tcp_from_maybe_tls(stream: &MaybeTlsStream<TcpStream>) -> Result<&TcpStream, String> {
+    match stream {
+        MaybeTlsStream::Plain(s) => Ok(s),
+        MaybeTlsStream::Rustls(s) => Ok(s.get_ref()),
+        _ => Err("unsupported MaybeTlsStream variant".into()),
+    }
+}
+
 fn set_read_timeout(ws: &mut WebSocket<MaybeTlsStream<TcpStream>>) -> Result<(), String> {
-    ws.get_ref()
-        .get_ref()
+    tcp_from_maybe_tls(ws.get_ref())?
         .set_read_timeout(Some(Duration::from_millis(50)))
         .map_err(|e| format!("read timeout: {e}"))
 }
