@@ -393,6 +393,8 @@ fn build_attach_command(
     cmd.arg(base_url);
     cmd.arg("-s");
     cmd.arg(session_id);
+    cmd.arg("--dir");
+    cmd.arg(cwd);
     cmd.cwd(cwd);
     apply_pty_env(&mut cmd);
     cmd

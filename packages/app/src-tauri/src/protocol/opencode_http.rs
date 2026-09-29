@@ -6,7 +6,7 @@ use super::types::{
 };
 use crate::agents::ProtocolKind as ManifestProtocol;
 use crate::opencode::event_map::next_turn;
-use crate::opencode::event_stream::spawn_event_reader;
+use crate::opencode::event_stream::{spawn_event_reader, SseSubscription};
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -23,10 +23,23 @@ impl ProtocolAdapter for OpenCodeHttpAdapter {
             .session_id
             .clone()
             .ok_or_else(|| AgentError::Connect("missing session_id".into()))?;
+        let directory = endpoint
+            .cwd
+            .clone()
+            .ok_or_else(|| AgentError::Connect("missing directory for opencode sse".into()))?;
+        let pane_id = endpoint
+            .connect_pane_id
+            .clone()
+            .ok_or_else(|| AgentError::Connect("missing connect_pane_id for opencode sse".into()))?;
+        let app = crate::opencode::sse_hub::app_handle()
+            .ok_or_else(|| AgentError::Connect("app handle not bound for opencode sse".into()))?;
         let (tx, _rx) = broadcast::channel(256);
         let turn_counter = Arc::new(AtomicU64::new(1));
-        let _sse = spawn_event_reader(
+        let sse = spawn_event_reader(
+            app,
+            pane_id,
             endpoint.url.clone(),
+            directory,
             session_id.clone(),
             tx.clone(),
             Arc::clone(&turn_counter),
@@ -37,6 +50,7 @@ impl ProtocolAdapter for OpenCodeHttpAdapter {
             directory: endpoint.cwd,
             events_tx: tx,
             turn_counter,
+            _sse: sse,
         }))
     }
 }
@@ -47,6 +61,7 @@ struct OpenCodeHttpSession {
     directory: Option<String>,
     events_tx: broadcast::Sender<AgentEvent>,
     turn_counter: Arc<AtomicU64>,
+    _sse: SseSubscription,
 }
 
 impl OpenCodeHttpSession {

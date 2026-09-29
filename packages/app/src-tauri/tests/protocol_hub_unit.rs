@@ -78,6 +78,7 @@ fn hub_seq_ring_and_coalesce() {
             session_id: Some("s".into()),
             cwd: None,
             codex: None,
+            connect_pane_id: None,
         },
     )
     .expect("register");

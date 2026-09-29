@@ -252,6 +252,7 @@ impl CodexLive {
             pane_id.clone(),
             adapter,
             Endpoint {
+                connect_pane_id: None,
                 url: spawned.ws_url.clone(),
                 session_id: Some(thread_id.clone()),
                 cwd: Some(cwd.to_string_lossy().to_string()),
@@ -414,6 +415,7 @@ impl OpenCodeLive {
                 session_id: Some(session.id.clone()),
                 cwd: Some(cwd.to_string_lossy().to_string()),
                 codex: None,
+                connect_pane_id: None,
             },
         )
         .expect("register");

@@ -327,6 +327,7 @@ fn register_claude_headless_protocol(state: &AppState, pane_id: &str) -> Result<
             session_id: Some(session_id),
             cwd: Some(cwd),
             codex: None,
+            connect_pane_id: None,
         },
     )?;
     if let Some(pid) = state.protocol_hub.protocol_child_pid(pane_id) {
@@ -643,6 +644,86 @@ pub fn get_bridge_session() -> Result<BridgeSessionInfo, String> {
     let (base_url, token) = crate::bridge::bridge_session()
         .ok_or_else(|| "bridge not started".to_string())?;
     Ok(BridgeSessionInfo { base_url, token })
+}
+
+#[derive(Deserialize)]
+pub struct OpenCodeRequestArgs {
+    pub pane_id: String,
+    pub method: String,
+    pub path: String,
+    #[serde(default)]
+    pub query: Option<std::collections::HashMap<String, String>>,
+    #[serde(default)]
+    pub body: Option<Value>,
+}
+
+#[tauri::command]
+pub async fn opencode_request(
+    state: State<'_, AppState>,
+    args: OpenCodeRequestArgs,
+) -> Result<Value, String> {
+    let (base_url, directory) = {
+        let reg = state.registry.lock();
+        let pane = reg
+            .panes
+            .get(&args.pane_id)
+            .ok_or_else(|| format!("unknown pane: {}", args.pane_id))?;
+        let link = pane
+            .opencode
+            .as_ref()
+            .ok_or_else(|| format!("pane {} has no opencode link", args.pane_id))?;
+        (link.base_url.clone(), link.directory.clone())
+    };
+    crate::opencode::proxy::opencode_request(
+        &base_url,
+        &directory,
+        None,
+        &args.method,
+        &args.path,
+        args.query.as_ref(),
+        args.body.as_ref(),
+    )
+}
+
+#[tauri::command]
+pub fn opencode_server_info(
+    state: State<'_, AppState>,
+    pane_id: String,
+) -> Result<crate::opencode::proxy::OpenCodeServerInfo, String> {
+    let (base_url, directory) = {
+        let reg = state.registry.lock();
+        let pane = reg
+            .panes
+            .get(&pane_id)
+            .ok_or_else(|| format!("unknown pane: {pane_id}"))?;
+        let link = pane
+            .opencode
+            .as_ref()
+            .ok_or_else(|| format!("pane {pane_id} has no opencode link"))?;
+        (link.base_url.clone(), link.directory.clone())
+    };
+    Ok(crate::opencode::proxy::fetch_server_info(&base_url, &directory))
+}
+
+#[tauri::command]
+pub async fn opencode_select_tui_session(
+    state: State<'_, AppState>,
+    pane_id: String,
+    session_id: String,
+) -> Result<(), String> {
+    let (base_url, directory) = {
+        let reg = state.registry.lock();
+        let pane = reg
+            .panes
+            .get(&pane_id)
+            .ok_or_else(|| format!("unknown pane: {pane_id}"))?;
+        let link = pane
+            .opencode
+            .as_ref()
+            .ok_or_else(|| format!("pane {pane_id} has no opencode link"))?;
+        (link.base_url.clone(), link.directory.clone())
+    };
+    crate::opencode::proxy::select_tui_session(&base_url, &directory, &session_id)
 }
 
 #[cfg(test)]

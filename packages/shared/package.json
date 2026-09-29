@@ -25,6 +25,10 @@
     "./bridge-port": {
       "types": "./dist/bridge-port.d.ts",
       "import": "./dist/bridge-port.js"
+    },
+    "./opencode": {
+      "types": "./dist/opencode/index.d.ts",
+      "import": "./dist/opencode/index.js"
     }
   },
   "scripts": {

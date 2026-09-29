@@ -7,7 +7,7 @@ use std::time::Duration;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
-fn encode_query_component(value: &str) -> String {
+pub fn encode_query_component(value: &str) -> String {
     value
         .bytes()
         .map(|byte| match byte {
