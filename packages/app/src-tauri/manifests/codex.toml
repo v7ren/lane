@@ -7,16 +7,24 @@ is_tui = true
 
 [launch.tui.windows]
 command = "codex"
-args = ["--sandbox", "workspace-write", "--ask-for-approval", "never"]
+args = ["--sandbox", "read-only", "--ask-for-approval", "never"]
 powershell_shim = true
 
 [launch.tui.macos]
 command = "codex"
-args = ["--sandbox", "workspace-write", "--ask-for-approval", "never"]
+args = ["--sandbox", "read-only", "--ask-for-approval", "never"]
 
 [launch.tui.linux]
 command = "codex"
-args = ["--sandbox", "workspace-write", "--ask-for-approval", "never"]
+args = ["--sandbox", "read-only", "--ask-for-approval", "never"]
+
+[launch.server]
+args = ["app-server", "--listen", "ws://127.0.0.1:{port}"]
+protocol = "codex-app-server"
+ready = { kind = "tcp", timeout_ms = 45000 }
+
+[launch.attach]
+args = ["--remote", "ws://127.0.0.1:{port}", "resume", "{session_id}"]
 
 [[attention]]
 pattern = "(?i)allow once|allow always"

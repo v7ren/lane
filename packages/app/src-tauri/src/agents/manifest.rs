@@ -6,7 +6,7 @@ use thiserror::Error;
 
 pub const SCHEMA_VERSION: u32 = 1;
 
-const ALLOWED_PLACEHOLDERS: &[&str] = &["{port}", "{cwd}", "{session_id}"];
+const ALLOWED_PLACEHOLDERS: &[&str] = &["{port}", "{cwd}", "{session_id}", "{url}"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -53,7 +53,21 @@ pub struct LaunchServer {
 pub struct ReadyProbe {
     pub kind: String,
     #[serde(default)]
+    pub path: Option<String>,
+    #[serde(default)]
     pub timeout_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StoredLaunchServer {
+    pub args: Vec<String>,
+    pub protocol: ProtocolKind,
+    pub ready: Option<ReadyProbe>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StoredLaunchAttach {
+    pub args: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -121,6 +135,8 @@ pub struct AgentManifest {
     pub default_worker: bool,
     pub spawn_handler: Option<SpawnHandler>,
     pub launch_tui: LaunchTui,
+    pub launch_server: Option<StoredLaunchServer>,
+    pub launch_attach: Option<StoredLaunchAttach>,
     pub launch_resume_args: Option<Vec<String>>,
     pub attention: Vec<CompiledAttention>,
     pub attention_regexes: Vec<Regex>,
@@ -173,6 +189,14 @@ impl AgentManifest {
     pub fn launch_resume_args(&self) -> Option<&[String]> {
         self.launch_resume_args.as_deref()
     }
+
+    pub fn launch_server(&self) -> Option<&StoredLaunchServer> {
+        self.launch_server.as_ref()
+    }
+
+    pub fn launch_attach(&self) -> Option<&StoredLaunchAttach> {
+        self.launch_attach.as_ref()
+    }
 }
 
 impl AgentManifestRaw {
@@ -215,6 +239,12 @@ impl AgentManifestRaw {
         }
 
         let launch_resume_args = launch.resume.map(|r| r.args);
+        let launch_server = launch.server.map(|s| StoredLaunchServer {
+            args: s.args,
+            protocol: s.protocol,
+            ready: s.ready,
+        });
+        let launch_attach = launch.attach.map(|a| StoredLaunchAttach { args: a.args });
 
         Ok(AgentManifest {
             id: self.id,
@@ -226,6 +256,8 @@ impl AgentManifestRaw {
             default_worker: self.default_worker,
             spawn_handler: self.spawn_handler,
             launch_tui,
+            launch_server,
+            launch_attach,
             launch_resume_args,
             attention: compiled,
             attention_regexes,

@@ -1,7 +1,10 @@
 pub mod client;
+pub mod event_map;
+pub mod event_stream;
 pub mod keys;
 pub mod link;
 pub mod messages;
+pub mod protocol;
 pub mod native;
 pub mod quota;
 pub mod status;

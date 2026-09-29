@@ -2,7 +2,7 @@
   "claude": { "program": "claude", "args": [] },
   "codex": {
     "program": "codex",
-    "args": ["--sandbox", "workspace-write", "--ask-for-approval", "never"]
+    "args": ["--sandbox", "read-only", "--ask-for-approval", "never"]
   },
   "opencode": { "program": "opencode", "args": [] },
   "opencode_native": { "program": "opencode", "args": [] },

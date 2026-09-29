@@ -7,6 +7,8 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::agents::AgentsListResponse;
+use crate::protocol::{AgentEventEnvelope, Capabilities};
+use crate::session::ProtocolHub;
 use crate::pty::{
     registry_get_project_path, registry_kill_all, registry_kill_pane, registry_read_buffer,
     registry_read_raw_buffer, registry_read_snapshot, registry_resize, registry_set_project_path,
@@ -19,15 +21,19 @@ pub struct AppState {
     pub public_settings: Mutex<Value>,
     pub agents: Arc<crate::agents::AgentCatalog>,
     pub session_states: Arc<crate::session::SessionStateStore>,
+    pub protocol_hub: Arc<ProtocolHub>,
 }
 
 impl AppState {
     pub fn new() -> Self {
+        let session_states = Arc::new(crate::session::SessionStateStore::new());
+        let protocol_hub = ProtocolHub::new();
         Self {
             registry: Arc::new(Mutex::new(PaneRegistry::new())),
             public_settings: Mutex::new(settings_store::default_public_settings()),
             agents: Arc::new(crate::agents::AgentCatalog::load()),
-            session_states: Arc::new(crate::session::SessionStateStore::new()),
+            session_states: Arc::clone(&session_states),
+            protocol_hub,
         }
     }
 }
@@ -48,6 +54,11 @@ pub async fn send_session_prompt(
     state: State<'_, AppState>,
     args: SendSessionPromptArgs,
 ) -> Result<(), String> {
+    if state.protocol_hub.has_session(&args.pane_id) {
+        return state
+            .protocol_hub
+            .send_prompt(&args.pane_id, args.text);
+    }
     let reg = state.registry.lock();
     let pane = reg
         .panes
@@ -147,6 +158,61 @@ pub async fn reply_opencode_permission(
     )
 }
 
+#[tauri::command]
+pub fn session_capabilities(
+    state: State<'_, AppState>,
+    pane_id: String,
+) -> Result<Capabilities, String> {
+    Ok(state.protocol_hub.capabilities(&pane_id))
+}
+
+#[tauri::command]
+pub fn session_history(
+    state: State<'_, AppState>,
+    pane_id: String,
+) -> Result<Vec<AgentEventEnvelope>, String> {
+    Ok(state.protocol_hub.history(&pane_id))
+}
+
+#[derive(Deserialize)]
+pub struct SessionSendPromptArgs {
+    pub pane_id: String,
+    pub text: String,
+}
+
+#[tauri::command]
+pub async fn session_send_prompt(
+    state: State<'_, AppState>,
+    args: SessionSendPromptArgs,
+) -> Result<(), String> {
+    state.protocol_hub.send_prompt(&args.pane_id, args.text)
+}
+
+#[derive(Deserialize)]
+pub struct SessionRespondApprovalArgs {
+    pub pane_id: String,
+    pub approval_id: String,
+    pub decision: String,
+}
+
+#[tauri::command]
+pub async fn session_respond_approval(
+    state: State<'_, AppState>,
+    args: SessionRespondApprovalArgs,
+) -> Result<(), String> {
+    state
+        .protocol_hub
+        .respond_approval(&args.pane_id, &args.approval_id, &args.decision)
+}
+
+#[tauri::command]
+pub async fn session_cancel_turn(
+    state: State<'_, AppState>,
+    pane_id: String,
+) -> Result<(), String> {
+    state.protocol_hub.cancel_turn(&pane_id)
+}
+
 impl Default for AppState {
     fn default() -> Self {
         Self::new()
@@ -169,7 +235,16 @@ pub async fn spawn_pane(
     state: State<'_, AppState>,
     args: SpawnPaneArgs,
 ) -> Result<String, String> {
-    registry_spawn_pane(&state.registry, &state.agents, &app, args)
+    let agent_type = args.agent_type.clone();
+    let pane_id = registry_spawn_pane(&state.registry, &state.agents, &app, args)?;
+    if agent_type == "opencode_native" {
+        crate::opencode::protocol::register_pane_protocol(
+            &state.protocol_hub,
+            &state.registry,
+            &pane_id,
+        )?;
+    }
+    Ok(pane_id)
 }
 
 #[tauri::command]
@@ -178,6 +253,7 @@ pub async fn kill_pane_cmd(
     state: State<'_, AppState>,
     pane_id: String,
 ) -> Result<(), String> {
+    state.protocol_hub.unregister(&pane_id);
     registry_kill_pane(&state.registry, &pane_id)?;
     let _ = app.emit("pty://panes-changed", ());
     Ok(())

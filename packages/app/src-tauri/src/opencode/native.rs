@@ -9,7 +9,6 @@ use crate::pty::status::PaneStatus;
 use parking_lot::Mutex;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::io::Read;
-use std::process::Command as StdCommand;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -54,33 +53,26 @@ pub fn spawn_native_pane(
         }
     }
 
-    let port = crate::session::pick_free_port(PORT_MIN, PORT_MAX)?;
-    let base_url = format!("http://127.0.0.1:{port}");
+    let manifest = crate::agents::AgentCatalog::load();
+    let agent_manifest = manifest
+        .get("opencode_native")
+        .ok_or_else(|| "missing opencode_native manifest".to_string())?;
+    let server = agent_manifest
+        .launch_server()
+        .ok_or_else(|| "opencode_native manifest missing launch.server".to_string())?;
 
-    let mut serve = StdCommand::new(&opencode_exe);
-    serve
-        .args([
-            "serve",
-            "--hostname",
-            "127.0.0.1",
-            "--port",
-            &port.to_string(),
-        ])
-        .current_dir(&cwd)
-        .env("PATH", crate::shell_env::path_for_spawn());
-    #[cfg(windows)]
-    serve.env("Path", crate::shell_env::path_for_spawn());
-
-    let mut serve_child = serve
-        .spawn()
-        .map_err(|err| format!("opencode serve spawn ({opencode_exe}): {err}"))?;
+    let spawned = crate::session::spawn_manifest_server(
+        &opencode_exe,
+        agent_manifest,
+        server,
+        std::path::Path::new(&cwd),
+        PORT_MIN,
+        PORT_MAX,
+    )?;
+    let _port = spawned.port;
+    let base_url = spawned.base_url;
+    let mut serve_child = spawned.child;
     let serve_pid = serve_child.id();
-
-    if let Err(err) = client::wait_for_health(&base_url, SERVE_START_TIMEOUT) {
-        let _ = serve_child.kill();
-        error!(%pane_id, %base_url, %err, "opencode serve failed health check");
-        return Err(err);
-    }
 
     let session = match client::create_session(&base_url, &format!("puppet-master {pane_id}")) {
         Ok(session) => session,
@@ -148,7 +140,7 @@ pub fn spawn_native_pane(
     let keep_serve_on_attach_exit = opencode.keep_serve_on_attach_exit();
     let attach_generation = opencode.attach_generation();
 
-    let mut process_tree = crate::process::ProcessTree::new();
+    let process_tree = crate::process::ProcessTree::new();
     crate::process::assign_pid_to_pane_job(&process_tree, serve_pid);
     crate::process::assign_pid_to_pane_job(&process_tree, pid);
 

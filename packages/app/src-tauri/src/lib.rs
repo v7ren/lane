@@ -13,7 +13,7 @@ pub mod process;
 mod project_path;
 pub mod pty;
 mod settings_store;
-mod shell_env;
+pub mod shell_env;
 
 use commands::AppState;
 use tauri::{Listener, Manager};
@@ -67,6 +67,11 @@ pub fn run() {
             commands::list_agents,
             commands::list_resumable_sessions,
             commands::send_session_prompt,
+            commands::session_capabilities,
+            commands::session_history,
+            commands::session_send_prompt,
+            commands::session_respond_approval,
+            commands::session_cancel_turn,
             commands::read_opencode_messages,
             commands::list_opencode_permissions,
             commands::reply_opencode_question,
@@ -86,6 +91,8 @@ pub fn run() {
             }
 
             let session_store = app.state::<AppState>().session_states.clone();
+            let protocol_hub = app.state::<AppState>().protocol_hub.clone();
+            protocol_hub.bind_app(app.handle().clone(), session_store.clone());
             session::spawn_state_monitor(session_store);
 
             app.handle().listen("terminal-data", move |event| {
