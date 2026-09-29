@@ -1,7 +1,11 @@
+pub mod allowlist;
 pub mod client;
 pub mod event_map;
 pub mod event_stream;
 pub mod keys;
+pub mod proxy;
+pub mod sse_hub;
+pub mod sse_parse;
 pub mod link;
 pub mod messages;
 pub mod protocol;

@@ -220,6 +220,8 @@ pub struct Endpoint {
     pub session_id: Option<String>,
     pub cwd: Option<String>,
     pub codex: Option<CodexThreadOptions>,
+    /// Pane id for SSE fan-out (`opencode://event`).
+    pub connect_pane_id: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]

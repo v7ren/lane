@@ -178,6 +178,7 @@ fn live_final_claude_prompt() {
             session_id: Some(uuid::Uuid::new_v4().to_string()),
             cwd: Some(cwd.to_string_lossy().to_string()),
             codex: None,
+            connect_pane_id: None,
         },
     )
     .expect("register");
@@ -289,6 +290,7 @@ fn live_claude_prompt() {
             session_id: Some(uuid::Uuid::new_v4().to_string()),
             cwd: Some(cwd.to_string_lossy().to_string()),
             codex: None,
+            connect_pane_id: None,
         },
     )
     .expect("register");
@@ -324,6 +326,7 @@ fn live_claude_unsupported_ops() {
             session_id: Some(uuid::Uuid::new_v4().to_string()),
             cwd: Some(live_temp_dir("claude-ops").to_string_lossy().to_string()),
             codex: None,
+            connect_pane_id: None,
         })
         .expect("connect");
     let caps = session.capabilities();

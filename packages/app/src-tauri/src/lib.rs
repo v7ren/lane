@@ -78,6 +78,9 @@ pub fn run() {
             commands::list_opencode_permissions,
             commands::reply_opencode_question,
             commands::reply_opencode_permission,
+            commands::opencode_request,
+            commands::opencode_server_info,
+            commands::opencode_select_tui_session,
         ])
         .setup(|app| {
             let port_file = app_paths::bridge_port_file();
@@ -95,6 +98,7 @@ pub fn run() {
             let session_store = app.state::<AppState>().session_states.clone();
             let protocol_hub = app.state::<AppState>().protocol_hub.clone();
             protocol_hub.bind_app(app.handle().clone(), session_store.clone());
+            crate::opencode::sse_hub::bind_app(app.handle().clone());
             session::spawn_state_monitor(session_store);
 
             app.handle().listen("terminal-data", move |event| {

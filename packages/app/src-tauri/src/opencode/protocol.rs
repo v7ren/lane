@@ -38,6 +38,7 @@ pub fn register_pane_protocol(
             session_id: Some(session_id),
             cwd: Some(directory),
             codex: None,
+            connect_pane_id: Some(pane_id.to_string()),
         },
     )
 }
