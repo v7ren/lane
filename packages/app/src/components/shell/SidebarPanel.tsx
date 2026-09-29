@@ -34,11 +34,13 @@ export function SidebarPanel({
   onSelectSession,
   projectPath,
   onProjectPathChange,
+  paneCwds,
 }: {
   section: ActivityRailSection;
   sessionStates: Map<string, SessionRailState>;
   agentCatalog: AgentCatalog;
   paneTitles: Map<string, string>;
+  paneCwds?: Map<string, string>;
   selectedPaneId: string | null;
   connecting?: boolean;
   onSelectSession: (paneId: string) => void;
@@ -69,6 +71,7 @@ export function SidebarPanel({
           states={sessionStates}
           agentCatalog={agentCatalog}
           paneTitles={paneTitles}
+          paneCwds={paneCwds}
           selectedPaneId={selectedPaneId}
           connecting={connecting}
           onSelect={onSelectSession}
@@ -82,7 +85,7 @@ export function SidebarPanel({
       className="flex flex-col min-h-0 h-full bg-surface border-r border-border-subtle"
       data-testid="sidebar-workspaces"
     >
-      <div className="px-3 py-2 border-b border-border-subtle flex items-center justify-between">
+      <div className="px-3 h-7 border-b border-border-subtle flex items-center justify-between">
         <span className="text-section-label text-text-3">Workspaces</span>
         <button
           type="button"
@@ -106,12 +109,11 @@ export function SidebarPanel({
               type="button"
               title={path}
               onClick={() => void onProjectPathChange(path)}
-              className={`w-full text-left rounded-md px-2 py-1.5 text-body transition-colors duration-ui ${
+              className={`w-full text-left rounded-sm px-2 h-7 flex items-center text-meta transition-colors duration-ui ${
                 active ? 'bg-elevated text-text' : 'text-text-2 hover:bg-hover'
               }`}
             >
-              <div className="truncate font-medium">{name}</div>
-              <div className="truncate text-meta text-text-3 font-mono">{path}</div>
+              <span className="truncate font-medium">{name}</span>
             </button>
           );
         })}

@@ -51,7 +51,11 @@ export default function App() {
     if (!demo) return;
     const flags = readDemoUrlFlags();
     if (flags.paneId) setSelectedPaneId(flags.paneId);
-    else if (demo.defaultAgentPaneId) setSelectedPaneId(demo.defaultAgentPaneId);
+    else if (demo.variant !== 'empty' && demo.defaultAgentPaneId) {
+      setSelectedPaneId(demo.defaultAgentPaneId);
+    } else if (demo.variant === 'empty') {
+      setSelectedPaneId(null);
+    }
     if (flags.showTui) setShowTui(true);
   }, [demo]);
 

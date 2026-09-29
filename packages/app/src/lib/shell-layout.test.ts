@@ -20,9 +20,9 @@ describe('shell layout defaults', () => {
     expect(merged.explorerWidth).toBe(DEFAULT_SHELL_LAYOUT.explorerWidth);
   });
 
-  it('persists layout to localStorage via hook consumer pattern', () => {
-    localStorage.setItem('loomria-shell-layout-v1', JSON.stringify({ sidebarWidth: 199 }));
-    const parsed = mergeShellLayout(JSON.parse(localStorage.getItem('loomria-shell-layout-v1')!));
+  it('merges persisted width keys with defaults', () => {
+    const parsed = mergeShellLayout({ sidebarWidth: 199 });
     expect(parsed.sidebarWidth).toBe(199);
+    expect(parsed.sidebarCollapsed).toBe(false);
   });
 });

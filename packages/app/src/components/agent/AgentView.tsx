@@ -13,6 +13,7 @@ import {
 } from '../../lib/agent-session';
 import { tauri } from '../../lib/tauri';
 import { setSessionMuted } from '../../lib/session-notify-prefs';
+import { formatPaneSubtitle } from '../../lib/session-subtitle';
 import { DisplayStatusDot } from '../DisplayStatusDot';
 import { AgentComposer } from './AgentComposer';
 import { AgentTimeline } from './AgentTimeline';
@@ -32,6 +33,7 @@ export function AgentView({
   onMutedChange,
   headlessClaude,
   embedded,
+  paneCwd,
 }: {
   paneId: string;
   agentCatalog: AgentCatalog;
@@ -46,6 +48,7 @@ export function AgentView({
   muted: boolean;
   onMutedChange: (muted: boolean) => void;
   embedded?: boolean;
+  paneCwd?: string | null;
 }) {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -178,7 +181,9 @@ export function AgentView({
         <DisplayStatusDot status={displayStatus} pulse={displayStatus === 'needs_approval'} />
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium truncate">{agentLabel}</div>
-          <div className="text-[10px] text-lr-muted truncate font-mono">{paneId.slice(0, 12)}</div>
+          <div className="text-[10px] text-lr-muted truncate">
+            {formatPaneSubtitle(paneId, agentLabel, paneCwd)}
+          </div>
         </div>
         {headlessClaude && (
           <button

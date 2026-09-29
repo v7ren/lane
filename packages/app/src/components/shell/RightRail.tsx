@@ -15,7 +15,7 @@ export function RightRail() {
       className="flex flex-col min-h-0 h-full bg-surface border-l border-border-subtle"
       data-testid="right-rail"
     >
-      <div className="flex border-b border-border-subtle shrink-0">
+      <div className="flex border-b border-border-subtle shrink-0 h-7">
         <TabButton active={tab === 'session'} onClick={() => setTab('session')}>
           Session
         </TabButton>
@@ -93,7 +93,7 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex-1 px-3 py-2 text-section-label transition-colors duration-ui border-b-2 ${
+      className={`flex-1 h-7 px-3 text-section-label transition-colors duration-ui border-b-2 ${
         active
           ? 'text-text border-accent'
           : 'text-text-3 border-transparent hover:text-text-2'

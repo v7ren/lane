@@ -100,6 +100,10 @@ function shellProvider(ui: ReactNode, overrides?: Partial<ComponentProps<typeof 
     setPaletteOpen: () => {},
     paletteFileMode: false,
     setPaletteFileMode: () => {},
+    sidebarColumnOpen: true,
+    setSidebarColumnOpen: () => {},
+    rightRailOpen: true,
+    setRightRailOpen: () => {},
     ...overrides,
   };
   return <ShellSelectionProvider value={value}>{ui}</ShellSelectionProvider>;

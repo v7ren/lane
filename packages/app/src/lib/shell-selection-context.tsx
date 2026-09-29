@@ -14,6 +14,10 @@ export type ShellSelectionState = {
   setSelectedTerminalPaneId: (id: string | null) => void;
   railSection: ActivityRailSection;
   setRailSection: (section: ActivityRailSection) => void;
+  sidebarColumnOpen: boolean;
+  setSidebarColumnOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
+  rightRailOpen: boolean;
+  setRightRailOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
   settingsOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
   paletteOpen: boolean;

@@ -3,26 +3,39 @@ import type { ShellLayout } from '@loomria/shared';
 import { clampShellLayout, DEFAULT_SHELL_LAYOUT, mergeShellLayout } from '../lib/shell-layout';
 import { loadSettings, saveSettings } from '../lib/settings';
 
-const LAYOUT_STORAGE_KEY = 'loomria-shell-layout-v1';
+const LAYOUT_STORAGE_KEY = 'loomria-shell-layout-v2';
 
-function readLocalLayout(): ShellLayout | null {
+type PersistedLayout = Pick<
+  ShellLayout,
+  'sidebarWidth' | 'explorerWidth' | 'rightRailWidth' | 'bottomPanelPercent'
+>;
+
+function readPersistedWidths(): Partial<PersistedLayout> | null {
   if (typeof localStorage === 'undefined') return null;
   try {
     const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
     if (!raw) return null;
-    return mergeShellLayout(JSON.parse(raw) as ShellLayout);
+    return JSON.parse(raw) as PersistedLayout;
   } catch {
     return null;
   }
 }
 
-function writeLocalLayout(layout: ShellLayout): void {
+function writePersistedWidths(layout: ShellLayout): void {
   if (typeof localStorage === 'undefined') return;
-  localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layout));
+  const payload: PersistedLayout = {
+    sidebarWidth: layout.sidebarWidth,
+    explorerWidth: layout.explorerWidth,
+    rightRailWidth: layout.rightRailWidth,
+    bottomPanelPercent: layout.bottomPanelPercent,
+  };
+  localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(payload));
 }
 
 export function useShellLayout() {
-  const [layout, setLayoutState] = useState<ShellLayout>(() => readLocalLayout() ?? DEFAULT_SHELL_LAYOUT);
+  const [layout, setLayoutState] = useState<ShellLayout>(() =>
+    mergeShellLayout(readPersistedWidths()),
+  );
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -30,7 +43,16 @@ export function useShellLayout() {
       try {
         const settings = await loadSettings();
         if (settings.shell_layout) {
-          setLayoutState(mergeShellLayout(settings.shell_layout));
+          setLayoutState(
+            mergeShellLayout({
+              ...readPersistedWidths(),
+              ...settings.shell_layout,
+              sidebarCollapsed: false,
+              explorerCollapsed: false,
+              rightRailCollapsed: false,
+              bottomPanelCollapsed: false,
+            }),
+          );
         }
       } finally {
         setReady(true);
@@ -41,10 +63,18 @@ export function useShellLayout() {
   const persist = useCallback(async (next: ShellLayout) => {
     const normalized = clampShellLayout(next);
     setLayoutState(normalized);
-    writeLocalLayout(normalized);
+    writePersistedWidths(normalized);
     try {
       const settings = await loadSettings();
-      await saveSettings({ ...settings, shell_layout: normalized });
+      await saveSettings({
+        ...settings,
+        shell_layout: {
+          ...normalized,
+          sidebarCollapsed: false,
+          rightRailCollapsed: false,
+          explorerCollapsed: false,
+        },
+      });
     } catch {
       /* demo / vitest */
     }
@@ -65,5 +95,14 @@ export function useShellLayout() {
     [patchLayout],
   );
 
-  return { layout, ready, patchLayout, resetPanel };
+  const resetVisibility = useCallback(() => {
+    patchLayout({
+      sidebarCollapsed: false,
+      explorerCollapsed: false,
+      rightRailCollapsed: false,
+      bottomPanelCollapsed: false,
+    });
+  }, [patchLayout]);
+
+  return { layout, ready, patchLayout, resetPanel, resetVisibility };
 }

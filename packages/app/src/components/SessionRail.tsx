@@ -9,6 +9,7 @@ import {
   mergePaneAndSessionStatus,
   type DisplayStatus,
 } from '../lib/display-status';
+import { formatPaneSubtitle } from '../lib/session-subtitle';
 import { DisplayStatusDot } from './DisplayStatusDot';
 
 function sessionTitle(
@@ -42,10 +43,12 @@ export function SessionRail({
   connecting,
   onSelect,
   embedded,
+  paneCwds,
 }: {
   states: Map<string, SessionRailState>;
   agentCatalog: AgentCatalog;
   paneTitles: Map<string, string>;
+  paneCwds?: Map<string, string>;
   selectedPaneId: string | null;
   connecting?: boolean;
   onSelect: (paneId: string) => void;
@@ -54,20 +57,20 @@ export function SessionRail({
   const rows = sortRows([...states.values()]);
 
   const shellClass = embedded
-    ? 'w-full flex flex-col min-h-0 flex-1'
-    : 'w-52 shrink-0 border-r border-lr-border bg-lr-panel flex flex-col min-h-0';
+    ? 'w-full flex flex-col min-h-0 flex-1 border-r-0'
+    : 'w-52 shrink-0 border-r border-border-subtle bg-surface flex flex-col min-h-0';
 
   return (
-    <aside className={shellClass} aria-label="Sessions">
-      <div className="px-3 py-2 border-b border-lr-border text-[11px] font-semibold uppercase tracking-wide text-lr-muted">
-        Sessions
+    <aside className={shellClass} aria-label="Sessions" data-testid="session-rail">
+      <div className="px-3 h-7 flex items-center border-b border-border-subtle">
+        <span className="text-section-label text-text-3">Sessions</span>
       </div>
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+      <div className="flex-1 overflow-y-auto py-1">
         {connecting && rows.length === 0 && (
-          <p className="text-xs text-lr-muted px-2 py-4">Connecting to session feed…</p>
+          <p className="text-meta text-text-3 px-3 py-2">Connecting to session feed…</p>
         )}
         {!connecting && rows.length === 0 && (
-          <p className="text-xs text-lr-muted px-2 py-4">No active sessions yet.</p>
+          <p className="text-meta text-text-3 px-3 py-2">No sessions yet.</p>
         )}
         {rows.map((row) => {
           const status: DisplayStatus = mergePaneAndSessionStatus(null, row.state);
@@ -76,25 +79,28 @@ export function SessionRail({
           const agentLabel = row.agent_type
             ? getPreset(agentCatalog, row.agent_type as never)?.label ?? row.agent_type
             : 'Agent';
+          const subtitle = formatPaneSubtitle(
+            row.pane_id,
+            agentLabel,
+            paneCwds?.get(row.pane_id) ?? undefined,
+          );
 
           return (
             <button
               key={row.pane_id}
               type="button"
               onClick={() => onSelect(row.pane_id)}
-              className={`w-full text-left rounded-lg px-2 py-2 border border-l-4 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-lr-accent/50 ${displayStatusRailAccentClass(status)} ${displayStatusRailSurfaceClass(status, selected)}`}
+              className={`w-full text-left px-2 py-1 mx-1 max-w-[calc(100%-0.5rem)] rounded-sm border-l-2 transition-colors duration-ui focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${displayStatusRailAccentClass(status)} ${displayStatusRailSurfaceClass(status, selected)}`}
               title={row.detail ?? row.pane_id}
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <DisplayStatusDot status={status} pulse={status === 'needs_approval'} />
-                <span className="text-xs font-medium text-lr-text truncate flex-1">{title}</span>
-              </div>
-              <div className="mt-0.5 flex items-center justify-between gap-1 pl-[18px]">
-                <span className="text-[10px] text-lr-muted truncate">{agentLabel}</span>
+                <span className="text-meta font-medium text-text truncate flex-1">{title}</span>
                 <span className={`text-[10px] shrink-0 ${displayStatusTextClass(status)}`}>
                   {DISPLAY_STATUS_LABEL[status]}
                 </span>
               </div>
+              <div className="pl-[18px] text-[10px] text-text-3 truncate">{subtitle}</div>
             </button>
           );
         })}

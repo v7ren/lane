@@ -83,7 +83,9 @@ export function PersistentPaneSurfaces({
               top: 0,
               bottom: 0,
             }
-          : { left: 0, right: 0, top: 0, bottom: 0 };
+          : terminalTabVisible
+            ? { left: 0, right: 0, top: 28, bottom: 0 }
+            : { left: 0, right: 0, top: 0, bottom: 0 };
 
         const surfaceClass = hidden
           ? 'lr-pane-surface lr-pane-surface--parked absolute -left-[10000px] w-[480px] h-[320px] opacity-0 pointer-events-none overflow-hidden flex flex-col'

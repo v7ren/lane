@@ -4,7 +4,7 @@ export function ExplorerPanel() {
       className="flex flex-col min-h-0 h-full bg-surface border-r border-border-subtle"
       data-testid="explorer-panel"
     >
-      <div className="px-3 py-2 border-b border-border-subtle">
+      <div className="px-3 h-7 flex items-center border-b border-border-subtle">
         <span className="text-section-label text-text-3">Explorer</span>
       </div>
       <div className="flex-1 flex items-center justify-center p-4 text-center">

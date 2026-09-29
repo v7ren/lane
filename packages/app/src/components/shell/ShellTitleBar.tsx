@@ -1,13 +1,32 @@
-import { Plus } from 'lucide-react';
+import { PanelRight, Plus } from 'lucide-react';
 
-export function ShellTitleBar({ onNewPane }: { onNewPane: () => void }) {
+export function ShellTitleBar({
+  onNewPane,
+  showRightRailToggle,
+  onToggleRightRail,
+}: {
+  onNewPane: () => void;
+  showRightRailToggle?: boolean;
+  onToggleRightRail?: () => void;
+}) {
   return (
     <header
-      className="h-9 shrink-0 flex items-center border-b border-border-subtle bg-surface px-3 relative"
+      className="h-[36px] shrink-0 flex items-center border-b border-border-subtle bg-surface px-3 relative"
       data-testid="shell-title-bar"
     >
-      <div className="flex-1" />
-      <span className="absolute left-1/2 -translate-x-1/2 text-[13px] font-medium tracking-tight text-text lowercase select-none">
+      <div className="flex-1 flex items-center gap-2">
+        {showRightRailToggle && onToggleRightRail && (
+          <button
+            type="button"
+            aria-label="Toggle right panel"
+            onClick={onToggleRightRail}
+            className="p-1 rounded-md text-text-3 hover:text-text hover:bg-hover"
+          >
+            <PanelRight size={16} strokeWidth={1.5} />
+          </button>
+        )}
+      </div>
+      <span className="absolute left-1/2 -translate-x-1/2 text-body font-medium tracking-tight text-text lowercase select-none">
         loomria
       </span>
       <div className="flex-1 flex justify-end">
@@ -27,7 +46,7 @@ export function ShellTitleBar({ onNewPane }: { onNewPane: () => void }) {
 export function EditorTabsSlot() {
   return (
     <div
-      className="h-9 shrink-0 border-b border-border-subtle bg-elevated/50 px-3 flex items-center text-meta text-text-3"
+      className="h-7 shrink-0 border-b border-border-subtle bg-elevated/40 px-3 flex items-center text-section-label text-text-3"
       data-testid="editor-tabs-slot"
       aria-hidden
     />
