@@ -1,5 +1,9 @@
 import { useEffect } from 'react';
-import { isEditableKeyboardTarget, isModifierCombo } from '../../hooks/keyboard-target';
+import {
+  isEditableKeyboardTarget,
+  isModifierCombo,
+  shouldIgnoreGlobalShortcut,
+} from '../../hooks/keyboard-target';
 
 export function useAgentApprovalShortcuts(
   enabled: boolean,
@@ -10,6 +14,7 @@ export function useAgentApprovalShortcuts(
   useEffect(() => {
     if (!enabled || !topApprovalId) return;
     const onKey = (e: KeyboardEvent) => {
+      if (shouldIgnoreGlobalShortcut(e.target)) return;
       if (!isModifierCombo(e) && isEditableKeyboardTarget(e.target)) return;
       const mod = e.ctrlKey || e.metaKey;
       if (!mod || !e.shiftKey) return;

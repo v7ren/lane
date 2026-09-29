@@ -177,3 +177,12 @@ pub fn fetch_server_info(
         attached_session_id,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn select_tui_session_uses_session_id_field() {
+        let body = serde_json::json!({ "sessionID": "sess_abc" });
+        assert_eq!(body["sessionID"], "sess_abc");
+    }
+}

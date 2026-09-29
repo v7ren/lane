@@ -4,7 +4,7 @@ import { emptyAgentCatalog } from '@loomria/shared';
 import { invoke } from '@tauri-apps/api/core';
 import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
+import { getCurrentWindow, LogicalSize, type CloseRequestedEvent } from '@tauri-apps/api/window';
 export type AgentModelInspection = {
   pane_id: string;
   agent_type: string;
@@ -156,7 +156,9 @@ async function resizeCurrentWindow(width: number, height: number): Promise<void>
   await getCurrentWindow().setSize(new LogicalSize(width, height));
 }
 
-async function onCurrentWindowCloseRequested(cb: () => void | Promise<void>): Promise<UnlistenFn> {
+async function onCurrentWindowCloseRequested(
+  cb: (event: CloseRequestedEvent) => void | Promise<void>,
+): Promise<UnlistenFn> {
   if (!isTauriRuntime()) return noopUnlisten;
   return getCurrentWindow().onCloseRequested(cb);
 }

@@ -13,10 +13,12 @@ export async function sendOpenCodePrompt(args: {
   paneId: string;
   sessionId: string;
   parts: PromptPart[];
+  messageId: string;
   agent?: string;
   model?: { providerID: string; modelID: string };
 }) {
   await opencodeClient.promptAsync(args.paneId, args.sessionId, {
+    messageID: args.messageId,
     parts: args.parts,
     agent: args.agent,
     model: args.model,

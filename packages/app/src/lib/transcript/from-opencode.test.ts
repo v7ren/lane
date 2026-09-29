@@ -182,6 +182,23 @@ describe('fromOpenCode adapter', () => {
     }
   });
 
+  it('orders hello-read multi-step turn like live E2E', () => {
+    const events = loadFixture('hello-read-turn.json');
+    const state = replay(events);
+    const vm = fromOpenCode(state, 'sess_hello');
+    const kinds = vm.turns.map((t) => ({
+      role: t.role,
+      items: t.items.map((i) => i.kind),
+    }));
+    expect(kinds[0]?.role).toBe('user');
+    expect(kinds[1]?.items).toEqual(['reasoning', 'tool_call', 'step_usage']);
+    expect(kinds[2]?.items).toEqual(['reasoning', 'assistant_text', 'step_usage']);
+    const readIdx = kinds[1]?.items.indexOf('tool_call');
+    const textIdx = kinds[2]?.items.indexOf('assistant_text');
+    expect(readIdx).toBeGreaterThan(-1);
+    expect(textIdx).toBeGreaterThan(-1);
+  });
+
   it('replays live-turn.json without throwing', () => {
     const events = loadFixture('live-turn.json');
     const state = replay(events);

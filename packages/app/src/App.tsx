@@ -11,6 +11,7 @@ import { readDemoUrlFlags } from './lib/demo-mode';
 import { isTauriRuntime } from './lib/is-tauri';
 import { loadSettings, syncPublicSettingsToBridge } from './lib/settings';
 import { tauri } from './lib/tauri';
+import { useWindowCloseGuard } from './hooks/useWindowCloseGuard';
 
 export default function App() {
   const demo = useDemoFixtures();
@@ -22,6 +23,8 @@ export default function App() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [showTui, setShowTui] = useState(false);
   const [railConnecting, setRailConnecting] = useState(true);
+
+  useWindowCloseGuard();
 
   useEffect(() => {
     if (demo) {

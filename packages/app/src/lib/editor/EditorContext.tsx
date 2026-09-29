@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { isEditorKeyboardTarget, shouldIgnoreGlobalShortcut } from '../../hooks/keyboard-target';
 import { isTauriRuntime } from '../is-tauri';
 import { useSelectedSession } from '../shell-data';
 import { usePaneRegistry } from '../../hooks/usePaneRegistry';
@@ -296,16 +297,17 @@ export function EditorProvider({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (shouldIgnoreGlobalShortcut(e.target)) return;
       const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.key.toLowerCase() === 's') {
+      if (mod && e.key.toLowerCase() === 's' && isEditorKeyboardTarget(e.target)) {
         e.preventDefault();
         void saveActive();
       }
-      if (mod && e.key.toLowerCase() === 'w' && mainView === 'editor') {
+      if (mod && e.key.toLowerCase() === 'w' && mainView === 'editor' && isEditorKeyboardTarget(e.target)) {
         e.preventDefault();
         if (activeId) closeTab(activeId);
       }
-      if (mod && e.shiftKey && e.key.toLowerCase() === 'f') {
+      if (mod && e.shiftKey && e.key.toLowerCase() === 'f' && isEditorKeyboardTarget(e.target)) {
         e.preventDefault();
         setExplorerView('search');
       }

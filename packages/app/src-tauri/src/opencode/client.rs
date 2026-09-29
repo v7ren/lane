@@ -125,10 +125,17 @@ pub fn switch_session_model(
     ))
 }
 
-pub fn prompt_async_body(text: &str, model: Option<&OpenCodeModelRef>) -> serde_json::Value {
+pub fn prompt_async_body(
+    text: &str,
+    model: Option<&OpenCodeModelRef>,
+    message_id: Option<&str>,
+) -> serde_json::Value {
     let mut body = json!({
         "parts": [{ "type": "text", "text": text }],
     });
+    if let Some(id) = message_id.filter(|s| !s.is_empty()) {
+        body["messageID"] = json!(id);
+    }
     if let Some(model) = model {
         body["model"] = json!({
             "providerID": model.provider_id,
@@ -145,11 +152,22 @@ pub fn prompt_async(
     text: &str,
     model: Option<&OpenCodeModelRef>,
 ) -> Result<(), PromptAsyncError> {
+    prompt_async_with_id(base_url, session_id, directory, text, model, None)
+}
+
+pub fn prompt_async_with_id(
+    base_url: &str,
+    session_id: &str,
+    directory: Option<&str>,
+    text: &str,
+    model: Option<&OpenCodeModelRef>,
+    message_id: Option<&str>,
+) -> Result<(), PromptAsyncError> {
     let base = normalize_base_url(base_url);
     let url = with_directory_query(&format!("{base}/session/{session_id}/prompt_async"), directory);
     let response = ureq::post(&url)
         .timeout(DEFAULT_TIMEOUT)
-        .send_json(prompt_async_body(text, model))
+        .send_json(prompt_async_body(text, model, message_id))
         .map_err(|err| PromptAsyncError {
             status: 0,
             body: format!("opencode prompt_async: {err}"),
@@ -543,6 +561,7 @@ mod tests {
                 provider_id: "anthropic".into(),
                 model_id: "claude-sonnet-4".into(),
             }),
+            None,
         );
         assert_eq!(
             body["model"],
@@ -553,8 +572,14 @@ mod tests {
 
     #[test]
     fn prompt_async_body_omits_model_when_none() {
-        let body = prompt_async_body("hello", None);
+        let body = prompt_async_body("hello", None, None);
         assert!(body.get("model").is_none());
+    }
+
+    #[test]
+    fn prompt_async_body_includes_message_id_when_set() {
+        let body = prompt_async_body("hi", None, Some("msg_client_1"));
+        assert_eq!(body["messageID"], "msg_client_1");
     }
 
     fn model_matches_filter(

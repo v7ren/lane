@@ -207,12 +207,7 @@ pub fn write_native_input(
         text,
         model,
     ) {
-        Ok(()) => {
-            if model.is_some() {
-                spawn_reattach_tui(Arc::clone(registry), app.clone(), pane_id.to_string());
-            }
-            Ok(())
-        }
+        Ok(()) => Ok(()),
         Err(err) if client::is_rate_limit_status(err.status, &err.body) => {
             quota::handle_rate_limit(registry, app, pane_id)?;
             Err(err.into_message())

@@ -22,7 +22,11 @@ export function EditorWorkspace({
   const showLauncher = editor.mainView === 'launcher' && editor.tabs.length === 0;
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 relative" data-testid="editor-workspace">
+    <div
+      className="flex flex-col flex-1 min-h-0 relative"
+      data-testid="editor-workspace"
+      data-editor-workspace
+    >
       <EditorTabsBar
         tabs={editor.tabs}
         activeTabId={editor.activeTabId}

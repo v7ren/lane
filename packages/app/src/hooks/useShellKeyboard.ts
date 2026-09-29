@@ -1,7 +1,11 @@
 import { useEffect } from 'react';
 import type { SessionRailState } from './useSessionRail';
 import { useAppKeyboard } from './useAppKeyboard';
-import { isEditableKeyboardTarget, isModifierCombo } from './keyboard-target';
+import {
+  isEditableKeyboardTarget,
+  isModifierCombo,
+  shouldIgnoreGlobalShortcut,
+} from './keyboard-target';
 
 export function useShellKeyboard({
   sessionStates,
@@ -40,6 +44,7 @@ export function useShellKeyboard({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (shouldIgnoreGlobalShortcut(e.target)) return;
       if (!isModifierCombo(e) && isEditableKeyboardTarget(e.target)) return;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === 'k') {

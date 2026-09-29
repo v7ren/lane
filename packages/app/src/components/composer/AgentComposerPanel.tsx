@@ -29,6 +29,7 @@ import {
   demoMentionFiles,
 } from '../../lib/demo/composer-fixtures';
 import { composerAllowlistOk } from '../../lib/opencode/composer-allowlist';
+import { createPromptMessageId } from '../../lib/opencode/prompt-send';
 import { opencodeClient } from '../../lib/opencode/client';
 import { isTauriRuntime } from '../../lib/is-tauri';
 import { ADD_TO_COMPOSER_EVENT, type AddToComposerDetail } from '../../lib/editor/add-to-composer';
@@ -93,6 +94,7 @@ export function AgentComposerPanel({
   const [focused, setFocused] = useState(false);
   const [allowlistBlocked, setAllowlistBlocked] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const sendInFlightRef = useRef(false);
 
   useEffect(() => {
     if (openCode && isTauriRuntime() && !composerAllowlistOk()) {
@@ -217,9 +219,11 @@ export function AgentComposerPanel({
 
   const submit = useCallback(async () => {
     const raw = draft.trim();
-    if (!raw || disabled || busy) return;
+    if (!raw || disabled || busy || sendInFlightRef.current) return;
+    sendInFlightRef.current = true;
     onError(null);
     const parts: PromptPart[] = [...fileParts, { type: 'text', text: raw }];
+    const messageId = createPromptMessageId();
     try {
       if (openCode && sessionId) {
         if (mode === 'shell' || raw.startsWith('!')) {
@@ -237,6 +241,7 @@ export function AgentComposerPanel({
           await sendOpenCodePrompt({
             paneId,
             sessionId,
+            messageId,
             parts,
             agent,
             model: model ? { providerID: model.providerID, modelID: model.modelID } : undefined,
@@ -253,6 +258,8 @@ export function AgentComposerPanel({
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
       throw err;
+    } finally {
+      sendInFlightRef.current = false;
     }
   }, [
     agent,

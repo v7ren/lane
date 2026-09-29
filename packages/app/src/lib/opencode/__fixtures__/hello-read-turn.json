@@ -1,0 +1,236 @@
+{
+  "events": [
+    {
+      "id": "e-u1",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "h32ENa",
+          "sessionID": "sess_hello",
+          "role": "user",
+          "time": { "created": 43303 }
+        }
+      }
+    },
+    {
+      "id": "e-u1t",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "h32ENa",
+        "part": {
+          "id": "p_u_text",
+          "messageID": "h32ENa",
+          "type": "text",
+          "text": "Read hello.txt and reply with only its first word"
+        }
+      }
+    },
+    {
+      "id": "e-a1",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "9tOkvq",
+          "sessionID": "sess_hello",
+          "role": "assistant",
+          "parentID": "h32ENa",
+          "time": { "created": 43331, "completed": 49600 },
+          "agent": "build",
+          "model": { "id": "mimo-v2.5", "providerID": "openrouter" }
+        }
+      }
+    },
+    {
+      "id": "e-a1s",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "9tOkvq",
+        "part": { "id": "p_a1_step", "messageID": "9tOkvq", "type": "step-start" }
+      }
+    },
+    {
+      "id": "e-a1r",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "9tOkvq",
+        "part": {
+          "id": "p_a1_reason",
+          "messageID": "9tOkvq",
+          "type": "reasoning",
+          "text": "think step one",
+          "time": { "start": 49600, "end": 50900 }
+        }
+      }
+    },
+    {
+      "id": "e-a1tool",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "9tOkvq",
+        "part": {
+          "id": "p_a1_read",
+          "messageID": "9tOkvq",
+          "type": "tool",
+          "tool": "read",
+          "state": {
+            "status": "completed",
+            "title": "Read",
+            "input": { "path": "hello.txt" },
+            "output": "hello world",
+            "time": { "start": 50997, "end": 51200 }
+          }
+        }
+      }
+    },
+    {
+      "id": "e-a1f",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "9tOkvq",
+        "part": {
+          "id": "p_a1_finish",
+          "messageID": "9tOkvq",
+          "type": "step-finish",
+          "tokens": { "input": 5000, "output": 300, "reasoning": 100 },
+          "cost": 0.001
+        }
+      }
+    },
+    {
+      "id": "e-a2",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "jKo6PT",
+          "sessionID": "sess_hello",
+          "role": "assistant",
+          "parentID": "h32ENa",
+          "time": { "created": 51659, "completed": 55226 }
+        }
+      }
+    },
+    {
+      "id": "e-a2s",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "jKo6PT",
+        "part": { "id": "p_a2_step", "messageID": "jKo6PT", "type": "step-start" }
+      }
+    },
+    {
+      "id": "e-a2r",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "jKo6PT",
+        "part": {
+          "id": "p_a2_reason",
+          "messageID": "jKo6PT",
+          "type": "reasoning",
+          "text": "think step two",
+          "time": { "start": 54785, "end": 55100 }
+        }
+      }
+    },
+    {
+      "id": "e-a2t",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "jKo6PT",
+        "part": {
+          "id": "p_a2_text",
+          "messageID": "jKo6PT",
+          "type": "text",
+          "text": "hello",
+          "time": { "start": 55200, "end": 55226 }
+        }
+      }
+    },
+    {
+      "id": "e-a2f",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "jKo6PT",
+        "part": {
+          "id": "p_a2_finish",
+          "messageID": "jKo6PT",
+          "type": "step-finish",
+          "tokens": { "input": 1000, "output": 5, "reasoning": 50 }
+        }
+      }
+    },
+    {
+      "id": "e-u2",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "u2turn",
+          "sessionID": "sess_hello",
+          "role": "user",
+          "time": { "created": 60000 }
+        }
+      }
+    },
+    {
+      "id": "e-u2t",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "u2turn",
+        "part": {
+          "id": "p_u2_text",
+          "messageID": "u2turn",
+          "type": "text",
+          "text": "second turn prompt"
+        }
+      }
+    },
+    {
+      "id": "e-b1",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "asstB1",
+          "sessionID": "sess_hello",
+          "role": "assistant",
+          "parentID": "u2turn",
+          "time": { "created": 60050, "completed": 60100 }
+        }
+      }
+    },
+    {
+      "id": "e-b1r",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "asstB1",
+        "part": {
+          "id": "p_b1_reason",
+          "messageID": "asstB1",
+          "type": "reasoning",
+          "text": "second reasoning",
+          "time": { "start": 60055, "end": 60080 }
+        }
+      }
+    },
+    {
+      "id": "e-b1tool",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "asstB1",
+        "part": {
+          "id": "p_b1_read",
+          "messageID": "asstB1",
+          "type": "tool",
+          "tool": "read",
+          "state": { "status": "completed", "title": "Read", "input": {}, "output": "x" }
+        }
+      }
+    },
+    {
+      "id": "e-b1f",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "asstB1",
+        "part": { "id": "p_b1_finish", "messageID": "asstB1", "type": "step-finish", "tokens": { "input": 1, "output": 1 } }
+      }
+    }
+  ]
+}

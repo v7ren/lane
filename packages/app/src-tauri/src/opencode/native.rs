@@ -337,6 +337,7 @@ pub fn reattach_tui(
         pane.writer = writer;
         pane.child = child;
         pane.info.pid = pid;
+        crate::process::assign_pid_to_pane_job(&pane.process_tree, pid);
         *pane.exited.lock() = false;
         *pane.status.lock() = PaneStatus::Running;
         pane.scrollback.lock().clear();

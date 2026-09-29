@@ -77,14 +77,18 @@ export function AgentView({
 
   const resolvedAgentType = agentType ?? sessionState?.agent_type ?? null;
   const openCodePane = resolvedAgentType === 'opencode_native' && source !== 'native_tui';
+  const sessionId =
+    openCodePane && shellPaneId === paneId
+      ? (selectedSessionId ?? shellSession?.sessionId ?? null)
+      : null;
 
   const transcript = useTranscriptViewModel(
     paneId,
     true,
-    sessionState?.agent_type ?? undefined,
+    openCodePane,
     source,
     timeline,
-    openCodePane ? selectedSessionId : null,
+    sessionId,
   );
   const store = openCodePane ? getOpenCodeStore(paneId) : null;
   const ocState = useSyncExternalStore(
@@ -92,10 +96,6 @@ export function AgentView({
     () => (store ? store.getState() : null),
     () => null,
   );
-  const sessionId =
-    openCodePane && shellPaneId === paneId
-      ? (selectedSessionId ?? shellSession?.sessionId ?? null)
-      : null;
 
   const pendingProtocol = timeline.pendingApprovals;
   const pendingPermissions = useMemo(() => {
