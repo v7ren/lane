@@ -1,3 +1,6 @@
+import type { AgentCatalog } from '@loomria/shared';
+import type { OpenCodePermission, SessionMessagesView } from './opencode-chat';
+import { emptyAgentCatalog } from '@loomria/shared';
 import { invoke } from '@tauri-apps/api/core';
 import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
@@ -159,6 +162,34 @@ async function onCurrentWindowCloseRequested(cb: () => void | Promise<void>): Pr
 
 export const tauri = {
   listPanes: () => safeInvoke<PaneInfo[]>('list_panes', undefined, [], true),
+  listAgents: () =>
+    safeInvoke<AgentCatalog>('list_agents', undefined, emptyAgentCatalog(), true),
+  listResumableSessions: () =>
+    safeInvoke<unknown[]>('list_resumable_sessions', undefined, [], true),
+  sendSessionPrompt: (args: { pane_id: string; text: string }) =>
+    safeInvoke<void>('send_session_prompt', { args }, undefined, true),
+  readOpenCodeMessages: (args: { pane_id: string; limit?: number; role?: string }) =>
+    safeInvoke<SessionMessagesView>(
+      'read_opencode_messages',
+      { args },
+      {
+        pane_id: args.pane_id,
+        session_id: '',
+        messages: [],
+      },
+      true,
+    ),
+  listOpenCodePermissions: (paneId: string) =>
+    safeInvoke<OpenCodePermission[]>(
+      'list_opencode_permissions',
+      { paneId },
+      [],
+      true,
+    ),
+  replyOpenCodeQuestion: (args: { pane_id: string; answer: string; request_id?: string }) =>
+    safeInvoke<unknown>('reply_opencode_question', { args }, {}, true),
+  replyOpenCodePermission: (args: { pane_id: string; request_id: string; reply: string }) =>
+    safeInvoke<void>('reply_opencode_permission', { args }, undefined, true),
   spawnPane: (args: {
     agent_type: string;
     cwd?: string;

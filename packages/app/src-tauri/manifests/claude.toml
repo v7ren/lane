@@ -1,0 +1,19 @@
+schema_version = 1
+id = "claude"
+label = "Claude Code"
+description = "Anthropic Claude Code CLI"
+icon = "CC"
+is_tui = true
+
+[launch.tui.windows]
+command = "claude"
+args = []
+powershell_shim = true
+
+[launch.tui.macos]
+command = "claude"
+args = []
+
+[launch.tui.linux]
+command = "claude"
+args = []

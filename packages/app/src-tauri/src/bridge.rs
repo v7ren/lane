@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::thread;
 use tauri::{AppHandle, Emitter};
 
-use crate::pty::agents::AgentType;
+use crate::agents::AgentCatalog;
 use crate::pty::{
     registry_kill_pane, registry_read_buffer, registry_read_raw_buffer, registry_read_snapshot,
     registry_set_project_path, registry_spawn_pane, registry_write_input, PaneRegistry,
@@ -25,6 +25,8 @@ pub type SseClients = Arc<Mutex<Vec<SseSender>>>;
 static SSE_CLIENTS: once_cell::sync::OnceCell<SseClients> = once_cell::sync::OnceCell::new();
 static BRIDGE_APP: once_cell::sync::OnceCell<AppHandle> = once_cell::sync::OnceCell::new();
 static BRIDGE_REGISTRY: once_cell::sync::OnceCell<Arc<Mutex<PaneRegistry>>> =
+    once_cell::sync::OnceCell::new();
+static BRIDGE_AGENTS: once_cell::sync::OnceCell<Arc<AgentCatalog>> =
     once_cell::sync::OnceCell::new();
 static BRIDGE_BASE_URL: once_cell::sync::OnceCell<String> = once_cell::sync::OnceCell::new();
 static BRIDGE_PORT: once_cell::sync::OnceCell<u16> = once_cell::sync::OnceCell::new();
@@ -168,14 +170,19 @@ fn bind_listener() -> Result<(TcpListener, u16), String> {
 
 pub fn start_embedded_bridge(
     registry: Arc<Mutex<PaneRegistry>>,
+    agents: Arc<AgentCatalog>,
     app: AppHandle,
     port_file: PathBuf,
 ) -> Result<BridgeHandle, String> {
     let _ = BRIDGE_APP.set(app.clone());
     let _ = BRIDGE_REGISTRY.set(registry.clone());
+    let _ = BRIDGE_AGENTS.set(agents.clone());
     let _ = crate::app_paths::ensure_app_data_dir();
     let (listener, port) = bind_listener()?;
-    let _token = crate::bridge_auth::init_token();
+    let token = crate::bridge_auth::init_token();
+    if cfg!(debug_assertions) {
+        let _ = fs::write(crate::app_paths::bridge_token_file(), format!("{token}\n"));
+    }
     let _ = BRIDGE_PORT.set(port);
     let url = format!("http://{HOST}:{port}");
     let _ = BRIDGE_BASE_URL.set(url.clone());
@@ -189,9 +196,10 @@ pub fn start_embedded_bridge(
                 match stream {
                     Ok(stream) => {
                         let registry = registry.clone();
+                        let agents = agents.clone();
                         let app = app.clone();
                         thread::spawn(move || {
-                            if let Err(err) = handle_connection(stream, registry, app) {
+                            if let Err(err) = handle_connection(stream, registry, agents, app) {
                                 tracing::debug!(%err, "bridge request failed");
                             }
                         });
@@ -208,6 +216,7 @@ pub fn start_embedded_bridge(
 fn handle_connection(
     mut stream: TcpStream,
     registry: Arc<Mutex<PaneRegistry>>,
+    agents: Arc<AgentCatalog>,
     app: AppHandle,
 ) -> Result<(), String> {
     let mut buf = Vec::new();
@@ -306,7 +315,7 @@ fn handle_connection(
         );
     }
 
-    match route(method, &segments, query, body, registry, app) {
+    match route(method, &segments, query, body, registry, agents, app) {
         Ok((0, _)) => Ok(()),
         Ok((status, value)) => write_response(&mut stream, status, &value, cors_origin.as_deref()),
         Err((status, value)) => write_response(&mut stream, status, &value, cors_origin.as_deref()),
@@ -319,8 +328,23 @@ fn route(
     query: &str,
     body: &[u8],
     registry: Arc<Mutex<PaneRegistry>>,
+    agents: Arc<AgentCatalog>,
     app: AppHandle,
 ) -> Result<(u16, serde_json::Value), (u16, serde_json::Value)> {
+    if segments == ["agents"] && method == "GET" {
+        return Ok((200, serde_json::to_value(agents.list_response()).unwrap()));
+    }
+
+    if segments == ["sessions"] && method == "GET" {
+        return Ok((
+            200,
+            json!({
+                "resumable": crate::session::persist::resumable(),
+                "states": crate::session::persist::load(),
+            }),
+        ));
+    }
+
     if segments.is_empty() && method == "GET" {
         return Ok((
             200,
@@ -415,7 +439,7 @@ fn route(
             }
             "POST" => {
                 let req: SpawnPaneArgs = parse_json(body)?;
-                let pane_id = registry_spawn_pane(&registry, &app, req)
+                let pane_id = registry_spawn_pane(&registry, &agents, &app, req)
                     .map_err(|err| (500, json!({ "error": err })))?;
                 emit_panes_changed(&registry, &app);
                 return Ok((201, json!({ "pane_id": pane_id, "ok": true })));
@@ -605,12 +629,12 @@ fn route(
                 .into_iter()
                 .find(|pane| pane.id == pane_id)
                 .ok_or_else(|| (404, json!({ "error": format!("unknown pane: {pane_id}") })))?;
-            let _agent_type = AgentType::parse(&pane.agent_type).ok_or_else(|| {
-                (
+            if !agents.contains(&pane.agent_type) {
+                return Err((
                     400,
-                    json!({ "error": format!("unknown agent_type: {}", pane.agent_type) }),
-                )
-            })?;
+                    json!({ "error": format!("unknown agent: {}", pane.agent_type) }),
+                ));
+            }
             let buffer = registry_read_buffer(&registry, pane_id, lines)
                 .map_err(|err| (404, json!({ "error": err })))?;
             return Ok((
@@ -676,6 +700,12 @@ fn handle_sse(
 pub fn push_settings_sse(settings: &serde_json::Value) {
     if let Ok(json) = serde_json::to_string(settings) {
         push_sse(format!("event: settings\ndata: {json}\n\n"));
+    }
+}
+
+pub fn push_session_state_sse(snap: &crate::session::SessionStateSnapshot) {
+    if let Ok(json) = serde_json::to_string(snap) {
+        push_sse(format!("event: session_state\ndata: {json}\n\n"));
     }
 }
 

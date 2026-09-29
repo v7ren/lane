@@ -1,6 +1,5 @@
 //! PTY management: pane registry, scrollback, status heuristics.
 
-pub mod agents;
 pub mod ansi;
 pub mod keys;
 pub mod registry;

@@ -62,8 +62,34 @@ static PROMPT_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
 /// Returns true if the recent scrollback (typically last 1–3 lines) looks
 /// like the agent is waiting on user input.
 pub fn looks_like_prompt(text: &str) -> bool {
+    looks_like_prompt_with_patterns(text, &PROMPT_PATTERNS)
+}
+
+pub fn looks_like_prompt_for_agent(
+    catalog: &crate::agents::AgentCatalog,
+    agent_id: &str,
+    text: &str,
+) -> bool {
+    let patterns = prompt_patterns_for(catalog, agent_id);
+    looks_like_prompt_with_patterns(text, &patterns)
+}
+
+fn prompt_patterns_for(
+    catalog: &crate::agents::AgentCatalog,
+    agent_id: &str,
+) -> Vec<Regex> {
+    match catalog.get(agent_id) {
+        Some(manifest) if !manifest.attention_regexes.is_empty() => {
+            let mut patterns = DEFAULT_PROMPT_PATTERNS.clone();
+            patterns.extend(manifest.attention_regexes.iter().cloned());
+            patterns
+        }
+        _ => PROMPT_PATTERNS.clone(),
+    }
+}
+
+fn looks_like_prompt_with_patterns(text: &str, patterns: &[Regex]) -> bool {
     let clean = strip_ansi(text);
-    // Look at the last ~5 non-empty lines.
     let tail: String = clean
         .lines()
         .filter(|l| !l.trim().is_empty())
@@ -74,8 +100,24 @@ pub fn looks_like_prompt(text: &str) -> bool {
         .rev()
         .collect::<Vec<_>>()
         .join("\n");
-    PROMPT_PATTERNS.iter().any(|re| re.is_match(&tail))
+    patterns.iter().any(|re| re.is_match(&tail))
 }
+
+/// Smaller default set merged with per-manifest `[[attention]]` rules.
+static DEFAULT_PROMPT_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
+    [
+        r"(?i)\b(y/n)\b",
+        r"(?i)\b(yes/no)\b",
+        r"\(Y/n\)",
+        r"\(y/N\)",
+        r"(?i)press enter",
+        r"[>?›»]\s*$",
+        r":\s*$",
+    ]
+    .into_iter()
+    .map(|p| Regex::new(p).expect("valid default prompt regex"))
+    .collect()
+});
 
 /// OpenCode TUI menus (numbered yes/no, submit hints) — used by wait `settled`.
 static OPENCODE_TUI_MENU_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {

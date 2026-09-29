@@ -1,114 +1,90 @@
 import { homeDir } from '@tauri-apps/api/path';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { useCallback, useState } from 'react';
-import { listLaunchPresets, type AgentType } from '@loomria/shared';
-import logoUrl from '../assets/branding/logo.svg';
+import { listLaunchPresets, type AgentCatalog, type AgentId } from '@loomria/shared';
 
 interface Props {
+  agentCatalog: AgentCatalog;
   projectPath: string | null;
   onProjectPathChange: (path: string) => Promise<void>;
   onKillAll: () => void;
-  onClearBuffers: () => void;
-  onRestart: () => void;
-  onNewSession?: (agent: AgentType) => void | Promise<void>;
-  onGoHome?: () => void;
+  onNewSession: (agent: AgentId) => void | Promise<void>;
+  onOpenSettings: () => void;
 }
 
 export function WorkspaceHeader({
+  agentCatalog,
   projectPath,
   onProjectPathChange,
   onKillAll,
-  onClearBuffers,
-  onRestart,
   onNewSession,
-  onGoHome,
+  onOpenSettings,
 }: Props) {
   const [showNewSession, setShowNewSession] = useState(false);
-  const presets = listLaunchPresets();
+  const presets = listLaunchPresets(agentCatalog);
 
   const pickPath = useCallback(async () => {
     const result = await openDialog({
       directory: true,
       multiple: false,
-      defaultPath: (await homeDir()) ?? undefined,
+      defaultPath: (await homeDir()) ?? projectPath ?? undefined,
     });
     if (typeof result === 'string') {
       await onProjectPathChange(result);
     }
-  }, [onProjectPathChange]);
+  }, [onProjectPathChange, projectPath]);
 
   return (
-    <header className="flex items-center gap-2 px-3 py-2 border-b border-pm-border bg-pm-panel">
-      <img
-        src={logoUrl}
-        alt="Puppet Master"
-        className="h-9 w-auto shrink-0 rounded-sm"
-        draggable={false}
-      />
-      {onGoHome && (
-        <button
-          onClick={onGoHome}
-          className="px-2 py-1 text-xs rounded border border-pm-border bg-pm-bg hover:bg-pm-border/40"
-          title="Back to overview"
-        >
-          Overview
-        </button>
-      )}
+    <header className="flex items-center gap-2 px-3 py-2 border-b border-pm-border bg-pm-panel shrink-0">
+      <span className="text-sm font-semibold tracking-tight">Loomria</span>
       <button
-        onClick={pickPath}
-        className="px-2 py-1 text-xs rounded border border-pm-border bg-pm-bg hover:bg-pm-border/40 truncate max-w-[40ch]"
-        title={projectPath ?? 'Click to pick project folder'}
+        type="button"
+        onClick={() => void pickPath()}
+        className="px-2 py-1 text-xs rounded border border-pm-border bg-pm-bg hover:bg-pm-border/40 truncate max-w-[36ch]"
+        title={projectPath ?? 'Project folder'}
       >
-        {projectPath ?? 'Pick project folder…'}
+        {projectPath ?? 'Project…'}
       </button>
       <div className="flex-1" />
-      {onNewSession && (
-        <div className="relative">
-          <button
-            onClick={() => setShowNewSession((s) => !s)}
-            className="px-2 py-1 text-xs rounded border border-pm-accent/50 bg-pm-accent/10 hover:bg-pm-accent/20 text-pm-accent"
-            title="Spawn a new agent session"
-          >
-            New session
-          </button>
-          {showNewSession && (
-            <div className="absolute top-full right-0 mt-1 z-20 w-44 rounded-md border border-pm-border bg-pm-panel shadow-lg">
-              {presets.map((p) => (
-                <button
-                  key={p.type}
-                  onClick={() => {
-                    setShowNewSession(false);
-                    void onNewSession(p.type);
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-pm-border/40"
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setShowNewSession((s) => !s)}
+          className="px-2 py-1 text-xs rounded border border-pm-border bg-pm-bg hover:bg-pm-border/40"
+        >
+          New pane
+        </button>
+        {showNewSession && (
+          <div className="absolute top-full right-0 mt-1 z-20 w-44 rounded border border-pm-border bg-pm-panel shadow-lg">
+            {presets.map((p) => (
+              <button
+                key={p.type}
+                type="button"
+                onClick={() => {
+                  setShowNewSession(false);
+                  void onNewSession(p.type);
+                }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-pm-border/40"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
       <button
-        onClick={onClearBuffers}
+        type="button"
+        onClick={onOpenSettings}
         className="px-2 py-1 text-xs rounded border border-pm-border bg-pm-bg hover:bg-pm-border/40"
-        title="Clear scrollback (panes keep running)"
       >
-        Clear
+        Settings
       </button>
       <button
-        onClick={onRestart}
-        className="px-2 py-1 text-xs rounded border border-pm-border bg-pm-bg hover:bg-pm-border/40"
-        title="Kill all panes and respawn"
-      >
-        Restart
-      </button>
-      <button
+        type="button"
         onClick={onKillAll}
-        className="px-2 py-1 text-xs rounded border border-pm-err/50 bg-pm-err/10 hover:bg-pm-err/20 text-pm-err"
-        title="Kill all panes"
+        className="px-2 py-1 text-xs rounded border border-pm-err/40 text-pm-err hover:bg-pm-err/10"
       >
-        Kill All
+        Kill all
       </button>
     </header>
   );

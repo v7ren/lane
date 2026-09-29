@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 const APP_ID: &str = "com.loomria.app";
 pub const BRIDGE_PORT_FILE_NAME: &str = "loomria.bridge.port";
+pub const BRIDGE_TOKEN_FILE_NAME: &str = "loomria.bridge.token";
 pub const BRIDGE_PORT_FILE_ENV: &str = "LOOMRIA_BRIDGE_PORT_FILE";
 
 pub fn app_data_dir() -> PathBuf {
@@ -32,11 +33,22 @@ pub fn app_data_dir() -> PathBuf {
 pub fn ensure_app_data_dir() -> Result<PathBuf, String> {
     let dir = app_data_dir();
     fs::create_dir_all(&dir).map_err(|err| format!("could not create {}: {err}", dir.display()))?;
+    let _ = fs::create_dir_all(user_agents_dir());
     Ok(dir)
 }
 
 pub fn bridge_port_file() -> PathBuf {
     app_data_dir().join(BRIDGE_PORT_FILE_NAME)
+}
+
+/// Debug-only: written at bridge start so local scripts can call the token-protected API.
+pub fn bridge_token_file() -> PathBuf {
+    app_data_dir().join(BRIDGE_TOKEN_FILE_NAME)
+}
+
+/// User Dropped-in agent manifests (`*.toml`) override built-ins by `id`.
+pub fn user_agents_dir() -> PathBuf {
+    app_data_dir().join("agents")
 }
 
 pub fn bridge_port_file_env_value() -> String {

@@ -1,0 +1,18 @@
+schema_version = 1
+id = "cursor"
+label = "Cursor IDE"
+description = "Opens project in Cursor (not an agent TUI)"
+icon = "ID"
+is_tui = false
+
+[launch.tui.windows]
+command = "cursor.cmd"
+args = []
+
+[launch.tui.macos]
+command = "cursor"
+args = []
+
+[launch.tui.linux]
+command = "cursor"
+args = []

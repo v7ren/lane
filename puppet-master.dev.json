@@ -1,0 +1,10 @@
+{
+  "localUrl": "http://127.0.0.1:1420",
+  "pwaUrl": "http://127.0.0.1:1420",
+  "tunnelUrl": null,
+  "tunnelProvider": null,
+  "ngrokUrl": null,
+  "bridgeProxyUrl": "http://127.0.0.1:1420/bridge",
+  "bridgeDirectUrl": null,
+  "updatedAt": 1790682317666
+}

@@ -46,3 +46,29 @@ Fresh `git clone` + `npm install` alone is **not** sufficient for green verifica
 - Minimal stubs kept for `bridge-ngrok`, `mobile-pairing-auth`, and mirror terminal helpers so `terminal-session.ts` still typechecks (desktop path uses `isMobileInputDevice() === false`).
 
 **Gate 3:** `npm run typecheck` exit 0; `npm run test` 12 files / 46 tests pass.
+
+## Phase 5 manifest registry (2026-09-29)
+
+- Added `agents/` Rust module: TOML schema (`schema_version = 1`), `ProtocolKind`, built-ins under `src-tauri/manifests/`, user overrides in `%APPDATA%/com.loomria.app/agents/*.toml`.
+- Replaced `pty/agents.rs` enum + `agent_adapters/` with manifest-driven `resolve_tui_command` and `observe_agent_output`.
+- `GET /agents` (token-protected) and Tauri `list_agents` return summaries + per-file load errors.
+- `@loomria/shared` agents API is catalog-driven; UI loads catalog via `useAgentCatalog`.
+- Golden fixture `resolve_command.*.json` still passes against built-in manifests.
+
+**New-agent proof (manual):** copy `scripts/fixtures/fake-agent.toml` into the user agents dir (adjust `node` path to `fake-agent.mjs` if needed), restart app — should appear in New pane menu. Drop a malformed `.toml` — error should appear in `list_agents` report.
+
+**Gate 5:** `cargo test resolve_command_matches_golden_fixture`, `npm run typecheck`, `npm run test` (app 46 tests). Tag `phase-5-green` after four-pane + fake-agent smoke.
+
+## Phases 6–8 (2026-09-29, incremental)
+
+**Phase 6:** `protocol/` (`ProtocolAdapter` / `ProtocolSession`, `AgentEvent`), OpenCode HTTP adapter wired to `prompt_async`; Codex app-server + Claude stream-json adapters are stubs (TUI fallback). `session/supervisor.rs` owns port picking; OpenCode native uses it.
+
+**Phase 7:** `session/state.rs` monitor → bridge SSE `session_state`; `sessions.json` persistence (10-session cap); `GET /sessions`; `list_resumable_sessions` command; notifications log-only for now.
+
+**Phase 8:** Session rail UI, chat drawer + `send_session_prompt` for OpenCode API, `safe-agent-text` XSS tests. Full Codex WS + Claude headless/resume + driving-token TUI toggle remain follow-ups.
+
+## Frontend minimal shell (pre–Phase 5)
+
+- Boot splash, home dashboard, update banner, and full-screen settings removed.
+- App opens directly on workspace: header (project, new pane, settings, kill all) + terminal grid.
+- `index.css` reduced to tokens, xterm host, resize, and optional `?terminal` dev styles.

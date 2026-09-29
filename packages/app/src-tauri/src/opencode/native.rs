@@ -54,7 +54,7 @@ pub fn spawn_native_pane(
         }
     }
 
-    let port = pick_free_port(PORT_MIN, PORT_MAX)?;
+    let port = crate::session::pick_free_port(PORT_MIN, PORT_MAX)?;
     let base_url = format!("http://127.0.0.1:{port}");
 
     let mut serve = StdCommand::new(&opencode_exe);
@@ -389,15 +389,6 @@ fn opencode_serve_handle(
     Ok(link.serve_handle())
 }
 
-fn pick_free_port(lo: u16, hi: u16) -> Result<u16, String> {
-    for port in lo..=hi {
-        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
-            return Ok(port);
-        }
-    }
-    Err(format!("no free TCP port in {lo}-{hi} for opencode serve"))
-}
-
 fn build_attach_command(
     opencode_exe: &str,
     base_url: &str,
@@ -439,7 +430,7 @@ fn spawn_reader_thread(
 ) {
     thread::spawn(move || {
         let mut buf = [0u8; 4096];
-        let mut adapter = crate::agent_adapters::adapter_for("opencode_native");
+        let agent_type = "opencode_native".to_string();
         loop {
             match reader.read(&mut buf) {
                 Ok(0) => break,
@@ -450,7 +441,7 @@ fn spawn_reader_thread(
                     *last_output.lock() = Instant::now();
                     *status.lock() = PaneStatus::Running;
                     let text = String::from_utf8_lossy(chunk);
-                    for event in adapter.observe(&pane_id, &text) {
+                    for event in crate::agents::observe_agent_output(&agent_type, &pane_id, &text) {
                         crate::events::emit(event);
                     }
                     let payload: Vec<u8> = chunk.to_vec();

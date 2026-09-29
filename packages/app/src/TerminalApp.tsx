@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  getDefaultTerminalAgentType,
-  listLaunchPresets,
-  type AgentType,
-} from '@loomria/shared';
+import { getDefaultTerminalAgentType, listLaunchPresets, type AgentId } from '@loomria/shared';
+import { useAgentCatalog } from './hooks/useAgentCatalog';
 import { useBridge } from './hooks/useBridge';
 import { usePaneRegistry } from './hooks/usePaneRegistry';
 import { useProjectPath } from './hooks/useProjectPath';
@@ -93,9 +90,13 @@ export default function TerminalApp() {
   const registry = usePaneRegistry();
   const bridge = useBridge();
   const { projectPath } = useProjectPath();
-  const defaultTerminalType = useMemo(() => getDefaultTerminalAgentType(), []);
+  const agentCatalog = useAgentCatalog();
+  const defaultTerminalType = useMemo(
+    () => getDefaultTerminalAgentType(agentCatalog),
+    [agentCatalog],
+  );
   const [selectedPaneId, setSelectedPaneId] = useState<string | null>(lockedPaneId);
-  const [agentType, setAgentType] = useState<AgentType>(defaultTerminalType);
+  const [agentType, setAgentType] = useState<AgentId>(defaultTerminalType);
   const [draft, setDraft] = useState('dir');
   const [appendNewline, setAppendNewline] = useState(true);
   const [buffer, setBuffer] = useState('');
@@ -106,7 +107,7 @@ export default function TerminalApp() {
   const panes = registry.paneList;
   const selectedPane = selectedPaneId ? registry.panes.get(selectedPaneId) ?? null : null;
   const apiBaseUrl = bridge.client?.baseUrl ?? 'http://127.0.0.1:17321';
-  const presets = useMemo(() => listLaunchPresets(), []);
+  const presets = useMemo(() => listLaunchPresets(agentCatalog), [agentCatalog]);
 
   const selectOrSpawnTerminal = useCallback(async () => {
     if (lockedPaneId || !registry.initialReady || selectedPaneId) return;
@@ -268,7 +269,7 @@ export default function TerminalApp() {
             <div className="pm-terminal-row">
               <select
                 value={agentType}
-                onChange={(event) => setAgentType(event.target.value as AgentType)}
+                onChange={(event) => setAgentType(event.target.value)}
               >
                 {presets.map((preset) => (
                   <option key={preset.type} value={preset.type}>

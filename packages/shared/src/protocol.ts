@@ -1,12 +1,11 @@
 import { z } from 'zod';
-import { AgentTypeSchema } from './agents.js';
 
 export const PaneStatusSchema = z.enum(['running', 'waiting_input', 'error', 'idle']);
 export type PaneStatus = z.infer<typeof PaneStatusSchema>;
 
 export const PaneInfoSchema = z.object({
   id: z.string(),
-  agent_type: AgentTypeSchema,
+  agent_type: z.string().min(1),
   pid: z.number().int(),
   status: PaneStatusSchema,
   created_at: z.number(),
@@ -18,7 +17,7 @@ export const PaneInfoSchema = z.object({
 export type PaneInfo = z.infer<typeof PaneInfoSchema>;
 
 export const SpawnPaneRequestSchema = z.object({
-  agent_type: AgentTypeSchema,
+  agent_type: z.string().min(1),
   cwd: z.string().optional(),
   cols: z.number().int().positive().default(120),
   rows: z.number().int().positive().default(30),

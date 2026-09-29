@@ -1,0 +1,46 @@
+schema_version = 1
+id = "opencode_native"
+label = "OpenCode (API)"
+description = "OpenCode API worker (serve + attach TUI)"
+icon = "OC+"
+is_tui = true
+show_in_new_pane_menu = true
+default_worker = true
+spawn_handler = "opencode_native"
+
+[launch.tui.windows]
+command = "opencode"
+args = []
+powershell_shim = true
+
+[launch.tui.macos]
+command = "opencode"
+args = []
+
+[launch.tui.linux]
+command = "opencode"
+args = []
+
+[[attention]]
+pattern = "(?i)enter submit"
+means = "needs_approval"
+
+[[attention]]
+pattern = "(?i)esc dismiss"
+means = "needs_approval"
+
+[[attention]]
+pattern = "(?i)↑↓ select"
+means = "needs_approval"
+
+[[attention]]
+pattern = "(?i)\\d+\\.\\s*yes\\b"
+means = "needs_approval"
+
+[[attention]]
+pattern = "(?i)\\d+\\.\\s*no\\b"
+means = "needs_approval"
+
+[[attention]]
+pattern = "(?i)type your own answer"
+means = "needs_approval"

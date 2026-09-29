@@ -1,0 +1,24 @@
+schema_version = 1
+id = "fake-agent"
+label = "Fake Agent (fixture)"
+description = "Scripted TUI for smoke tests — no login required"
+icon = "FA"
+is_tui = true
+show_in_new_pane_menu = true
+
+[launch.tui.windows]
+command = "node"
+args = ["scripts/fixtures/fake-agent.mjs"]
+powershell_shim = false
+
+[launch.tui.macos]
+command = "node"
+args = ["scripts/fixtures/fake-agent.mjs"]
+
+[launch.tui.linux]
+command = "node"
+args = ["scripts/fixtures/fake-agent.mjs"]
+
+[[attention]]
+pattern = "(?i)allow once|allow always"
+means = "needs_approval"

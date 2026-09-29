@@ -3,16 +3,8 @@ import { homeDir } from '@tauri-apps/api/path';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import type { Settings } from '@loomria/shared';
 import { resolveSettingsFilePath } from '../../lib/settings';
-import type { UpdateCheckResult } from '../../lib/app-update';
 import { tauri, type AppInstallInfo } from '../../lib/tauri';
-import {
-  FieldInput,
-  SettingBlock,
-  SettingsSection,
-  type SettingsTabId,
-} from './settings-ui';
-
-export const EMPTY_CUSTOM = { provider: 'openrouter' as const, model_id: '', label: '' };
+import { FieldInput, SettingBlock, SettingsSection } from './settings-ui';
 
 export interface SettingsTabContext {
   settings: Settings;
@@ -20,31 +12,27 @@ export interface SettingsTabContext {
   projectPath: string | null;
   onProjectPathChange?: (path: string) => Promise<void>;
   bridgeUrl: string | null;
-  updateCheck?: UpdateCheckResult | null;
-  updateChecking?: boolean;
-  onCheckForUpdates?: () => void;
-  onOpenRelease?: () => void;
 }
 
-export function SettingsTabPanel({ tab, ctx }: { tab: SettingsTabId; ctx: SettingsTabContext }) {
-  switch (tab) {
-    case 'general':
-      return <GeneralTab ctx={ctx} />;
-    case 'developer':
-      return <DeveloperTab ctx={ctx} />;
-    default: {
-      const _exhaustive: never = tab;
-      return _exhaustive;
-    }
-  }
-}
-
-function GeneralTab({ ctx }: { ctx: SettingsTabContext }) {
-  const { settings, setSettings, projectPath, onProjectPathChange, updateCheck, updateChecking, onCheckForUpdates, onOpenRelease } = ctx;
+export function SettingsTabPanel({
+  tab: _tab,
+  ctx,
+}: {
+  tab: 'general';
+  ctx: SettingsTabContext;
+}) {
+  const { settings, setSettings, projectPath, onProjectPathChange } = ctx;
   const [settingsPath, setSettingsPath] = useState('settings.json');
   const [installInfo, setInstallInfo] = useState<AppInstallInfo | null>(null);
-  useEffect(() => { void resolveSettingsFilePath().then(setSettingsPath); }, []);
-  useEffect(() => { void tauri.getAppInstallInfo().then(setInstallInfo); }, []);
+  const [agentManifestErrors, setAgentManifestErrors] = useState<
+    { file: string; message: string }[]
+  >([]);
+
+  useEffect(() => {
+    void resolveSettingsFilePath().then(setSettingsPath);
+    void tauri.getAppInstallInfo().then(setInstallInfo);
+    void tauri.listAgents().then((catalog) => setAgentManifestErrors(catalog.report.errors));
+  }, []);
 
   const pickPath = async () => {
     if (!onProjectPathChange) return;
@@ -60,44 +48,38 @@ function GeneralTab({ ctx }: { ctx: SettingsTabContext }) {
   };
 
   return (
-    <div className="space-y-6">
-      <SettingsSection title="Project" description="Default working directory for new panes.">
-        <SettingBlock label="Project folder" implemented>
-          <div className="flex gap-2">
-            <FieldInput value={settings.project_path ?? projectPath ?? ''} readOnly />
-            <button type="button" className="pm-btn" onClick={() => void pickPath()}>Browse</button>
-          </div>
-        </SettingBlock>
-      </SettingsSection>
-      <SettingsSection title="About" description="Install metadata and updates.">
-        <SettingBlock label="Settings file" implemented>
-          <FieldInput value={settingsPath} readOnly />
-        </SettingBlock>
-        {installInfo && (
-          <SettingBlock label="Version" implemented>
-            <FieldInput value={installInfo.version} readOnly />
-          </SettingBlock>
-        )}
-        <SettingBlock label="Updates" implemented>
-          <button type="button" className="pm-btn" disabled={updateChecking} onClick={onCheckForUpdates}>
-            {updateChecking ? 'Checking…' : 'Check for updates'}
+    <SettingsSection title="Project" description="Default cwd for new panes.">
+      <SettingBlock label="Folder" implemented>
+        <div className="flex gap-2">
+          <FieldInput value={settings.project_path ?? projectPath ?? ''} readOnly />
+          <button
+            type="button"
+            className="px-2 py-1 text-xs rounded border border-pm-border hover:bg-pm-border/40"
+            onClick={() => void pickPath()}
+          >
+            Browse
           </button>
-          {updateCheck?.updateAvailable && (
-            <button type="button" className="pm-btn ml-2" onClick={onOpenRelease}>Open release</button>
-          )}
-        </SettingBlock>
-      </SettingsSection>
-    </div>
-  );
-}
-
-function DeveloperTab({ ctx }: { ctx: SettingsTabContext }) {
-  const { bridgeUrl } = ctx;
-  return (
-    <SettingsSection title="Bridge" description="Local HTTP API for pane control.">
-      <SettingBlock label="Bridge URL" implemented>
-        <FieldInput value={bridgeUrl ?? 'not running'} readOnly />
+        </div>
       </SettingBlock>
+      {installInfo && (
+        <SettingBlock label="Version" implemented>
+          <FieldInput value={installInfo.version} readOnly />
+        </SettingBlock>
+      )}
+      <SettingBlock label="Settings file" implemented>
+        <FieldInput value={settingsPath} readOnly />
+      </SettingBlock>
+      {agentManifestErrors.length > 0 && (
+        <SettingBlock label="Agent manifest errors" implemented>
+          <ul className="text-xs text-pm-err space-y-1 list-disc pl-4">
+            {agentManifestErrors.map((err) => (
+              <li key={err.file}>
+                <span className="font-mono">{err.file}</span>: {err.message}
+              </li>
+            ))}
+          </ul>
+        </SettingBlock>
+      )}
     </SettingsSection>
   );
 }

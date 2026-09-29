@@ -1,0 +1,18 @@
+schema_version = 1
+id = "bash"
+label = "Shell"
+description = "Login shell"
+icon = "Bash"
+is_tui = true
+
+[launch.tui.windows]
+command = "bash.exe"
+args = ["--login"]
+
+[launch.tui.macos]
+command = "zsh"
+args = ["-l"]
+
+[launch.tui.linux]
+command = "bash"
+args = ["--login"]

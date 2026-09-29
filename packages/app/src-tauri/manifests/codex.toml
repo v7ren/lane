@@ -1,0 +1,23 @@
+schema_version = 1
+id = "codex"
+label = "Codex CLI"
+description = "OpenAI Codex CLI"
+icon = "CX"
+is_tui = true
+
+[launch.tui.windows]
+command = "codex"
+args = ["--sandbox", "workspace-write", "--ask-for-approval", "never"]
+powershell_shim = true
+
+[launch.tui.macos]
+command = "codex"
+args = ["--sandbox", "workspace-write", "--ask-for-approval", "never"]
+
+[launch.tui.linux]
+command = "codex"
+args = ["--sandbox", "workspace-write", "--ask-for-approval", "never"]
+
+[[attention]]
+pattern = "(?i)allow once|allow always"
+means = "needs_approval"

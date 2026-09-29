@@ -1,5 +1,7 @@
-mod agent_adapters;
+pub mod agents;
 mod app_lifecycle;
+pub mod protocol;
+pub mod session;
 mod app_paths;
 mod bridge;
 mod bridge_auth;
@@ -62,16 +64,29 @@ pub fn run() {
             commands::capture_opencode_key_profile,
             commands::rotate_opencode_key,
             commands::get_bridge_session,
+            commands::list_agents,
+            commands::list_resumable_sessions,
+            commands::send_session_prompt,
+            commands::read_opencode_messages,
+            commands::list_opencode_permissions,
+            commands::reply_opencode_question,
+            commands::reply_opencode_permission,
         ])
         .setup(|app| {
             let port_file = app_paths::bridge_port_file();
             let _ = app_paths::ensure_app_data_dir();
 
-            let registry = app.state::<AppState>().registry.clone();
-            if let Err(err) = bridge::start_embedded_bridge(registry, app.handle().clone(), port_file)
+            let state = app.state::<AppState>();
+            let registry = state.registry.clone();
+            let agents = state.agents.clone();
+            if let Err(err) =
+                bridge::start_embedded_bridge(registry, agents, app.handle().clone(), port_file)
             {
                 tracing::warn!(%err, "embedded bridge not started");
             }
+
+            let session_store = app.state::<AppState>().session_states.clone();
+            session::spawn_state_monitor(session_store);
 
             app.handle().listen("terminal-data", move |event| {
                 let payload = event.payload();

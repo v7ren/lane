@@ -6,6 +6,7 @@ use serde_json::Value;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 
+use crate::agents::AgentsListResponse;
 use crate::pty::{
     registry_get_project_path, registry_kill_all, registry_kill_pane, registry_read_buffer,
     registry_read_raw_buffer, registry_read_snapshot, registry_resize, registry_set_project_path,
@@ -13,10 +14,11 @@ use crate::pty::{
 };
 use crate::settings_store;
 
-#[derive(Default)]
 pub struct AppState {
     pub registry: Arc<Mutex<PaneRegistry>>,
     pub public_settings: Mutex<Value>,
+    pub agents: Arc<crate::agents::AgentCatalog>,
+    pub session_states: Arc<crate::session::SessionStateStore>,
 }
 
 impl AppState {
@@ -24,8 +26,136 @@ impl AppState {
         Self {
             registry: Arc::new(Mutex::new(PaneRegistry::new())),
             public_settings: Mutex::new(settings_store::default_public_settings()),
+            agents: Arc::new(crate::agents::AgentCatalog::load()),
+            session_states: Arc::new(crate::session::SessionStateStore::new()),
         }
     }
+}
+
+#[tauri::command]
+pub async fn list_resumable_sessions() -> Result<Vec<crate::session::PersistedSession>, String> {
+    Ok(crate::session::persist::resumable())
+}
+
+#[derive(Deserialize)]
+pub struct SendSessionPromptArgs {
+    pub pane_id: String,
+    pub text: String,
+}
+
+#[tauri::command]
+pub async fn send_session_prompt(
+    state: State<'_, AppState>,
+    args: SendSessionPromptArgs,
+) -> Result<(), String> {
+    let reg = state.registry.lock();
+    let pane = reg
+        .panes
+        .get(&args.pane_id)
+        .ok_or_else(|| format!("unknown pane: {}", args.pane_id))?;
+    if pane.info.agent_type != "opencode_native" {
+        return Err("chat composer only routes to opencode_native API today".into());
+    }
+    let link = pane
+        .opencode
+        .as_ref()
+        .ok_or_else(|| "pane has no opencode link".to_string())?;
+    let base = link.base_url.clone();
+    let session_id = link.session_id.clone();
+    let directory = link.directory.clone();
+    drop(reg);
+    crate::opencode::client::prompt_async(
+        &base,
+        &session_id,
+        Some(directory.as_str()),
+        &args.text,
+        None,
+    )
+        .map_err(|e| format!("{e:?}"))?;
+    Ok(())
+}
+
+#[derive(Deserialize)]
+pub struct ReadOpenCodeMessagesArgs {
+    pub pane_id: String,
+    #[serde(default)]
+    pub limit: Option<usize>,
+    #[serde(default)]
+    pub role: Option<String>,
+}
+
+#[tauri::command]
+pub async fn read_opencode_messages(
+    state: State<'_, AppState>,
+    args: ReadOpenCodeMessagesArgs,
+) -> Result<crate::opencode::messages::SessionMessagesView, String> {
+    let limit = args.limit.unwrap_or(40).clamp(1, 200);
+    crate::opencode::messages::read_pane_messages(
+        &state.registry,
+        &args.pane_id,
+        limit,
+        args.role.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub async fn list_opencode_permissions(
+    state: State<'_, AppState>,
+    pane_id: String,
+) -> Result<Vec<crate::opencode::OpenCodePermission>, String> {
+    crate::opencode::list_pane_permissions(&state.registry, &pane_id)
+}
+
+#[derive(Deserialize)]
+pub struct ReplyOpenCodeQuestionArgs {
+    pub pane_id: String,
+    pub answer: String,
+    #[serde(default)]
+    pub request_id: Option<String>,
+}
+
+#[tauri::command]
+pub async fn reply_opencode_question(
+    state: State<'_, AppState>,
+    args: ReplyOpenCodeQuestionArgs,
+) -> Result<Value, String> {
+    crate::opencode::reply_pane_question(
+        &state.registry,
+        &args.pane_id,
+        &args.answer,
+        args.request_id.as_deref(),
+    )
+}
+
+#[derive(Deserialize)]
+pub struct ReplyOpenCodePermissionArgs {
+    pub pane_id: String,
+    pub request_id: String,
+    pub reply: String,
+}
+
+#[tauri::command]
+pub async fn reply_opencode_permission(
+    state: State<'_, AppState>,
+    args: ReplyOpenCodePermissionArgs,
+) -> Result<(), String> {
+    crate::opencode::reply_pane_permission(
+        &state.registry,
+        &args.pane_id,
+        &args.request_id,
+        &args.reply,
+    )
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[tauri::command]
+pub async fn list_agents(state: State<'_, AppState>) -> Result<AgentsListResponse, String> {
+    Ok(state.agents.list_response())
 }
 
 #[tauri::command]
@@ -39,7 +169,7 @@ pub async fn spawn_pane(
     state: State<'_, AppState>,
     args: SpawnPaneArgs,
 ) -> Result<String, String> {
-    registry_spawn_pane(&state.registry, &app, args)
+    registry_spawn_pane(&state.registry, &state.agents, &app, args)
 }
 
 #[tauri::command]

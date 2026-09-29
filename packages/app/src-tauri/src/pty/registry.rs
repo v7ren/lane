@@ -12,10 +12,11 @@ use tauri::{AppHandle, Emitter};
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
-use super::agents::{resolve_command, AgentType};
 use super::ansi::strip_ansi;
 use super::scrollback::Scrollback;
-use super::status::{looks_like_prompt, PaneStatus};
+use super::status::{looks_like_prompt_for_agent, PaneStatus};
+use crate::agents::{observe_agent_output, AgentCatalog};
+use crate::agents::SpawnHandler;
 use crate::events::{PaneId, SystemEvent};
 
 const SCROLLBACK_CAP: usize = 10_000;
@@ -146,22 +147,34 @@ impl Default for PaneRegistry {
     }
 }
 
-/// Build a CommandBuilder for the given agent, using the given cwd.
+/// Build a CommandBuilder for the given manifest id and cwd.
 /// On Windows, `.cmd`/`.bat` shims must run under `cmd.exe /C`.
-fn build_command(agent: AgentType, cwd: &str, extra_args: &[String]) -> CommandBuilder {
-    let (cmd, base_args) = resolve_command(agent);
+fn build_command(
+    catalog: &AgentCatalog,
+    agent_id: &str,
+    cwd: &str,
+    extra_args: &[String],
+) -> Result<CommandBuilder, String> {
+    let manifest = catalog
+        .get(agent_id)
+        .ok_or_else(|| format!("unknown agent: {agent_id}"))?;
+    let launch = manifest
+        .platform_launch()
+        .map_err(|e| e.to_string())?;
+    let cmd = launch.command.as_str();
+    let base_args = &launch.args;
 
     #[cfg(windows)]
     {
-        if matches!(agent, AgentType::Claude | AgentType::Codex | AgentType::Opencode) {
+        if launch.powershell_shim {
             let mut cmd_builder = CommandBuilder::new("powershell.exe");
             cmd_builder.arg("-NoLogo");
             cmd_builder.arg("-NoExit");
             cmd_builder.arg("-Command");
-            cmd_builder.arg(powershell_agent_command(cmd, &base_args, extra_args));
+            cmd_builder.arg(powershell_agent_command(cmd, base_args, extra_args));
             cmd_builder.cwd(cwd);
             apply_common_pty_env(&mut cmd_builder);
-            return cmd_builder;
+            return Ok(cmd_builder);
         }
 
         let is_cmd_shim = cmd.ends_with(".cmd") || cmd.ends_with(".bat");
@@ -181,7 +194,7 @@ fn build_command(agent: AgentType, cwd: &str, extra_args: &[String]) -> CommandB
         }
         cmd_builder.cwd(cwd);
         apply_common_pty_env(&mut cmd_builder);
-        return cmd_builder;
+        return Ok(cmd_builder);
     }
 
     #[cfg(not(windows))]
@@ -195,7 +208,7 @@ fn build_command(agent: AgentType, cwd: &str, extra_args: &[String]) -> CommandB
         }
         cmd_builder.cwd(cwd);
         apply_common_pty_env(&mut cmd_builder);
-        cmd_builder
+        Ok(cmd_builder)
     }
 }
 
@@ -208,7 +221,7 @@ fn apply_common_pty_env(cmd_builder: &mut CommandBuilder) {
 }
 
 #[cfg(windows)]
-fn powershell_agent_command(cmd: &str, base_args: &[&str], extra_args: &[String]) -> String {
+fn powershell_agent_command(cmd: &str, base_args: &[String], extra_args: &[String]) -> String {
     let args = base_args
         .iter()
         .map(|arg| powershell_single_quote(arg))
@@ -242,15 +255,17 @@ pub struct SpawnPaneArgs {
 /// Returns the new pane id.
 pub fn spawn_pane(
     registry: &Arc<Mutex<PaneRegistry>>,
+    catalog: &AgentCatalog,
     app: &AppHandle,
     args: SpawnPaneArgs,
 ) -> Result<String, String> {
-    if args.agent_type == "opencode_native" {
+    let manifest = catalog
+        .get(&args.agent_type)
+        .ok_or_else(|| format!("unknown agent: {}", args.agent_type))?;
+
+    if manifest.spawn_handler == Some(SpawnHandler::OpencodeNative) {
         return crate::opencode::native::spawn_native_pane(Arc::clone(registry), app, args);
     }
-
-    let agent = AgentType::parse(&args.agent_type)
-        .ok_or_else(|| format!("unknown agent_type: {}", args.agent_type))?;
 
     let cwd = crate::project_path::resolve_spawn_cwd(
         args.cwd.clone(),
@@ -283,7 +298,7 @@ pub fn spawn_pane(
         })
         .map_err(|e| format!("openpty: {e}"))?;
 
-    let cmd = build_command(agent, &cwd, args.extra_args.as_deref().unwrap_or(&[]));
+    let cmd = build_command(catalog, &args.agent_type, &cwd, args.extra_args.as_deref().unwrap_or(&[]))?;
     let child = pair
         .slave
         .spawn_command(cmd)
@@ -345,7 +360,8 @@ pub fn spawn_pane(
     {
         let pane_id = pane_id.clone();
         let app = app.clone();
-        let mut adapter = crate::agent_adapters::adapter_for(&args.agent_type);
+        let agent_type = args.agent_type.clone();
+        let catalog = catalog.clone();
         let scrollback = scrollback.clone();
         let screen = screen.clone();
         let status = status.clone();
@@ -371,7 +387,7 @@ pub fn spawn_pane(
                                 },
                             );
                             let clean_text = strip_ansi(&String::from_utf8_lossy(&buf[..n]));
-                            for observation in adapter.observe(&pane_id, &clean_text) {
+                            for observation in observe_agent_output(&agent_type, &pane_id, &clean_text) {
                                 crate::events::emit(observation);
                             }
                             // Push RAW BYTES to scrollback — never decode to
@@ -398,7 +414,11 @@ pub fn spawn_pane(
 
                             // Status heuristic: if recent output looks like a
                             // prompt, mark waiting_input.
-                            let new_status = if looks_like_prompt(&scrollback.lock().tail_text(8)) {
+                            let new_status = if looks_like_prompt_for_agent(
+                                &catalog,
+                                &agent_type,
+                                &scrollback.lock().tail_text(8),
+                            ) {
                                 PaneStatus::WaitingInput
                             } else {
                                 PaneStatus::Running

@@ -1,0 +1,18 @@
+schema_version = 1
+id = "cmd"
+label = "Command Prompt"
+description = "Windows Command Prompt"
+icon = "CMD"
+is_tui = true
+
+[launch.tui.windows]
+command = "cmd.exe"
+args = ["/K"]
+
+[launch.tui.macos]
+command = "zsh"
+args = ["-l"]
+
+[launch.tui.linux]
+command = "bash"
+args = ["--login"]

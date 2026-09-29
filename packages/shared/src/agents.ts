@@ -1,20 +1,34 @@
-import { z } from 'zod';
-import { detectPlatform, type PuppetPlatform } from './platform.js';
+export interface ManifestFileError {
+  file: string;
+  message: string;
+}
 
-export const AgentTypeSchema = z.enum([
-  'claude',
-  'codex',
-  'opencode',
-  'opencode_native',
-  'cmd',
-  'powershell',
-  'bash',
-  'cursor',
-]);
-export type AgentType = z.infer<typeof AgentTypeSchema>;
+export interface AgentCatalog {
+  agents: AgentManifestSummary[];
+  report: { errors: ManifestFileError[] };
+}
+
+export interface AgentManifestSummary {
+  id: string;
+  label: string;
+  description: string;
+  icon: string;
+  is_tui: boolean;
+  command: string;
+  base_args: string[];
+  show_in_new_pane_menu: boolean;
+  default_worker: boolean;
+  spawn_handler?: string | null;
+}
+
+/** Manifest id (formerly the fixed `AgentType` enum). */
+export type AgentId = string;
+
+/** @deprecated use `AgentId` — kept for incremental UI migration. */
+export type AgentType = AgentId;
 
 export interface AgentPreset {
-  type: AgentType;
+  type: AgentId;
   label: string;
   description: string;
   command: string;
@@ -23,231 +37,43 @@ export interface AgentPreset {
   icon: string;
 }
 
-interface AgentCommandSpec {
-  command: string;
-  baseArgs: string[];
-  description: string;
-}
-
-const AGENT_META: Record<
-  AgentType,
-  Pick<AgentPreset, 'type' | 'label' | 'isTui' | 'icon'>
-> = {
-  claude: {
-    type: 'claude',
-    label: 'Claude Code',
-    isTui: true,
-    icon: 'CC',
-  },
-  codex: {
-    type: 'codex',
-    label: 'Codex CLI',
-    isTui: true,
-    icon: 'CX',
-  },
-  opencode: {
-    type: 'opencode',
-    label: 'OpenCode',
-    isTui: true,
-    icon: 'OC',
-  },
-  opencode_native: {
-    type: 'opencode_native',
-    label: 'OpenCode (API)',
-    isTui: true,
-    icon: 'OC+',
-  },
-  cmd: {
-    type: 'cmd',
-    label: 'Command Prompt',
-    isTui: true,
-    icon: 'CMD',
-  },
-  powershell: {
-    type: 'powershell',
-    label: 'PowerShell',
-    isTui: true,
-    icon: 'PS',
-  },
-  bash: {
-    type: 'bash',
-    label: 'Shell',
-    isTui: true,
-    icon: 'Bash',
-  },
-  cursor: {
-    type: 'cursor',
-    label: 'Cursor IDE',
-    isTui: false,
-    icon: 'ID',
-  },
-};
-
-const CODEX_ARGS = ['--sandbox', 'workspace-write', '--ask-for-approval', 'never'];
-/** This flavor only ships the OpenCode API worker in the spawn UI. */
-const AGENT_LAUNCH_TYPES: AgentType[] = ['opencode_native'];
-
-const PLATFORM_COMMANDS: Record<PuppetPlatform, Record<AgentType, AgentCommandSpec>> = {
-  windows: {
-    claude: {
-      command: 'claude',
-      baseArgs: [],
-      description: 'Anthropic Claude Code CLI',
-    },
-    codex: {
-      command: 'codex',
-      baseArgs: CODEX_ARGS,
-      description: 'OpenAI Codex CLI',
-    },
-    opencode: {
-      command: 'opencode',
-      baseArgs: [],
-      description: 'OpenCode CLI',
-    },
-    opencode_native: {
-      command: 'opencode',
-      baseArgs: [],
-      description: 'OpenCode API worker (serve + attach TUI)',
-    },
-    cmd: {
-      command: 'cmd.exe',
-      baseArgs: ['/K'],
-      description: 'Windows Command Prompt',
-    },
-    powershell: {
-      command: 'powershell.exe',
-      baseArgs: ['-NoLogo'],
-      description: 'Windows PowerShell',
-    },
-    bash: {
-      command: 'bash.exe',
-      baseArgs: ['--login'],
-      description: 'Git Bash / WSL bash',
-    },
-    cursor: {
-      command: 'cursor.cmd',
-      baseArgs: [],
-      description: 'Opens project in Cursor (not an agent TUI)',
-    },
-  },
-  macos: {
-    claude: {
-      command: 'claude',
-      baseArgs: [],
-      description: 'Anthropic Claude Code CLI',
-    },
-    codex: {
-      command: 'codex',
-      baseArgs: CODEX_ARGS,
-      description: 'OpenAI Codex CLI',
-    },
-    opencode: {
-      command: 'opencode',
-      baseArgs: [],
-      description: 'OpenCode CLI',
-    },
-    opencode_native: {
-      command: 'opencode',
-      baseArgs: [],
-      description: 'OpenCode API worker (serve + attach TUI)',
-    },
-    cmd: {
-      command: 'zsh',
-      baseArgs: ['-l'],
-      description: 'Default login shell',
-    },
-    powershell: {
-      command: 'pwsh',
-      baseArgs: ['-NoLogo'],
-      description: 'PowerShell (pwsh)',
-    },
-    bash: {
-      command: 'zsh',
-      baseArgs: ['-l'],
-      description: 'macOS Zsh (default shell)',
-    },
-    cursor: {
-      command: 'cursor',
-      baseArgs: [],
-      description: 'Opens project in Cursor (not an agent TUI)',
-    },
-  },
-  linux: {
-    claude: {
-      command: 'claude',
-      baseArgs: [],
-      description: 'Anthropic Claude Code CLI',
-    },
-    codex: {
-      command: 'codex',
-      baseArgs: CODEX_ARGS,
-      description: 'OpenAI Codex CLI',
-    },
-    opencode: {
-      command: 'opencode',
-      baseArgs: [],
-      description: 'OpenCode CLI',
-    },
-    opencode_native: {
-      command: 'opencode',
-      baseArgs: [],
-      description: 'OpenCode API worker (serve + attach TUI)',
-    },
-    cmd: {
-      command: 'bash',
-      baseArgs: ['--login'],
-      description: 'Default login shell',
-    },
-    powershell: {
-      command: 'pwsh',
-      baseArgs: ['-NoLogo'],
-      description: 'PowerShell (pwsh)',
-    },
-    bash: {
-      command: 'bash',
-      baseArgs: ['--login'],
-      description: 'Bash shell',
-    },
-    cursor: {
-      command: 'cursor',
-      baseArgs: [],
-      description: 'Opens project in Cursor (not an agent TUI)',
-    },
-  },
-};
-
-function buildPreset(type: AgentType, platform: PuppetPlatform): AgentPreset {
-  const meta = AGENT_META[type];
-  const spec = PLATFORM_COMMANDS[platform][type];
+function summaryToPreset(summary: AgentManifestSummary): AgentPreset {
   return {
-    ...meta,
-    description: spec.description,
-    command: spec.command,
-    baseArgs: spec.baseArgs,
+    type: summary.id,
+    label: summary.label,
+    description: summary.description,
+    command: summary.command,
+    baseArgs: summary.base_args,
+    isTui: summary.is_tui,
+    icon: summary.icon,
   };
 }
 
-export function getPreset(type: AgentType, platform?: PuppetPlatform): AgentPreset {
-  return buildPreset(type, platform ?? detectPlatform());
+export function emptyAgentCatalog(): AgentCatalog {
+  return { agents: [], report: { errors: [] } };
 }
 
-export function listPresets(platform?: PuppetPlatform): AgentPreset[] {
-  const resolved = platform ?? detectPlatform();
-  return AgentTypeSchema.options.map((type) => buildPreset(type, resolved));
+export function listPresets(catalog: AgentCatalog): AgentPreset[] {
+  return catalog.agents.map(summaryToPreset);
 }
 
-export function getDefaultTerminalAgentType(_platform?: PuppetPlatform): AgentType {
-  return 'opencode_native';
+export function listLaunchPresets(catalog: AgentCatalog): AgentPreset[] {
+  return catalog.agents.filter((agent) => agent.show_in_new_pane_menu).map(summaryToPreset);
 }
 
-export function listLaunchPresets(platform?: PuppetPlatform): AgentPreset[] {
-  const resolved = platform ?? detectPlatform();
-  return AGENT_LAUNCH_TYPES.map((type) => buildPreset(type, resolved));
+export function getPreset(catalog: AgentCatalog, id: string): AgentPreset | undefined {
+  const summary = catalog.agents.find((agent) => agent.id === id);
+  return summary ? summaryToPreset(summary) : undefined;
 }
 
-export function getAgentPresets(platform?: PuppetPlatform): Record<AgentType, AgentPreset> {
-  const resolved = platform ?? detectPlatform();
-  return Object.fromEntries(
-    AgentTypeSchema.options.map((type) => [type, buildPreset(type, resolved)]),
-  ) as Record<AgentType, AgentPreset>;
+export function getDefaultTerminalAgentType(catalog: AgentCatalog): AgentId {
+  return (
+    catalog.agents.find((agent) => agent.default_worker)?.id ??
+    catalog.agents[0]?.id ??
+    'opencode_native'
+  );
+}
+
+export function getAgentPresets(catalog: AgentCatalog): Record<string, AgentPreset> {
+  return Object.fromEntries(listPresets(catalog).map((preset) => [preset.type, preset]));
 }
