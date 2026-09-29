@@ -53,6 +53,7 @@ import { SidebarPanel } from './SidebarPanel';
 import { RevertBanner } from '../sessions/RevertBanner';
 import { PanelErrorBoundary } from './PanelErrorBoundary';
 import { AnchoredPopover } from './AnchoredPopover';
+import { measureSpawnTerminalSize } from '../../terminal/measure-spawn-size';
 
 export type AppShellProps = {
   agentCatalog: AgentCatalog;
@@ -262,9 +263,12 @@ function AppShellInner({
   const showRightRail = viewportWidth >= 1100 || shell.rightRailOpen;
 
   const handleNewShell = useCallback(async () => {
+    const grid = measureSpawnTerminalSize();
     const id = await registry.spawnPane({
       agent_type: 'powershell',
       cwd: projectPath ?? undefined,
+      cols: grid?.cols,
+      rows: grid?.rows,
     });
     if (id) {
       shell.setSelectedTerminalPaneId(id);
@@ -429,6 +433,15 @@ function AppShellChrome(props: {
 
   const editor = useEditor();
   const newPaneAnchorRef = useRef<HTMLButtonElement>(null);
+  const [newPaneMenuAnchor, setNewPaneMenuAnchor] = useState<HTMLElement | null>(null);
+
+  const openNewPaneMenu = useCallback(
+    (anchor: HTMLElement | null) => {
+      setNewPaneMenuAnchor(anchor);
+      setNewPaneOpen(true);
+    },
+    [setNewPaneOpen],
+  );
 
   const paletteCommands = useMemo(
     () =>
@@ -506,7 +519,7 @@ function AppShellChrome(props: {
   useShellKeyboard({
     sessionStates,
     agentPaneId: selectedPaneId,
-    onNewAgent: () => setNewPaneOpen(true),
+    onNewAgent: () => openNewPaneMenu(newPaneAnchorRef.current),
     onToggleBottom: toggleBottom,
     onToggleSidebar: toggleSidebar,
     onOpenPalette: () => {
@@ -526,7 +539,7 @@ function AppShellChrome(props: {
     <div className="flex flex-col h-full min-h-0 bg-canvas text-text" data-testid="app-shell">
       <ShellTitleBar
         newPaneButtonRef={newPaneAnchorRef}
-        onNewPane={() => setNewPaneOpen(true)}
+        onNewPane={() => openNewPaneMenu(newPaneAnchorRef.current)}
         showRightRailToggle={viewportWidth < 1100}
         onToggleRightRail={toggleRightRail}
       />
@@ -596,7 +609,7 @@ function AppShellChrome(props: {
           <PanelErrorBoundary region="main">
             <EditorWorkspace
               launcherProps={{
-                onNewAgent: () => setNewPaneOpen(true),
+                onNewAgent: (anchor) => openNewPaneMenu(anchor),
                 onTogglePanel: toggleBottom,
                 onSearchFiles: () => editor.openQuickOpen(),
                 onCommandPalette: () => {
@@ -695,7 +708,9 @@ function AppShellChrome(props: {
                         </div>
                       </div>
                     ) : (
-                      <AgentPanelEmpty onStartAgent={() => setNewPaneOpen(true)} />
+                      <AgentPanelEmpty
+                        onStartAgent={(anchor) => openNewPaneMenu(anchor)}
+                      />
                     )
                   }
                   terminalContent={
@@ -759,7 +774,7 @@ function AppShellChrome(props: {
 
       <NewPaneMenu
         open={newPaneOpen}
-        anchorRef={newPaneAnchorRef}
+        anchorEl={newPaneMenuAnchor ?? newPaneAnchorRef.current}
         agentCatalog={agentCatalog}
         onPick={(agent) => {
           setNewPaneOpen(false);
@@ -861,20 +876,20 @@ export function AppShell(props: AppShellProps) {
 
 function NewPaneMenu({
   open,
-  anchorRef,
+  anchorEl,
   agentCatalog,
   onPick,
   onClose,
 }: {
   open: boolean;
-  anchorRef: RefObject<HTMLButtonElement>;
+  anchorEl: HTMLElement | null;
   agentCatalog: AgentCatalog;
   onPick: (agent: AgentId) => void;
   onClose: () => void;
 }) {
   const presets = listLaunchPresets(agentCatalog);
   return (
-    <AnchoredPopover open={open} anchorRef={anchorRef} onClose={onClose} testId="new-pane-menu">
+    <AnchoredPopover open={open} anchorEl={anchorEl} onClose={onClose} testId="new-pane-menu">
       {presets.map((p) => (
         <button
           key={p.type}

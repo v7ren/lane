@@ -37,7 +37,7 @@ describe('fromOpenCode adapter', () => {
     expect(assistant?.items.some((i) => i.kind === 'step_usage')).toBe(true);
   });
 
-  it('orders assistant items by part start time', () => {
+  it('orders assistant items by arrival order when timestamps disagree', () => {
     let state = createEmptyOpenCodeStore('pane-test');
     const sessionId = 'sess_order';
     const messageId = 'msg_asst';
@@ -81,7 +81,17 @@ describe('fromOpenCode adapter', () => {
     const vm = fromOpenCode(state, sessionId);
     const assistant = vm.turns.find((t) => t.role === 'assistant');
     const kinds = assistant?.items.map((i) => i.kind);
-    expect(kinds?.indexOf('tool_call')).toBeLessThan(kinds?.indexOf('assistant_text') ?? 999);
+    expect(kinds?.indexOf('assistant_text')).toBeLessThan(kinds?.indexOf('tool_call') ?? 999);
+  });
+
+  it('replays out-of-order multi-step turn fixture', () => {
+    const events = loadFixture('out-of-order-turn.json');
+    const state = replay(events);
+    const vm = fromOpenCode(state, 'sess_order');
+    expect(vm.turns[0]?.role).toBe('user');
+    const assistant2 = vm.turns.find((t) => t.id === 'msg_asst_2');
+    const kinds = assistant2?.items.map((i) => i.kind) ?? [];
+    expect(kinds.indexOf('tool_call')).toBeLessThan(kinds.indexOf('assistant_text'));
   });
 
   it('builds user turn from part deltas when prompt only streams', () => {

@@ -30,6 +30,15 @@ afterEach(() => {
   container.remove();
 });
 
+const globTool: TranscriptToolCall = {
+  kind: 'tool_call',
+  id: 'oc-glob-1',
+  name: 'glob',
+  status: 'completed',
+  input: '**/hello.txt',
+  output: { matches: ['hello.txt'], count: 1 },
+};
+
 describe('TranscriptItemView read tool', () => {
   it('renders Read label and relative path chip for OpenCode-shaped input', () => {
     act(() => {
@@ -43,6 +52,24 @@ describe('TranscriptItemView read tool', () => {
     expect(container.textContent).toContain('Read');
     expect(container.textContent).toContain('packages/app/src/main.ts');
     expect(container.textContent).not.toContain('filePath');
+    expect(container.textContent).not.toContain('\\\\Users');
+  });
+});
+
+describe('TranscriptItemView glob tool', () => {
+  it('renders unescaped relative paths', () => {
+    act(() => {
+      root.render(
+        <TranscriptItemView
+          item={{
+            ...globTool,
+            output: ['C:\\\\Users\\\\Ren\\\\repo\\\\hello.txt'],
+          }}
+          projectRoot="C:/Users/Ren/repo"
+        />,
+      );
+    });
+    expect(container.textContent).toContain('hello.txt');
     expect(container.textContent).not.toContain('\\\\Users');
   });
 });

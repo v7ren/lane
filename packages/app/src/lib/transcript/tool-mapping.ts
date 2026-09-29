@@ -1,4 +1,9 @@
+import { normalizeToolPathValue, unescapeDisplayPath } from './path-display.js';
 import type { ToolCallStatus, TranscriptToolCall } from './types.js';
+
+export type ToolNormalizeContext = {
+  projectRoot?: string | null;
+};
 
 export function mapOpenCodeToolStatus(status: string | undefined): ToolCallStatus {
   if (!status) return 'running';
@@ -30,11 +35,33 @@ export function toolNameForDisplay(name: string): string {
 }
 
 /** Normalize tool part state into structured input/output for UI renderers. */
+function formatGlobGrepOutput(output: unknown, projectRoot?: string | null): unknown {
+  if (typeof output === 'string') {
+    const trimmed = output.trim();
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      try {
+        return formatGlobGrepOutput(JSON.parse(trimmed) as unknown, projectRoot);
+      } catch {
+        return normalizeToolPathValue(unescapeDisplayPath(output), projectRoot);
+      }
+    }
+    const lines = output
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => normalizeToolPathValue(line, projectRoot) as string);
+    return lines.length <= 1 ? (lines[0] ?? output) : lines;
+  }
+  return normalizeToolPathValue(output, projectRoot);
+}
+
 export function normalizeToolPayload(
   toolName: string,
   input: unknown,
   output: unknown,
+  context?: ToolNormalizeContext,
 ): Pick<TranscriptToolCall, 'input' | 'output' | 'diff'> {
+  const projectRoot = context?.projectRoot;
   const name = toolName.toLowerCase();
   if (typeof input === 'string' && typeof output === 'string') {
     return { input, output };
@@ -48,13 +75,14 @@ export function normalizeToolPayload(
     };
   }
   if (name === 'read' || name === 'read_file') {
+    const pathRaw = stateIn?.path ?? stateIn?.filePath ?? stateIn?.file ?? input;
     return {
       input: {
-        path: stateIn?.path ?? stateIn?.filePath ?? stateIn?.file ?? input,
+        path: normalizeToolPathValue(pathRaw, projectRoot),
         start: stateIn?.startLine ?? stateIn?.start,
         end: stateIn?.endLine ?? stateIn?.end,
       },
-      output,
+      output: normalizeToolPathValue(output, projectRoot),
     };
   }
   if (name === 'write' || name === 'edit' || name === 'apply_patch') {
@@ -71,9 +99,19 @@ export function normalizeToolPayload(
     };
   }
   if (name === 'grep' || name === 'glob') {
+    const pattern = stateIn?.pattern ?? stateIn?.glob ?? input;
+    const rawOut = stateOut?.matches ?? stateOut?.paths ?? stateOut?.files ?? output;
+    const meta =
+      stateOut?.metadata && typeof stateOut.metadata === 'object'
+        ? (stateOut.metadata as { count?: number })
+        : undefined;
+    const count = stateOut?.count ?? meta?.count;
+    const formatted = formatGlobGrepOutput(rawOut, projectRoot);
+    const matchCount =
+      count ?? (Array.isArray(formatted) ? formatted.length : undefined);
     return {
-      input: stateIn?.pattern ?? stateIn?.glob ?? input,
-      output: stateOut?.matches ?? stateOut?.count ?? output,
+      input: pattern,
+      output: matchCount != null ? { matches: formatted, count: matchCount } : formatted,
     };
   }
   if (name === 'webfetch' || name === 'web_fetch') {

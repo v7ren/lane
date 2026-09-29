@@ -1,9 +1,10 @@
+import { useRef } from 'react';
 import { LoomMark } from './LoomMark';
 
 type ShortcutRow = {
   label: string;
   keys: string[];
-  onClick: () => void;
+  onClick: (anchor: HTMLElement | null) => void;
 };
 
 export function MainLauncher({
@@ -12,16 +13,21 @@ export function MainLauncher({
   onSearchFiles,
   onCommandPalette,
 }: {
-  onNewAgent: () => void;
+  onNewAgent: (anchor: HTMLElement | null) => void;
   onTogglePanel: () => void;
   onSearchFiles: () => void;
   onCommandPalette: () => void;
 }) {
+  const newAgentRef = useRef<HTMLButtonElement>(null);
   const shortcuts: ShortcutRow[] = [
-    { label: 'New agent', keys: ['Ctrl', 'Shift', 'L'], onClick: onNewAgent },
-    { label: 'Toggle panel', keys: ['Ctrl', 'J'], onClick: onTogglePanel },
-    { label: 'Search files', keys: ['Ctrl', 'P'], onClick: onSearchFiles },
-    { label: 'Command palette', keys: ['Ctrl', 'K'], onClick: onCommandPalette },
+    {
+      label: 'New agent',
+      keys: ['Ctrl', 'Shift', 'L'],
+      onClick: (anchor) => onNewAgent(anchor),
+    },
+    { label: 'Toggle panel', keys: ['Ctrl', 'J'], onClick: () => onTogglePanel() },
+    { label: 'Search files', keys: ['Ctrl', 'P'], onClick: () => onSearchFiles() },
+    { label: 'Command palette', keys: ['Ctrl', 'K'], onClick: () => onCommandPalette() },
   ];
 
   return (
@@ -35,8 +41,11 @@ export function MainLauncher({
         {shortcuts.map((row) => (
           <li key={row.label}>
             <button
+              ref={row.label === 'New agent' ? newAgentRef : undefined}
               type="button"
-              onClick={row.onClick}
+              onClick={() =>
+                row.onClick(row.label === 'New agent' ? newAgentRef.current : null)
+              }
               className="w-full h-7 flex items-center justify-between gap-4 px-2 rounded-md text-meta text-text-2 hover:bg-hover transition-colors duration-ui"
             >
               <span>{row.label}</span>

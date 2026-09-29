@@ -1,5 +1,6 @@
 import type { Message, Session, Todo } from '@loomria/shared/opencode';
 
+import { sortMessageIds } from './ordering.js';
 import type { ConnectionStatus, OpenCodeStoreState, SessionStatus } from './store.js';
 
 export type SessionSummary = {
@@ -27,7 +28,7 @@ export function selectSession(state: OpenCodeStoreState, sessionId: string): Ses
 }
 
 export function selectMessages(state: OpenCodeStoreState, sessionId: string): Message[] {
-  const ids = state.messagesBySession[sessionId] ?? [];
+  const ids = sortMessageIds(state, sessionId, state.messagesBySession[sessionId] ?? []);
   return ids.map((id) => state.messages[id]).filter(Boolean);
 }
 

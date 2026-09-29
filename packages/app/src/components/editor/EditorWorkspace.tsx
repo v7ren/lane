@@ -10,7 +10,7 @@ export function EditorWorkspace({
   launcherProps,
 }: {
   launcherProps: {
-    onNewAgent: () => void;
+    onNewAgent: (anchor: HTMLElement | null) => void;
     onTogglePanel: () => void;
     onSearchFiles: () => void;
     onCommandPalette: () => void;

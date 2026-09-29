@@ -1,5 +1,6 @@
 import type { Message, Part } from '@loomria/shared/opencode';
 
+import { sortPartIdsForMessage } from '../opencode/ordering.js';
 import { assembleMessageText, selectMessages, selectSessionStatus, selectTodos } from '../opencode/selectors.js';
 import type { OpenCodeStoreState } from '../opencode/store.js';
 import { formatDuration } from './format-meta.js';
@@ -22,25 +23,9 @@ function messageDurationMs(message: Message): number | undefined {
   return undefined;
 }
 
-function partSortKey(state: OpenCodeStoreState, partId: string): number {
-  const part = state.parts[partId];
-  if (!part) return Number.MAX_SAFE_INTEGER;
-  const time =
-    'time' in part
-      ? (part.time as { start?: number; end?: number } | undefined)
-      : undefined;
-  if (time?.start != null) return time.start;
-  if (time?.end != null) return time.end;
-  return Number.MAX_SAFE_INTEGER;
-}
-
 function partIdsForMessage(state: OpenCodeStoreState, messageId: string): string[] {
   const ids = state.partsByMessage[messageId] ?? [];
-  return [...ids].sort((a, b) => {
-    const delta = partSortKey(state, a) - partSortKey(state, b);
-    if (delta !== 0) return delta;
-    return a.localeCompare(b);
-  });
+  return sortPartIdsForMessage(state, messageId, ids);
 }
 
 function buildUserTurn(state: OpenCodeStoreState, message: Message): TranscriptTurn {
@@ -88,7 +73,11 @@ function buildUserTurn(state: OpenCodeStoreState, message: Message): TranscriptT
   return { id: message.id, role: 'user', items: [item] };
 }
 
-function mapPartToItem(part: Part, message: Message): TranscriptItem | null {
+function mapPartToItem(
+  part: Part,
+  message: Message,
+  projectRoot: string | null,
+): TranscriptItem | null {
   switch (part.type) {
     case 'text':
       if (!part.text) return null;
@@ -117,7 +106,9 @@ function mapPartToItem(part: Part, message: Message): TranscriptItem | null {
         part.state && 'input' in part.state ? (part.state as { input?: unknown }).input : undefined;
       const output =
         part.state && 'output' in part.state ? (part.state as { output?: unknown }).output : undefined;
-      const normalized = normalizeToolPayload(part.tool, input, output);
+      const normalized = normalizeToolPayload(part.tool, input, output, {
+        projectRoot,
+      });
       const durationMs =
         part.state && 'time' in part.state && part.state.time
           ? (() => {
@@ -210,7 +201,7 @@ function buildAssistantTurn(state: OpenCodeStoreState, message: Message): Transc
   for (const partId of partIds) {
     const part = state.parts[partId];
     if (!part) continue;
-    const item = mapPartToItem(part, message);
+    const item = mapPartToItem(part, message, state.directory);
     if (item) items.push(item);
   }
 

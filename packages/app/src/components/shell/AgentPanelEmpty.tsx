@@ -1,4 +1,11 @@
-export function AgentPanelEmpty({ onStartAgent }: { onStartAgent: () => void }) {
+import { useRef } from 'react';
+
+export function AgentPanelEmpty({
+  onStartAgent,
+}: {
+  onStartAgent: (anchor: HTMLElement | null) => void;
+}) {
+  const buttonRef = useRef<HTMLButtonElement>(null);
   return (
     <div
       className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center"
@@ -11,8 +18,9 @@ export function AgentPanelEmpty({ onStartAgent }: { onStartAgent: () => void }) 
         </kbd>
       </p>
       <button
+        ref={buttonRef}
         type="button"
-        onClick={onStartAgent}
+        onClick={() => onStartAgent(buttonRef.current)}
         className="px-3 py-1.5 rounded-md border border-border bg-elevated text-body text-text hover:bg-hover transition-colors duration-ui"
       >
         New agent

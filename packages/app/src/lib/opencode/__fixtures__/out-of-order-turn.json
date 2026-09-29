@@ -1,0 +1,128 @@
+{
+  "events": [
+    {
+      "id": "e-asst1",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_asst_1",
+          "sessionID": "sess_order",
+          "role": "assistant",
+          "time": { "created": 20 }
+        }
+      }
+    },
+    {
+      "id": "e-asst1-reason",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst_1",
+        "part": {
+          "id": "part_r1",
+          "messageID": "msg_asst_1",
+          "type": "reasoning",
+          "text": "step one",
+          "time": { "start": 21, "end": 22 }
+        }
+      }
+    },
+    {
+      "id": "e-asst1-glob-pending",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst_1",
+        "part": {
+          "id": "part_glob",
+          "messageID": "msg_asst_1",
+          "type": "tool",
+          "tool": "glob",
+          "state": { "status": "pending", "input": {} }
+        }
+      }
+    },
+    {
+      "id": "e-user-late",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_user",
+          "sessionID": "sess_order",
+          "role": "user",
+          "time": { "created": 10 }
+        }
+      }
+    },
+    {
+      "id": "e-user-text",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_user",
+        "part": {
+          "id": "part_user",
+          "messageID": "msg_user",
+          "type": "text",
+          "text": "Read hello.txt and reply with only its first word"
+        }
+      }
+    },
+    {
+      "id": "e-asst2",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_asst_2",
+          "sessionID": "sess_order",
+          "role": "assistant",
+          "parentID": "msg_user",
+          "time": { "created": 30 }
+        }
+      }
+    },
+    {
+      "id": "e-asst2-reason",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst_2",
+        "part": {
+          "id": "part_r2",
+          "messageID": "msg_asst_2",
+          "type": "reasoning",
+          "text": "found file",
+          "time": { "start": 35, "end": 36 }
+        }
+      }
+    },
+    {
+      "id": "e-asst2-read",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst_2",
+        "part": {
+          "id": "part_read",
+          "messageID": "msg_asst_2",
+          "type": "tool",
+          "tool": "read",
+          "state": {
+            "status": "completed",
+            "input": { "path": "hello.txt" },
+            "time": { "start": 40, "end": 45 }
+          }
+        }
+      }
+    },
+    {
+      "id": "e-asst2-text",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst_2",
+        "part": {
+          "id": "part_text",
+          "messageID": "msg_asst_2",
+          "type": "text",
+          "text": "hello",
+          "time": { "start": 50, "end": 51 }
+        }
+      }
+    }
+  ]
+}

@@ -35,7 +35,10 @@ export function toolDisplayLabel(tool: TranscriptToolCall): string {
   return pretty ? pretty.charAt(0).toUpperCase() + pretty.slice(1) : 'Tool';
 }
 
-export function resolveToolFields(tool: TranscriptToolCall): {
+export function resolveToolFields(
+  tool: TranscriptToolCall,
+  projectRoot?: string | null,
+): {
   name: string;
   input: unknown;
   output: unknown;
@@ -44,7 +47,7 @@ export function resolveToolFields(tool: TranscriptToolCall): {
   const name = canonicalToolName(tool);
   const parsedIn = parseToolInput(tool.input);
   const parsedOut = parseToolInput(tool.output);
-  const normalized = normalizeToolPayload(name, parsedIn, parsedOut);
+  const normalized = normalizeToolPayload(name, parsedIn, parsedOut, { projectRoot });
   let input = normalized.input;
   if (name === 'read' || name === 'read_file') {
     const path =

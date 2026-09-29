@@ -12,6 +12,51 @@ import {
   filePathFromToolInput,
 } from './tool-render';
 
+function GlobGrepOutput({
+  output,
+  projectRoot,
+}: {
+  output: unknown;
+  projectRoot?: string | null;
+}) {
+  const record = output && typeof output === 'object' ? (output as Record<string, unknown>) : null;
+  const matches = record?.matches ?? output;
+  const count =
+    typeof record?.count === 'number'
+      ? record.count
+      : Array.isArray(matches)
+        ? matches.length
+        : undefined;
+
+  const paths: string[] = Array.isArray(matches)
+    ? matches.map((m) => String(m))
+    : typeof matches === 'string'
+      ? matches.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+      : [];
+
+  if (paths.length === 0) {
+    return <p className="text-text-3 font-mono">{formatJsonFallback(output)}</p>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1 items-center">
+      {paths.map((p) => {
+        const chip = displayPathChip(p, projectRoot);
+        return (
+          <span
+            key={p}
+            className="font-mono px-2 py-0.5 rounded-full bg-elevated border border-border-subtle"
+            title={chip.title}
+          >
+            {chip.label}
+          </span>
+        );
+      })}
+      {count != null && <span className="text-text-3">{count} matches</span>}
+    </div>
+  );
+}
+
 function ToolStatusDot({ status }: { status: TranscriptToolCall['status'] }) {
   if (status === 'running') {
     return <Loader2 className="w-3 h-3 animate-spin text-accent" aria-hidden />;
@@ -63,7 +108,7 @@ function ToolCard({
   projectRoot?: string | null;
 }) {
   const [open, setOpen] = useState(tool.status === 'running' || tool.status === 'completed');
-  const { name, input, output, diff } = resolveToolFields(tool);
+  const { name, input, output, diff } = resolveToolFields(tool, projectRoot);
   const headerLabel = toolDisplayLabel(tool);
 
   return (
@@ -139,12 +184,14 @@ function ToolCard({
             </div>
           )}
           {(name === 'grep' || name === 'glob') && (
-            <p className="text-[12px] text-text-2">
-              <span className="font-mono">{String(input)}</span>
+            <div className="space-y-1 text-[12px] text-text-2">
+              <p>
+                <span className="font-mono">{String(input)}</span>
+              </p>
               {output != null && (
-                <span className="text-text-3"> · {String(output)} matches</span>
+                <GlobGrepOutput output={output} projectRoot={projectRoot} />
               )}
-            </p>
+            </div>
           )}
           {(name === 'webfetch' || name === 'web_fetch') && (
             <p className="font-mono text-[12px] text-link break-all">{String(input)}</p>

@@ -52,6 +52,9 @@ export class TerminalSession {
   private themeObserver: MutationObserver | null = null;
   private agentTuiLayoutObserver: MutationObserver | null = null;
   private mountContainer: HTMLElement | null = null;
+  private surfaceHost: HTMLElement | null = null;
+  private surfaceVisibilityObserver: MutationObserver | null = null;
+  private surfaceWasActive = false;
   private disposed = false;
 
   constructor(private readonly options: TerminalSessionOptions) {
@@ -140,6 +143,7 @@ export class TerminalSession {
       this.installFileLinkProvider(terminal);
       this.installTextareaGuards(container, terminal, this.inputBatcher);
       this.installResizeObservers(container);
+      this.installSurfaceVisibilityObserver(container);
       this.installAgentTuiLayoutObserver(container);
       this.installFocusHandlers(container);
       this.installThemeObserver(terminal);
@@ -189,6 +193,10 @@ export class TerminalSession {
     this.agentTuiLayoutObserver?.disconnect();
     this.agentTuiLayoutObserver = null;
 
+    this.surfaceVisibilityObserver?.disconnect();
+    this.surfaceVisibilityObserver = null;
+    this.surfaceHost = null;
+
     this.focusCleanup?.();
     this.focusCleanup = null;
 
@@ -206,8 +214,42 @@ export class TerminalSession {
     this.term = null;
   }
 
+  private surfaceIsActive(): boolean {
+    const host = this.surfaceHost ?? this.mountContainer?.closest('[data-pane-surface-host]');
+    if (host instanceof HTMLElement) {
+      return host.getAttribute('data-pane-surface-host') === '1';
+    }
+    return true;
+  }
+
+  private hostHasLayout(): boolean {
+    const container = this.mountContainer;
+    if (!container) return false;
+    const rect = container.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+
+  private installSurfaceVisibilityObserver(container: HTMLElement): void {
+    const host = container.closest('[data-pane-surface-host]');
+    if (!(host instanceof HTMLElement)) return;
+    this.surfaceHost = host;
+
+    const refit = () => {
+      if (!this.surfaceIsActive() || !this.hostHasLayout()) return;
+      this.scheduleFit();
+    };
+
+    this.surfaceVisibilityObserver = new MutationObserver(refit);
+    this.surfaceVisibilityObserver.observe(host, {
+      attributes: true,
+      attributeFilter: ['data-pane-surface-host', 'data-surface-visible'],
+    });
+    refit();
+  }
+
   private installResizeObservers(container: HTMLElement): void {
     this.resizeObserver = new ResizeObserver(() => {
+      if (!this.surfaceIsActive() || !this.hostHasLayout()) return;
       this.scheduleFit();
     });
     this.resizeObserver.observe(container);
@@ -398,6 +440,16 @@ export class TerminalSession {
     const terminal = this.term;
     const fitAddon = this.fitAddon;
     if (!terminal || !fitAddon) return;
+    const active = this.surfaceIsActive() && this.hostHasLayout();
+    if (!active) {
+      this.surfaceWasActive = false;
+      return;
+    }
+    if (!this.surfaceWasActive) {
+      this.lastSentCols = 0;
+      this.lastSentRows = 0;
+    }
+    this.surfaceWasActive = true;
 
     try {
       fitAddon.fit();

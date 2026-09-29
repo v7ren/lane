@@ -88,6 +88,8 @@ export function AgentComposerPanel({
   const permissionPickerRef = useRef<HTMLButtonElement | null>(null);
   const mentionPickerRef = useRef<HTMLElement | null>(null);
   const slashPickerRef = useRef<HTMLElement | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const [toolbarCompact, setToolbarCompact] = useState(false);
   const [focused, setFocused] = useState(false);
   const [allowlistBlocked, setAllowlistBlocked] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -97,6 +99,17 @@ export function AgentComposerPanel({
       setAllowlistBlocked(true);
     }
   }, [openCode]);
+
+  useEffect(() => {
+    const el = toolbarRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      setToolbarCompact(el.clientWidth < 420);
+    });
+    ro.observe(el);
+    setToolbarCompact(el.clientWidth < 420);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const onAdd = (event: Event) => {
@@ -340,7 +353,10 @@ export function AgentComposerPanel({
             }}
             onKeyDown={onKeyDown}
           />
-          <div className="flex items-center gap-2 px-2 pb-2 flex-wrap">
+          <div
+            ref={toolbarRef}
+            className="flex items-center gap-2 px-2 pb-2 flex-nowrap min-w-0"
+          >
             {features.attach && (
               <label className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-border-subtle hover:bg-hover cursor-pointer">
                 <Plus className="w-4 h-4 text-text-2" />
@@ -361,6 +377,7 @@ export function AgentComposerPanel({
                 onClick={() => setPicker((p) => (p === 'agent' ? null : 'agent'))}
                 testId="picker-agent"
                 error={Boolean(catalogError)}
+                iconOnly={toolbarCompact}
               />
             )}
             {features.permissionPicker && (
@@ -370,14 +387,21 @@ export function AgentComposerPanel({
                 open={picker === 'permission'}
                 onClick={() => setPicker((p) => (p === 'permission' ? null : 'permission'))}
                 testId="picker-permission"
+                iconOnly={toolbarCompact}
               />
             )}
-            <div className="flex-1" />
+            <div className="flex-1 min-w-0" />
             {features.modelPicker && (
               <Pill
                 ref={modelPickerRef}
                 label={catalogError ? 'Model error' : modelPillLabel}
-                sublabel={catalogError ? undefined : modelPillPrimary ? modelPillProvider : undefined}
+                sublabel={
+                  toolbarCompact || catalogError
+                    ? undefined
+                    : modelPillPrimary
+                      ? modelPillProvider
+                      : undefined
+                }
                 open={picker === 'model'}
                 onClick={() => setPicker((p) => (p === 'model' ? null : 'model'))}
                 testId="picker-model"
@@ -401,7 +425,7 @@ export function AgentComposerPanel({
               <button
                 type="button"
                 disabled={disabled || busy || !draft.trim()}
-                className="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center disabled:opacity-40"
+                className="w-9 h-9 shrink-0 rounded-full bg-accent text-white flex items-center justify-center disabled:opacity-40"
                 onClick={() => void submit()}
                 aria-label="Send"
               >
@@ -515,20 +539,31 @@ const Pill = forwardRef<
     testId?: string;
     wide?: boolean;
     error?: boolean;
+    iconOnly?: boolean;
   }
->(function Pill({ label, sublabel, onClick, open, testId, wide, error }, ref) {
+>(function Pill({ label, sublabel, onClick, open, testId, wide, error, iconOnly }, ref) {
+  const initial = label.trim().charAt(0).toUpperCase() || '?';
   return (
     <button
       ref={ref}
       type="button"
       data-testid={testId}
-      className={`h-8 px-3 rounded-full border bg-elevated text-meta hover:bg-hover inline-flex items-center gap-1 min-w-0 ${
+      title={iconOnly ? label : undefined}
+      className={`h-8 shrink-0 rounded-full border bg-elevated text-meta hover:bg-hover inline-flex items-center gap-1 min-w-0 ${
+        iconOnly ? 'w-8 px-0 justify-center' : 'px-3'
+      } ${
         error ? 'border-status-error/60 text-status-error' : 'border-border-subtle'
-      } ${wide ? 'max-w-[14rem]' : ''} ${open ? 'ring-2 ring-accent/40' : ''}`}
+      } ${wide && !iconOnly ? 'max-w-[9rem]' : ''} ${open ? 'ring-2 ring-accent/40' : ''}`}
       onClick={onClick}
     >
-      <span className={`truncate ${sublabel ? 'text-text' : 'text-text'}`}>{label}</span>
-      {sublabel && <span className="truncate text-text-3">{sublabel}</span>}
+      {iconOnly ? (
+        <span className="text-[11px] font-semibold">{initial}</span>
+      ) : (
+        <>
+          <span className="truncate text-text">{label}</span>
+          {sublabel && <span className="truncate text-text-3 max-w-[5rem]">{sublabel}</span>}
+        </>
+      )}
     </button>
   );
 });

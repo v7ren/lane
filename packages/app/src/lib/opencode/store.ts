@@ -10,6 +10,7 @@ import type {
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 import { getServerInfo, opencodeClient } from './client.js';
+import { sortMessageIds, sortPartIdsForMessage } from './ordering.js';
 
 export type SessionStatus = 'idle' | 'busy' | 'retry' | 'unknown';
 export type ConnectionStatus = 'connected' | 'disconnected' | 'unknown';
@@ -32,6 +33,9 @@ export type OpenCodeStoreState = {
   messagesBySession: Record<string, string[]>;
   messages: Record<string, Message>;
   partsByMessage: Record<string, string[]>;
+  /** Stable part order within a message (event / hydrate sequence). */
+  partOrder: Record<string, number>;
+  partOrderSeq: number;
   parts: Record<string, Part>;
   sessionStatus: Record<string, SessionStatus>;
   permissions: Record<string, PermissionAsked>;
@@ -55,6 +59,8 @@ export function createEmptyOpenCodeStore(paneId: string): OpenCodeStoreState {
     messagesBySession: {},
     messages: {},
     partsByMessage: {},
+    partOrder: {},
+    partOrderSeq: 0,
     parts: {},
     sessionStatus: {},
     permissions: {},
@@ -77,41 +83,44 @@ function upsertSession(state: OpenCodeStoreState, session: Session): OpenCodeSto
 function upsertMessage(state: OpenCodeStoreState, message: Message): OpenCodeStoreState {
   const messages = { ...state.messages, [message.id]: message };
   const list = state.messagesBySession[message.sessionID] ?? [];
+  const merged = list.includes(message.id) ? list : [...list, message.id];
   const messagesBySession = {
     ...state.messagesBySession,
-    [message.sessionID]: list.includes(message.id) ? list : [...list, message.id],
+    [message.sessionID]: sortMessageIds({ ...state, messages }, message.sessionID, merged),
   };
   return { ...state, messages, messagesBySession };
 }
 
-function partSortKey(part: Part | undefined): number {
-  if (!part) return Number.MAX_SAFE_INTEGER;
-  const time =
-    'time' in part
-      ? (part.time as { start?: number; end?: number } | undefined)
-      : undefined;
-  if (time?.start != null) return time.start;
-  if (time?.end != null) return time.end;
-  return Number.MAX_SAFE_INTEGER;
+function assignPartOrder(
+  state: OpenCodeStoreState,
+  partId: string,
+  explicitOrder?: number,
+): { partOrder: Record<string, number>; partOrderSeq: number } {
+  if (state.partOrder[partId] != null && explicitOrder == null) {
+    return { partOrder: state.partOrder, partOrderSeq: state.partOrderSeq };
+  }
+  const seq = explicitOrder ?? state.partOrderSeq;
+  const partOrder = { ...state.partOrder, [partId]: seq };
+  const partOrderSeq = explicitOrder == null ? state.partOrderSeq + 1 : state.partOrderSeq;
+  return { partOrder, partOrderSeq };
 }
 
-function sortPartIds(state: OpenCodeStoreState, messageId: string, partIds: string[]): string[] {
-  return [...partIds].sort((a, b) => {
-    const delta = partSortKey(state.parts[a]) - partSortKey(state.parts[b]);
-    if (delta !== 0) return delta;
-    return a.localeCompare(b);
-  });
-}
-
-function upsertPart(state: OpenCodeStoreState, messageId: string, part: Part): OpenCodeStoreState {
+function upsertPart(
+  state: OpenCodeStoreState,
+  messageId: string,
+  part: Part,
+  orderHint?: number,
+): OpenCodeStoreState {
   const parts = { ...state.parts, [part.id]: part };
+  const { partOrder, partOrderSeq } = assignPartOrder(state, part.id, orderHint);
   const list = state.partsByMessage[messageId] ?? [];
   const merged = list.includes(part.id) ? list : [...list, part.id];
+  const nextState = { ...state, parts, partOrder, partOrderSeq };
   const partsByMessage = {
-    ...state.partsByMessage,
-    [messageId]: sortPartIds({ ...state, parts }, messageId, merged),
+    ...nextState.partsByMessage,
+    [messageId]: sortPartIdsForMessage(nextState, messageId, merged),
   };
-  return { ...state, parts, partsByMessage };
+  return { ...nextState, partsByMessage };
 }
 
 function applyPartDelta(
@@ -391,9 +400,11 @@ export function createOpenCodeStore(paneId: string): OpenCodeStore {
             next = upsertMessage(next, message);
             const parts = (message as Message & { parts?: Part[] }).parts;
             if (parts) {
-              for (const part of parts) {
-                next = upsertPart(next, message.id, part);
+              const base = next.partOrderSeq;
+              for (let index = 0; index < parts.length; index += 1) {
+                next = upsertPart(next, message.id, parts[index]!, base + index);
               }
+              next = { ...next, partOrderSeq: base + parts.length };
             }
           }
           return next;

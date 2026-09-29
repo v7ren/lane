@@ -10,13 +10,15 @@ function clampToViewport(rect: DOMRect, width: number, height: number): { left: 
 
 export function AnchoredPopover({
   anchorRef,
+  anchorEl,
   open,
   onClose,
   children,
   testId,
   minWidth = 200,
 }: {
-  anchorRef: RefObject<HTMLElement | null>;
+  anchorRef?: RefObject<HTMLElement | null>;
+  anchorEl?: HTMLElement | null;
   open: boolean;
   onClose: () => void;
   children: ReactNode;
@@ -31,7 +33,7 @@ export function AnchoredPopover({
       setPos(null);
       return;
     }
-    const anchor = anchorRef.current;
+    const anchor = anchorEl ?? anchorRef?.current ?? null;
     if (!anchor) return;
     const update = () => {
       const rect = anchor.getBoundingClientRect();
@@ -42,7 +44,7 @@ export function AnchoredPopover({
     };
     update();
     requestAnimationFrame(update);
-  }, [anchorRef, minWidth, open]);
+  }, [anchorEl, anchorRef, minWidth, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -55,7 +57,7 @@ export function AnchoredPopover({
 
   if (!open) return null;
 
-  const anchor = anchorRef.current;
+  const anchor = anchorEl ?? anchorRef?.current ?? null;
   const fallback =
     anchor != null
       ? clampToViewport(anchor.getBoundingClientRect(), minWidth, 200)
