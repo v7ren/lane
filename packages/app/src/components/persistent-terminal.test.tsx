@@ -1,7 +1,8 @@
 import { createRoot, type Root } from 'react-dom/client';
-import { act } from 'react';
+import { act, type ComponentProps, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PaneRegistryApi } from '../hooks/usePaneRegistry';
+import { ShellSelectionProvider } from '../lib/shell-selection-context';
 import { PersistentPaneSurfaces } from './PersistentPaneSurfaces';
 
 const disposeSpy = vi.fn();
@@ -43,9 +44,23 @@ const registry: PaneRegistryApi = {
       info: {
         id: 'pane-a',
         created_at: 1,
-        agent_type: 'powershell' as const,
+        agent_type: 'codex' as const,
         cwd: '/tmp',
         pid: 1,
+        cols: 80,
+        rows: 24,
+        status: 'idle' as const,
+        last_output_at: 0,
+      },
+      status: 'idle' as const,
+    },
+    {
+      info: {
+        id: 'pane-shell',
+        created_at: 1,
+        agent_type: 'powershell' as const,
+        cwd: '/tmp',
+        pid: 2,
         cols: 80,
         rows: 24,
         status: 'idle' as const,
@@ -67,6 +82,29 @@ const registry: PaneRegistryApi = {
 
 const agentCatalog = { presets: [], agents: [] } as never;
 
+function shellProvider(ui: ReactNode, overrides?: Partial<ComponentProps<typeof ShellSelectionProvider>['value']>) {
+  const value = {
+    selectedPaneId: 'pane-a',
+    setSelectedPaneId: () => {},
+    bottomTab: 'agent' as const,
+    setBottomTab: () => {},
+    showTui: false,
+    setShowTui: () => {},
+    selectedTerminalPaneId: 'pane-shell',
+    setSelectedTerminalPaneId: () => {},
+    railSection: 'sessions' as const,
+    setRailSection: () => {},
+    settingsOpen: false,
+    setSettingsOpen: () => {},
+    paletteOpen: false,
+    setPaletteOpen: () => {},
+    paletteFileMode: false,
+    setPaletteFileMode: () => {},
+    ...overrides,
+  };
+  return <ShellSelectionProvider value={value}>{ui}</ShellSelectionProvider>;
+}
+
 let container: HTMLDivElement;
 let root: Root;
 
@@ -83,63 +121,15 @@ afterEach(() => {
   terminalMountSpy.mockClear();
 });
 
-describe('PersistentPaneSurfaces', () => {
-  it('does not dispose terminal session when switching workspace to agent mode', () => {
-    act(() => {
-      root.render(
-        <PersistentPaneSurfaces
-          mode="workspace"
-          agentPaneId={null}
-          showTui={true}
-          layoutEpoch={0}
-          agentCatalog={agentCatalog}
-          registry={registry}
-          projectPath={null}
-          sessionStates={new Map()}
-          agentPaneTitle={null}
-          tuiSurfaceLive={false}
-          onHideTui={() => {}}
-          onClosePane={() => {}}
-          onEnterAgent={() => {}}
-        />,
-      );
-    });
-
-    const mountsAfterWorkspace = terminalMountSpy.mock.calls.length;
-    expect(mountsAfterWorkspace).toBeGreaterThan(0);
-
-    act(() => {
-      root.render(
-        <PersistentPaneSurfaces
-          mode="agent"
-          agentPaneId="pane-a"
-          showTui={false}
-          layoutEpoch={1}
-          agentCatalog={agentCatalog}
-          registry={registry}
-          projectPath={null}
-          sessionStates={new Map()}
-          agentPaneTitle="Pane A"
-          tuiSurfaceLive={false}
-          onHideTui={() => {}}
-          onClosePane={() => {}}
-          onEnterAgent={() => {}}
-        />,
-      );
-    });
-
-    expect(terminalMountSpy.mock.calls.length).toBe(mountsAfterWorkspace);
-    expect(disposeSpy).not.toHaveBeenCalled();
-  });
-
-  it('parks terminals off-layout when agent TUI is collapsed', () => {
-    act(() => {
-      root.render(
-        <div className="relative flex flex-row w-[960px] h-[400px]">
-          <div className="flex-1 min-w-0 bg-lr-panel" data-testid="chat-column" />
+function renderSurfaces(props: Partial<ComponentProps<typeof PersistentPaneSurfaces>> = {}) {
+  act(() => {
+    root.render(
+      shellProvider(
+        <div className="relative w-[800px] h-[400px]">
           <PersistentPaneSurfaces
-            mode="agent"
+            bottomTab="agent"
             agentPaneId="pane-a"
+            selectedTerminalPaneId="pane-shell"
             showTui={false}
             layoutEpoch={0}
             agentCatalog={agentCatalog}
@@ -151,18 +141,64 @@ describe('PersistentPaneSurfaces', () => {
             onHideTui={() => {}}
             onClosePane={() => {}}
             onEnterAgent={() => {}}
+            {...props}
           />
         </div>,
+      ),
+    );
+  });
+}
+
+describe('PersistentPaneSurfaces', () => {
+  it('does not dispose terminal session when switching AGENT tab visibility', () => {
+    renderSurfaces({ bottomTab: 'agent', showTui: false });
+    const mountsAfterAgent = terminalMountSpy.mock.calls.length;
+    expect(mountsAfterAgent).toBeGreaterThan(0);
+
+    act(() => {
+      root.render(
+        shellProvider(
+          <div className="relative w-[800px] h-[400px]">
+            <PersistentPaneSurfaces
+              bottomTab="terminal"
+              agentPaneId="pane-a"
+              selectedTerminalPaneId="pane-shell"
+              showTui={false}
+              layoutEpoch={1}
+              agentCatalog={agentCatalog}
+              registry={registry}
+              projectPath={null}
+              sessionStates={new Map()}
+              agentPaneTitle="Pane A"
+              tuiSurfaceLive={false}
+              onHideTui={() => {}}
+              onClosePane={() => {}}
+              onEnterAgent={() => {}}
+            />
+          </div>,
+        ),
       );
     });
 
-    const parked = container.querySelector('[data-agent-tui-layout="parked"]') as HTMLElement;
-    expect(parked).not.toBeNull();
-    expect(container.querySelector('[data-agent-tui-layout="open"]')).toBeNull();
-    expect(container.querySelector('[data-pane-id="pane-a"]')).not.toBeNull();
-    expect(parked.className).toContain('absolute');
-    expect(parked.className).not.toContain('flex-1');
+    expect(terminalMountSpy.mock.calls.length).toBe(mountsAfterAgent);
+    expect(disposeSpy).not.toHaveBeenCalled();
+  });
 
+  it('parks terminals off-layout when agent TUI is collapsed', () => {
+    renderSurfaces({ showTui: false });
+    const parked = container.querySelector('[data-pane-id="pane-a"]') as HTMLElement;
+    expect(parked).not.toBeNull();
+    expect(parked.getAttribute('data-surface-visible')).toBe('0');
+    expect(parked.className).toContain('absolute');
+    expect(disposeSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not dispose when toggling TUI and layout epoch', () => {
+    renderSurfaces({ showTui: false, layoutEpoch: 0 });
+    const mounts = terminalMountSpy.mock.calls.length;
+    renderSurfaces({ showTui: true, layoutEpoch: 2, chatWidthPercent: 55 });
+    renderSurfaces({ showTui: false, layoutEpoch: 3 });
+    expect(terminalMountSpy.mock.calls.length).toBe(mounts);
     expect(disposeSpy).not.toHaveBeenCalled();
   });
 });
