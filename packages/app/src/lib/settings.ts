@@ -86,12 +86,21 @@ export function resetSettingsFileQueueForTests(): void {
   invalidateSettingsCache();
 }
 
+async function closeSettingsStore(): Promise<void> {
+  if (!cached) return;
+  try {
+    await cached.close();
+  } catch {
+    /* ignore */
+  }
+  cached = null;
+}
+
 export function enqueueSettingsFileWrite<T>(fn: () => Promise<T>): Promise<T> {
 
   const run = settingsFileQueue.then(async () => {
-    cached = null;
+    await closeSettingsStore();
     await migrateLegacySettingsFile();
-    await store().reload();
     return fn();
   });
 
@@ -205,9 +214,33 @@ function readLegacySidebarWidth(): number | undefined {
 
 
 
+/** Unpack settings values stored as arrays or corrupted array-spreads from LazyStore. */
+export function coerceStoredSettings(raw: unknown): Settings | null | undefined {
+  if (raw == null) return undefined;
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      const coerced = coerceStoredSettings(item);
+      if (coerced) return coerced;
+    }
+    return undefined;
+  }
+  if (typeof raw !== 'object') return undefined;
+  const record = raw as Record<string, unknown>;
+  const nested = record['0'];
+  const fromNested =
+    nested && typeof nested === 'object' && !Array.isArray(nested)
+      ? coerceStoredSettings(nested)
+      : undefined;
+  const { 0: _legacy0, 1: _legacy1, ...rest } = record;
+  if (fromNested || Object.keys(rest).length > 0) {
+    return { ...(fromNested ?? {}), ...rest } as Settings;
+  }
+  return record as Settings;
+}
+
 export function mergeLoadedSettings(raw: Settings | null | undefined): Settings {
 
-  const merged = { ...DEFAULT_SETTINGS, ...(raw ?? {}) };
+  const merged = { ...DEFAULT_SETTINGS, ...(coerceStoredSettings(raw) ?? {}) };
 
   const legacySidebar = readLegacySidebarWidth();
 

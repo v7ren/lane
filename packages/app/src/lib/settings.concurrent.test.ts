@@ -18,7 +18,7 @@ const mockStore = {
 
   save: vi.fn(async () => {}),
 
-  reload: vi.fn(async () => {}),
+  close: vi.fn(async () => {}),
 
 };
 
