@@ -1,0 +1,1968 @@
+{
+  "capturedAt": "2026-09-29T18:47:19.497Z",
+  "promptCount": 1,
+  "sessionId": "<session-id>",
+  "eventTypes": [
+    "catalog.updated",
+    "integration.updated",
+    "message.part.delta",
+    "message.part.updated",
+    "message.updated",
+    "plugin.added",
+    "reference.updated",
+    "server.connected",
+    "server.heartbeat",
+    "session.created",
+    "session.diff",
+    "session.idle",
+    "session.status",
+    "session.updated"
+  ],
+  "events": [
+    {
+      "id": "evt_0ee7def35001Km5fr4HA5ADP21",
+      "type": "server.connected",
+      "properties": {}
+    },
+    {
+      "id": "evt_0ee7def57001DW7h4VYR8o5obl",
+      "type": "session.created",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "slug": "kind-engine",
+          "version": "1.18.18",
+          "projectID": "global",
+          "directory": "<project-dir>",
+          "path": "Users/<user>/AppData/Local/Temp/loomria-capture",
+          "title": "loomria fixture capture",
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          },
+          "time": {
+            "created": 1790707625814,
+            "updated": 1790707625814
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7df1cc001REDVBAJrPW9CWm",
+      "type": "session.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "slug": "kind-engine",
+          "projectID": "global",
+          "directory": "<project-dir>",
+          "path": "Users/<user>/AppData/Local/Temp/loomria-capture",
+          "title": "loomria fixture capture",
+          "agent": "build",
+          "model": {
+            "id": "mimo-v2.5",
+            "providerID": "opencode-go",
+            "variant": "default"
+          },
+          "version": "1.18.18",
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          },
+          "time": {
+            "created": 1790707625814,
+            "updated": 1790707626442
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7df1d30015lK31EzC0L0Xkg",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "msg_0ee7df1ca001eVeakhxMTNIPhq",
+          "role": "user",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "time": {
+            "created": 1790707626442
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "opencode-go",
+            "modelID": "mimo-v2.5"
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7df1d70012IzXjiXwgUByLi",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "type": "text",
+          "text": "Read the file hello.txt and reply with its first word",
+          "messageID": "msg_0ee7df1ca001eVeakhxMTNIPhq",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "id": "prt_0ee7df1d20018nTeMEMiYUcph6"
+        },
+        "time": 1790707626455
+      }
+    },
+    {
+      "id": "evt_0ee7df1db001sL7SvGHHKl1XHe",
+      "type": "session.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "slug": "kind-engine",
+          "projectID": "global",
+          "directory": "<project-dir>",
+          "path": "Users/<user>/AppData/Local/Temp/loomria-capture",
+          "title": "loomria fixture capture",
+          "agent": "build",
+          "model": {
+            "id": "mimo-v2.5",
+            "providerID": "opencode-go",
+            "variant": "default"
+          },
+          "version": "1.18.18",
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          },
+          "time": {
+            "created": 1790707625814,
+            "updated": 1790707626458
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7df1e10016FLsDZlS0XAMlc",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "status": {
+          "type": "busy"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7df1e4001Ai6WKx9hvuYw3g",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+          "parentID": "msg_0ee7df1ca001eVeakhxMTNIPhq",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "<project-dir>",
+            "root": "/"
+          },
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          },
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": {
+            "created": 1790707626468
+          },
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7df255001ix3pZ41SuTiDPF",
+      "type": "session.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "slug": "kind-engine",
+          "projectID": "global",
+          "directory": "<project-dir>",
+          "path": "Users/<user>/AppData/Local/Temp/loomria-capture",
+          "title": "loomria fixture capture",
+          "agent": "build",
+          "model": {
+            "id": "mimo-v2.5",
+            "providerID": "opencode-go",
+            "variant": "default"
+          },
+          "version": "1.18.18",
+          "summary": {
+            "additions": 0,
+            "deletions": 0,
+            "files": 0
+          },
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          },
+          "time": {
+            "created": 1790707625814,
+            "updated": 1790707626580
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7df257001r0EWyaUThM0F7T",
+      "type": "session.diff",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "diff": []
+      }
+    },
+    {
+      "id": "evt_0ee7df259001Kit1T1Z81iNvzN",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "role": "user",
+          "time": {
+            "created": 1790707626442
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "opencode-go",
+            "modelID": "mimo-v2.5"
+          },
+          "id": "msg_0ee7df1ca001eVeakhxMTNIPhq",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "summary": {
+            "diffs": []
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7df28a0018Qwfm8TruqUlvP",
+      "type": "plugin.added",
+      "properties": {
+        "id": "core/config-reference"
+      }
+    },
+    {
+      "id": "evt_0ee7df28b001BuIbHoYUiU6VDA",
+      "type": "plugin.added",
+      "properties": {
+        "id": "agent"
+      }
+    },
+    {
+      "id": "evt_0ee7df28c001jW6s6DalX6tcj1",
+      "type": "plugin.added",
+      "properties": {
+        "id": "command"
+      }
+    },
+    {
+      "id": "evt_0ee7df28c00292vxLM1GzZVaXU",
+      "type": "plugin.added",
+      "properties": {
+        "id": "skill"
+      }
+    },
+    {
+      "id": "evt_0ee7df28e001yOkliQBCsdKLYc",
+      "type": "plugin.added",
+      "properties": {
+        "id": "models-dev"
+      }
+    },
+    {
+      "id": "evt_0ee7df28e002jU0pEJmeohmeGu",
+      "type": "plugin.added",
+      "properties": {
+        "id": "config-agent"
+      }
+    },
+    {
+      "id": "evt_0ee7df28f001QAv5Qa99PECOY6",
+      "type": "plugin.added",
+      "properties": {
+        "id": "config-command"
+      }
+    },
+    {
+      "id": "evt_0ee7df28f0022XMK8zaqd5yCq5",
+      "type": "plugin.added",
+      "properties": {
+        "id": "config-skill"
+      }
+    },
+    {
+      "id": "evt_0ee7df290001m2BZTkNtlLp70R",
+      "type": "plugin.added",
+      "properties": {
+        "id": "alibaba"
+      }
+    },
+    {
+      "id": "evt_0ee7df291001HBa0T9COXUTvKV",
+      "type": "plugin.added",
+      "properties": {
+        "id": "amazon-bedrock"
+      }
+    },
+    {
+      "id": "evt_0ee7df291002KdFGLqosU8R4Vv",
+      "type": "plugin.added",
+      "properties": {
+        "id": "anthropic"
+      }
+    },
+    {
+      "id": "evt_0ee7df292001LF7l6xe9p6ajaw",
+      "type": "plugin.added",
+      "properties": {
+        "id": "azure-cognitive-services"
+      }
+    },
+    {
+      "id": "evt_0ee7df2c2001itVSIrTuEb4UTK",
+      "type": "plugin.added",
+      "properties": {
+        "id": "azure"
+      }
+    },
+    {
+      "id": "evt_0ee7df2c2002801yLIHGv3pH6Z",
+      "type": "plugin.added",
+      "properties": {
+        "id": "cerebras"
+      }
+    },
+    {
+      "id": "evt_0ee7df2c3001tl9XsZTLw0MDLb",
+      "type": "plugin.added",
+      "properties": {
+        "id": "cloudflare-ai-gateway"
+      }
+    },
+    {
+      "id": "evt_0ee7df2c3002dPhSC552zPFU6n",
+      "type": "plugin.added",
+      "properties": {
+        "id": "cloudflare-workers-ai"
+      }
+    },
+    {
+      "id": "evt_0ee7df2c4001HvtXlOHF2DrlGU",
+      "type": "plugin.added",
+      "properties": {
+        "id": "cohere"
+      }
+    },
+    {
+      "id": "evt_0ee7df2c4002QOaAf56NYcyQtK",
+      "type": "plugin.added",
+      "properties": {
+        "id": "deepinfra"
+      }
+    },
+    {
+      "id": "evt_0ee7df2c5001l01QGdE6l59GEb",
+      "type": "plugin.added",
+      "properties": {
+        "id": "gateway"
+      }
+    },
+    {
+      "id": "evt_0ee7df2c50025q521WRcnaHHA0",
+      "type": "plugin.added",
+      "properties": {
+        "id": "github-copilot"
+      }
+    },
+    {
+      "id": "evt_0ee7df2c6001oL1z1vz7Olu1GQ",
+      "type": "plugin.added",
+      "properties": {
+        "id": "gitlab"
+      }
+    },
+    {
+      "id": "evt_0ee7df2c6002wxOzx3S5UTnbpX",
+      "type": "plugin.added",
+      "properties": {
+        "id": "google"
+      }
+    },
+    {
+      "id": "evt_0ee7df2c6003iJzPUXh7g38X5E",
+      "type": "plugin.added",
+      "properties": {
+        "id": "google-vertex-anthropic"
+      }
+    },
+    {
+      "id": "evt_0ee7df2c7001wokazq9oGJIN2m",
+      "type": "plugin.added",
+      "properties": {
+        "id": "google-vertex"
+      }
+    },
+    {
+      "id": "evt_0ee7df2d7001eQ7UgCUzCSxMOO",
+      "type": "plugin.added",
+      "properties": {
+        "id": "groq"
+      }
+    },
+    {
+      "id": "evt_0ee7df2d7002NtHHqH16qmckpE",
+      "type": "plugin.added",
+      "properties": {
+        "id": "kilo"
+      }
+    },
+    {
+      "id": "evt_0ee7df2d8001zNKd94SWJKDOVx",
+      "type": "plugin.added",
+      "properties": {
+        "id": "llmgateway"
+      }
+    },
+    {
+      "id": "evt_0ee7df2d8002NVIsiVkoBnHcnT",
+      "type": "plugin.added",
+      "properties": {
+        "id": "mistral"
+      }
+    },
+    {
+      "id": "evt_0ee7df2d9001EvCFZ7Ljvx0mPl",
+      "type": "plugin.added",
+      "properties": {
+        "id": "nvidia"
+      }
+    },
+    {
+      "id": "evt_0ee7df2db001qKjw21rr0WFxjU",
+      "type": "plugin.added",
+      "properties": {
+        "id": "opencode"
+      }
+    },
+    {
+      "id": "evt_0ee7df2dc001OEbmf0aPwralWL",
+      "type": "plugin.added",
+      "properties": {
+        "id": "snowflake-cortex"
+      }
+    },
+    {
+      "id": "evt_0ee7df2dc002177XU0Jf34p3vT",
+      "type": "plugin.added",
+      "properties": {
+        "id": "openai-compatible"
+      }
+    },
+    {
+      "id": "evt_0ee7df2dd001czuAKFUP0VWJaD",
+      "type": "plugin.added",
+      "properties": {
+        "id": "openai"
+      }
+    },
+    {
+      "id": "evt_0ee7df2dd002Gimg5rG53y0YtU",
+      "type": "plugin.added",
+      "properties": {
+        "id": "openrouter"
+      }
+    },
+    {
+      "id": "evt_0ee7df2de001MvbkY90js7uA8o",
+      "type": "plugin.added",
+      "properties": {
+        "id": "perplexity"
+      }
+    },
+    {
+      "id": "evt_0ee7df2de002fSWklAqv00dNpl",
+      "type": "plugin.added",
+      "properties": {
+        "id": "sap-ai-core"
+      }
+    },
+    {
+      "id": "evt_0ee7df368001JqQglC1WB3WY8S",
+      "type": "catalog.updated",
+      "properties": {}
+    },
+    {
+      "id": "evt_0ee7df2de0038m2i4p0HPBq1Rq",
+      "type": "plugin.added",
+      "properties": {
+        "id": "togetherai"
+      }
+    },
+    {
+      "id": "evt_0ee7df368002BNtAzJHnjweXSa",
+      "type": "plugin.added",
+      "properties": {
+        "id": "vercel"
+      }
+    },
+    {
+      "id": "evt_0ee7df369001XKLo90G9ucM3pB",
+      "type": "plugin.added",
+      "properties": {
+        "id": "venice"
+      }
+    },
+    {
+      "id": "evt_0ee7df369002cBq8cL5JrQEcx8",
+      "type": "plugin.added",
+      "properties": {
+        "id": "xai"
+      }
+    },
+    {
+      "id": "evt_0ee7df36a001pQ5YKTO6CqIgHL",
+      "type": "plugin.added",
+      "properties": {
+        "id": "zenmux"
+      }
+    },
+    {
+      "id": "evt_0ee7df36a002CmrchStbTPI2tI",
+      "type": "plugin.added",
+      "properties": {
+        "id": "dynamic-provider"
+      }
+    },
+    {
+      "id": "evt_0ee7df36b001sJxuyHxH4neN3c",
+      "type": "plugin.added",
+      "properties": {
+        "id": "config-plugin"
+      }
+    },
+    {
+      "id": "evt_0ee7df36c001HT2HxZ7LDWvGqc",
+      "type": "plugin.added",
+      "properties": {
+        "id": "config-provider"
+      }
+    },
+    {
+      "id": "evt_0ee7df36c002fAvCL8cqnO5Kx2",
+      "type": "plugin.added",
+      "properties": {
+        "id": "variant"
+      }
+    },
+    {
+      "id": "evt_0ee7df36d001lKlU0nnTzTrUIv",
+      "type": "reference.updated",
+      "properties": {}
+    },
+    {
+      "id": "evt_0ee7df38e001ngIKOg7whCrZsC",
+      "type": "integration.updated",
+      "properties": {}
+    },
+    {
+      "id": "evt_0ee7df410001VzPsCaSlCP3vKh",
+      "type": "catalog.updated",
+      "properties": {}
+    },
+    {
+      "id": "evt_0ee7df426001R7Ka00ZE84yW0b",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "status": {
+          "type": "busy"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7dfd32001lasAiqrtxywoit",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7dfd31001Gjp5OHuc55MK0v",
+          "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "step-start"
+        },
+        "time": 1790707629362
+      }
+    },
+    {
+      "id": "evt_0ee7dfd350014UaZ6dWMdiHBcL",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+          "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "reasoning",
+          "text": "",
+          "time": {
+            "start": 1790707629364
+          }
+        },
+        "time": 1790707629365
+      }
+    },
+    {
+      "id": "evt_0ee7dfd370019aKM8n2ULf45W5",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": "I need to read"
+      }
+    },
+    {
+      "id": "evt_0ee7dfd38001aT2oU7RUx6vFgz",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": " the file hello"
+      }
+    },
+    {
+      "id": "evt_0ee7dfddd001Eg1xUwsMGRoAC9",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": ".txt and reply"
+      }
+    },
+    {
+      "id": "evt_0ee7dfdde001DH2yrO6wLwzvPA",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": " with its first"
+      }
+    },
+    {
+      "id": "evt_0ee7dfdde002XPSv5PeyYy0NfP",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": " word. I"
+      }
+    },
+    {
+      "id": "evt_0ee7dfdde0034JA8PoGf6XgIZi",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": " should use"
+      }
+    },
+    {
+      "id": "evt_0ee7dfe9d001CM3uNAAV2EYGVG",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": " the Read"
+      }
+    },
+    {
+      "id": "evt_0ee7dfe9e001wloZwiqI03ftAR",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": " tool."
+      }
+    },
+    {
+      "id": "evt_0ee7dfe9f001yqIKvqb0OsHLtf",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": " But"
+      }
+    },
+    {
+      "id": "evt_0ee7dfe9f002q2JdMf7UHjcrL6",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": " first, I"
+      }
+    },
+    {
+      "id": "evt_0ee7dff52001E4g103xqW0NuD2",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": " need to know"
+      }
+    },
+    {
+      "id": "evt_0ee7dff53001Bcqyo6Ys8p7AWQ",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": " where"
+      }
+    },
+    {
+      "id": "evt_0ee7dff53002TKK7ATXLhEv6Sp",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": " the file is"
+      }
+    },
+    {
+      "id": "evt_0ee7dff53003F34jhsHTgaDjZI",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": ". I"
+      }
+    },
+    {
+      "id": "evt_0ee7e000f001kCZxZEEMe3wBPj",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": " can use"
+      }
+    },
+    {
+      "id": "evt_0ee7e00100017LJO4V15282S3y",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": " glob"
+      }
+    },
+    {
+      "id": "evt_0ee7e001000268s4GAcakVlW3a",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": " to find hello"
+      }
+    },
+    {
+      "id": "evt_0ee7e0010003tUbjpZlNugxIot",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": ".txt. Let"
+      }
+    },
+    {
+      "id": "evt_0ee7e0143001UXJYGStKFO7T58",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": "'s"
+      }
+    },
+    {
+      "id": "evt_0ee7e0144001GPwjfJuhKpb4Ah",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+        "partID": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+        "field": "text",
+        "delta": " do that."
+      }
+    },
+    {
+      "id": "evt_0ee7e0145001EgsVGfpCJR0wke",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7dfd34001aL8NLLkPyOtaCr",
+          "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "reasoning",
+          "text": "I need to read the file hello.txt and reply with its first word. I should use the Read tool. But first, I need to know where the file is. I can use glob to find hello.txt. Let's do that.",
+          "time": {
+            "start": 1790707629364,
+            "end": 1790707630404
+          }
+        },
+        "time": 1790707630404
+      }
+    },
+    {
+      "id": "evt_0ee7e0148001FjPxd9wzxE00ol",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7e0147001WWZ1GN2MIXUgv0",
+          "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "tool",
+          "tool": "glob",
+          "callID": "call_8716a407cb7e48768b82d518",
+          "state": {
+            "status": "pending",
+            "input": {},
+            "raw": ""
+          }
+        },
+        "time": 1790707630408
+      }
+    },
+    {
+      "id": "evt_0ee7e025f001P3sNDaMBVJYO0E",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "call_8716a407cb7e48768b82d518",
+          "state": {
+            "status": "running",
+            "input": {
+              "pattern": "**/hello.txt"
+            },
+            "time": {
+              "start": 1790707630687
+            }
+          },
+          "id": "prt_0ee7e0147001WWZ1GN2MIXUgv0",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7"
+        },
+        "time": 1790707630687
+      }
+    },
+    {
+      "id": "evt_0ee7e0298001fszcxG1s8LbhDY",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "call_8716a407cb7e48768b82d518",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "**/hello.txt"
+            },
+            "output": "<project-dir>\\hello.txt",
+            "metadata": {
+              "count": 1,
+              "truncated": false
+            },
+            "title": "Users/<user>/AppData\\Local\\Temp\\loomria-capture",
+            "time": {
+              "start": 1790707630687,
+              "end": 1790707630744
+            }
+          },
+          "id": "prt_0ee7e0147001WWZ1GN2MIXUgv0",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7"
+        },
+        "time": 1790707630744
+      }
+    },
+    {
+      "id": "evt_0ee7e029d001n1ot8NclXFGuse",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7e029d001SbV82UyMefsapE",
+          "reason": "tool-calls",
+          "messageID": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "step-finish",
+          "tokens": {
+            "total": 9108,
+            "input": 7242,
+            "output": 25,
+            "reasoning": 49,
+            "cache": {
+              "write": 0,
+              "read": 1792
+            }
+          },
+          "cost": 0.0010396176
+        },
+        "time": 1790707630749
+      }
+    },
+    {
+      "id": "evt_0ee7e02a1001MaqDPEiWFpwvyk",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+          "parentID": "msg_0ee7df1ca001eVeakhxMTNIPhq",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "<project-dir>",
+            "root": "/"
+          },
+          "cost": 0.0010396176,
+          "tokens": {
+            "total": 9108,
+            "input": 7242,
+            "output": 25,
+            "reasoning": 49,
+            "cache": {
+              "write": 0,
+              "read": 1792
+            }
+          },
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": {
+            "created": 1790707626468,
+            "completed": 1790707630758
+          },
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "finish": "tool-calls"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e02a6001xryJzxCEL8gSP5",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "msg_0ee7df1e4001YV2Q58IqQfHGs7",
+          "parentID": "msg_0ee7df1ca001eVeakhxMTNIPhq",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "<project-dir>",
+            "root": "/"
+          },
+          "cost": 0.0010396176,
+          "tokens": {
+            "total": 9108,
+            "input": 7242,
+            "output": 25,
+            "reasoning": 49,
+            "cache": {
+              "write": 0,
+              "read": 1792
+            }
+          },
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": {
+            "created": 1790707626468,
+            "completed": 1790707630758
+          },
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "finish": "tool-calls"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e02a8001z0zaz8K4OVN1c5",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "status": {
+          "type": "busy"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e02aa001caGFZbpa4OBXaO",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "msg_0ee7e02aa001ig9V4EfePT3W2Z",
+          "parentID": "msg_0ee7df1ca001eVeakhxMTNIPhq",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "<project-dir>",
+            "root": "/"
+          },
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          },
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": {
+            "created": 1790707630762
+          },
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e02ba0019m6V3KnIvqlKjQ",
+      "type": "session.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "slug": "kind-engine",
+          "projectID": "global",
+          "directory": "<project-dir>",
+          "path": "Users/<user>/AppData/Local/Temp/loomria-capture",
+          "title": "loomria fixture capture",
+          "agent": "build",
+          "model": {
+            "id": "mimo-v2.5",
+            "providerID": "opencode-go",
+            "variant": "default"
+          },
+          "version": "1.18.18",
+          "summary": {
+            "additions": 0,
+            "deletions": 0,
+            "files": 0
+          },
+          "cost": 0.0010396176,
+          "tokens": {
+            "input": 7242,
+            "output": 25,
+            "reasoning": 49,
+            "cache": {
+              "read": 1792,
+              "write": 0
+            }
+          },
+          "time": {
+            "created": 1790707625814,
+            "updated": 1790707630777
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e02bc001dnY1mBwRoRd4GC",
+      "type": "session.diff",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "diff": []
+      }
+    },
+    {
+      "id": "evt_0ee7e02bd001pm2jQWKo76EdG4",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "role": "user",
+          "time": {
+            "created": 1790707626442
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "opencode-go",
+            "modelID": "mimo-v2.5"
+          },
+          "summary": {
+            "diffs": []
+          },
+          "id": "msg_0ee7df1ca001eVeakhxMTNIPhq",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e02cb001RDvC87FsDPI39a",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "status": {
+          "type": "busy"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e0ddb001et8YQq36v1Hx5T",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7e0ddb001MgQ9kCPPJ3k06Y",
+          "messageID": "msg_0ee7e02aa001ig9V4EfePT3W2Z",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "step-start"
+        },
+        "time": 1790707633627
+      }
+    },
+    {
+      "id": "evt_0ee7e0dde001PKBt3G5HJmn3UC",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7e0ddd001uLpBBwzEQ2wn7s",
+          "messageID": "msg_0ee7e02aa001ig9V4EfePT3W2Z",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "reasoning",
+          "text": "",
+          "time": {
+            "start": 1790707633629
+          }
+        },
+        "time": 1790707633629
+      }
+    },
+    {
+      "id": "evt_0ee7e0ddf001RcTmYHph5w4SEY",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7e02aa001ig9V4EfePT3W2Z",
+        "partID": "prt_0ee7e0ddd001uLpBBwzEQ2wn7s",
+        "field": "text",
+        "delta": "Found it"
+      }
+    },
+    {
+      "id": "evt_0ee7e0e5d001B0k7MSw5tOHvYr",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7e02aa001ig9V4EfePT3W2Z",
+        "partID": "prt_0ee7e0ddd001uLpBBwzEQ2wn7s",
+        "field": "text",
+        "delta": ". Now"
+      }
+    },
+    {
+      "id": "evt_0ee7e0e5e0011ixkX5hJ4M52hS",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7e02aa001ig9V4EfePT3W2Z",
+        "partID": "prt_0ee7e0ddd001uLpBBwzEQ2wn7s",
+        "field": "text",
+        "delta": " read the file."
+      }
+    },
+    {
+      "id": "evt_0ee7e0e5e002n2aTnBbzb59Xml",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7e0ddd001uLpBBwzEQ2wn7s",
+          "messageID": "msg_0ee7e02aa001ig9V4EfePT3W2Z",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "reasoning",
+          "text": "Found it. Now read the file.",
+          "time": {
+            "start": 1790707633629,
+            "end": 1790707633758
+          }
+        },
+        "time": 1790707633758
+      }
+    },
+    {
+      "id": "evt_0ee7e0e61001moTnTwAjaUVaea",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7e0e60001cKi54nHPZLAvqA",
+          "messageID": "msg_0ee7e02aa001ig9V4EfePT3W2Z",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "tool",
+          "tool": "read",
+          "callID": "call_e0b52a4385c149a18662b4a7",
+          "state": {
+            "status": "pending",
+            "input": {},
+            "raw": ""
+          }
+        },
+        "time": 1790707633760
+      }
+    },
+    {
+      "id": "evt_0ee7e105c001WqFB8A1nEF794T",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "type": "tool",
+          "tool": "read",
+          "callID": "call_e0b52a4385c149a18662b4a7",
+          "state": {
+            "status": "running",
+            "input": {
+              "filePath": "<project-dir>\\hello.txt"
+            },
+            "time": {
+              "start": 1790707634268
+            }
+          },
+          "id": "prt_0ee7e0e60001cKi54nHPZLAvqA",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "messageID": "msg_0ee7e02aa001ig9V4EfePT3W2Z"
+        },
+        "time": 1790707634268
+      }
+    },
+    {
+      "id": "evt_0ee7e1067001LQAL66TULhU0BL",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "type": "tool",
+          "tool": "read",
+          "callID": "call_e0b52a4385c149a18662b4a7",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "<project-dir>\\hello.txt"
+            },
+            "output": "<path><project-dir>\\hello.txt</path>\n<type>file</type>\n<content>\n1: hello world\n\n(End of file - total 1 lines)\n</content>",
+            "metadata": {
+              "preview": "hello world",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "<project-dir>\\hello.txt",
+                "text": "hello world",
+                "lineStart": 1,
+                "lineEnd": 1,
+                "totalLines": 1,
+                "truncated": false
+              }
+            },
+            "title": "Users/<user>/AppData\\Local\\Temp\\loomria-capture\\hello.txt",
+            "time": {
+              "start": 1790707634268,
+              "end": 1790707634279
+            }
+          },
+          "id": "prt_0ee7e0e60001cKi54nHPZLAvqA",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "messageID": "msg_0ee7e02aa001ig9V4EfePT3W2Z"
+        },
+        "time": 1790707634279
+      }
+    },
+    {
+      "id": "evt_0ee7e106a0013kamXIbaXeZ9b9",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7e106a001pquS52MYEm2a7A",
+          "reason": "tool-calls",
+          "messageID": "msg_0ee7e02aa001ig9V4EfePT3W2Z",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "step-finish",
+          "tokens": {
+            "total": 9188,
+            "input": 116,
+            "output": 39,
+            "reasoning": 9,
+            "cache": {
+              "write": 0,
+              "read": 9024
+            }
+          },
+          "cost": 0.0000549472
+        },
+        "time": 1790707634282
+      }
+    },
+    {
+      "id": "evt_0ee7e106c001ytaheciXrQiCkY",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "msg_0ee7e02aa001ig9V4EfePT3W2Z",
+          "parentID": "msg_0ee7df1ca001eVeakhxMTNIPhq",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "<project-dir>",
+            "root": "/"
+          },
+          "cost": 0.0000549472,
+          "tokens": {
+            "total": 9188,
+            "input": 116,
+            "output": 39,
+            "reasoning": 9,
+            "cache": {
+              "write": 0,
+              "read": 9024
+            }
+          },
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": {
+            "created": 1790707630762,
+            "completed": 1790707634286
+          },
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "finish": "tool-calls"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e106e001TU5MZgysngdRw4",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "msg_0ee7e02aa001ig9V4EfePT3W2Z",
+          "parentID": "msg_0ee7df1ca001eVeakhxMTNIPhq",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "<project-dir>",
+            "root": "/"
+          },
+          "cost": 0.0000549472,
+          "tokens": {
+            "total": 9188,
+            "input": 116,
+            "output": 39,
+            "reasoning": 9,
+            "cache": {
+              "write": 0,
+              "read": 9024
+            }
+          },
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": {
+            "created": 1790707630762,
+            "completed": 1790707634286
+          },
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "finish": "tool-calls"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e10700016Blk89oHqhR0Xd",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "status": {
+          "type": "busy"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e1071001ObkiIVFbE71DOg",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "msg_0ee7e1071001lUBCdcPHhDWX66",
+          "parentID": "msg_0ee7df1ca001eVeakhxMTNIPhq",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "<project-dir>",
+            "root": "/"
+          },
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          },
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": {
+            "created": 1790707634289
+          },
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e1076001nmNT1h7Bgba47l",
+      "type": "session.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "slug": "kind-engine",
+          "projectID": "global",
+          "directory": "<project-dir>",
+          "path": "Users/<user>/AppData/Local/Temp/loomria-capture",
+          "title": "loomria fixture capture",
+          "agent": "build",
+          "model": {
+            "id": "mimo-v2.5",
+            "providerID": "opencode-go",
+            "variant": "default"
+          },
+          "version": "1.18.18",
+          "summary": {
+            "additions": 0,
+            "deletions": 0,
+            "files": 0
+          },
+          "cost": 0.0010945648,
+          "tokens": {
+            "input": 7358,
+            "output": 64,
+            "reasoning": 58,
+            "cache": {
+              "read": 10816,
+              "write": 0
+            }
+          },
+          "time": {
+            "created": 1790707625814,
+            "updated": 1790707634294
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e1078001UYTQLYySgUvctA",
+      "type": "session.diff",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "diff": []
+      }
+    },
+    {
+      "id": "evt_0ee7e1079001OlbGAdT15KPKYB",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "role": "user",
+          "time": {
+            "created": 1790707626442
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "opencode-go",
+            "modelID": "mimo-v2.5"
+          },
+          "summary": {
+            "diffs": []
+          },
+          "id": "msg_0ee7df1ca001eVeakhxMTNIPhq",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e1088001xNVEhD3uaP6rWI",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "status": {
+          "type": "busy"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e1658001xNWvbkLINrENTb",
+      "type": "server.heartbeat",
+      "properties": {}
+    },
+    {
+      "id": "evt_0ee7e1800001EF0K0oPFhwYAWs",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7e180000151w7B6sZxsVquh",
+          "messageID": "msg_0ee7e1071001lUBCdcPHhDWX66",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "step-start"
+        },
+        "time": 1790707636224
+      }
+    },
+    {
+      "id": "evt_0ee7e1802001o5GMKCLvJxVYI7",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7e1802001nSjvKpbqH0FxO8",
+          "messageID": "msg_0ee7e1071001lUBCdcPHhDWX66",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "reasoning",
+          "text": "",
+          "time": {
+            "start": 1790707636226
+          }
+        },
+        "time": 1790707636226
+      }
+    },
+    {
+      "id": "evt_0ee7e1804001nE1p60SoNTDCnj",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7e1071001lUBCdcPHhDWX66",
+        "partID": "prt_0ee7e1802001nSjvKpbqH0FxO8",
+        "field": "text",
+        "delta": "The first"
+      }
+    },
+    {
+      "id": "evt_0ee7e1804002QFQEXBJZeQ6frg",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7e1071001lUBCdcPHhDWX66",
+        "partID": "prt_0ee7e1802001nSjvKpbqH0FxO8",
+        "field": "text",
+        "delta": " word is \""
+      }
+    },
+    {
+      "id": "evt_0ee7e1828001cJuaNHmMPQJ91O",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7e1071001lUBCdcPHhDWX66",
+        "partID": "prt_0ee7e1802001nSjvKpbqH0FxO8",
+        "field": "text",
+        "delta": "hello\". I"
+      }
+    },
+    {
+      "id": "evt_0ee7e1850001628g7pOTktw1fn",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7e1071001lUBCdcPHhDWX66",
+        "partID": "prt_0ee7e1802001nSjvKpbqH0FxO8",
+        "field": "text",
+        "delta": " should reply with"
+      }
+    },
+    {
+      "id": "evt_0ee7e189b001otcoY38IhtxmDn",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7e1071001lUBCdcPHhDWX66",
+        "partID": "prt_0ee7e1802001nSjvKpbqH0FxO8",
+        "field": "text",
+        "delta": " just that word"
+      }
+    },
+    {
+      "id": "evt_0ee7e18d8001DEdqGb6SR8ao27",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7e1071001lUBCdcPHhDWX66",
+        "partID": "prt_0ee7e1802001nSjvKpbqH0FxO8",
+        "field": "text",
+        "delta": "."
+      }
+    },
+    {
+      "id": "evt_0ee7e18d9001u4N1CZUWNUcGoi",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7e1802001nSjvKpbqH0FxO8",
+          "messageID": "msg_0ee7e1071001lUBCdcPHhDWX66",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "reasoning",
+          "text": "The first word is \"hello\". I should reply with just that word.",
+          "time": {
+            "start": 1790707636226,
+            "end": 1790707636440
+          }
+        },
+        "time": 1790707636441
+      }
+    },
+    {
+      "id": "evt_0ee7e18db001aPR7u6p6mG3xSA",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7e18db001S9nqFa74UWcbJY",
+          "messageID": "msg_0ee7e1071001lUBCdcPHhDWX66",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "text",
+          "text": "",
+          "time": {
+            "start": 1790707636443
+          }
+        },
+        "time": 1790707636443
+      }
+    },
+    {
+      "id": "evt_0ee7e18dc0015cK5sY502MnveM",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "messageID": "msg_0ee7e1071001lUBCdcPHhDWX66",
+        "partID": "prt_0ee7e18db001S9nqFa74UWcbJY",
+        "field": "text",
+        "delta": "hello"
+      }
+    },
+    {
+      "id": "evt_0ee7e18dd001Yd6jlHbq4769QH",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7e18db001S9nqFa74UWcbJY",
+          "messageID": "msg_0ee7e1071001lUBCdcPHhDWX66",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "text",
+          "text": "hello",
+          "time": {
+            "start": 1790707636443,
+            "end": 1790707636445
+          }
+        },
+        "time": 1790707636445
+      }
+    },
+    {
+      "id": "evt_0ee7e18e00017O00xS91jx5s5v",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "part": {
+          "id": "prt_0ee7e18e0001exmxL0KQBLxUsv",
+          "reason": "stop",
+          "messageID": "msg_0ee7e1071001lUBCdcPHhDWX66",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "type": "step-finish",
+          "tokens": {
+            "total": 9270,
+            "input": 163,
+            "output": 3,
+            "reasoning": 16,
+            "cache": {
+              "write": 0,
+              "read": 9088
+            }
+          },
+          "cost": 0.0000535864
+        },
+        "time": 1790707636448
+      }
+    },
+    {
+      "id": "evt_0ee7e18e1001AABcUI195tFBmj",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "msg_0ee7e1071001lUBCdcPHhDWX66",
+          "parentID": "msg_0ee7df1ca001eVeakhxMTNIPhq",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "<project-dir>",
+            "root": "/"
+          },
+          "cost": 0.0000535864,
+          "tokens": {
+            "total": 9270,
+            "input": 163,
+            "output": 3,
+            "reasoning": 16,
+            "cache": {
+              "write": 0,
+              "read": 9088
+            }
+          },
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": {
+            "created": 1790707634289,
+            "completed": 1790707636451
+          },
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "finish": "stop"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e18e3001m67fz1ERykLtvw",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "msg_0ee7e1071001lUBCdcPHhDWX66",
+          "parentID": "msg_0ee7df1ca001eVeakhxMTNIPhq",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "<project-dir>",
+            "root": "/"
+          },
+          "cost": 0.0000535864,
+          "tokens": {
+            "total": 9270,
+            "input": 163,
+            "output": 3,
+            "reasoning": 16,
+            "cache": {
+              "write": 0,
+              "read": 9088
+            }
+          },
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": {
+            "created": 1790707634289,
+            "completed": 1790707636451
+          },
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "finish": "stop"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e18e4001WKiz6baL8am6bp",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "status": {
+          "type": "busy"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e18e7001x2j3mw9UOsttmN",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "status": {
+          "type": "idle"
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e18e7002sMZ2yU4eHlmzYF",
+      "type": "session.idle",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5"
+      }
+    },
+    {
+      "id": "evt_0ee7e18e8001keWD43SZdGsGzD",
+      "type": "session.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "id": "ses_f118210aaffemx5qW1KNcWbJP5",
+          "slug": "kind-engine",
+          "projectID": "global",
+          "directory": "<project-dir>",
+          "path": "Users/<user>/AppData/Local/Temp/loomria-capture",
+          "title": "loomria fixture capture",
+          "agent": "build",
+          "model": {
+            "id": "mimo-v2.5",
+            "providerID": "opencode-go",
+            "variant": "default"
+          },
+          "version": "1.18.18",
+          "summary": {
+            "additions": 0,
+            "deletions": 0,
+            "files": 0
+          },
+          "cost": 0.0011481511999999999,
+          "tokens": {
+            "input": 7521,
+            "output": 67,
+            "reasoning": 74,
+            "cache": {
+              "read": 19904,
+              "write": 0
+            }
+          },
+          "time": {
+            "created": 1790707625814,
+            "updated": 1790707636456
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0ee7e18ea001TRBLjRHHgVb54E",
+      "type": "session.diff",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "diff": []
+      }
+    },
+    {
+      "id": "evt_0ee7e18ea002EjgBvKGuSddwEr",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5",
+        "info": {
+          "role": "user",
+          "time": {
+            "created": 1790707626442
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "opencode-go",
+            "modelID": "mimo-v2.5"
+          },
+          "summary": {
+            "diffs": []
+          },
+          "id": "msg_0ee7df1ca001eVeakhxMTNIPhq",
+          "sessionID": "ses_f118210aaffemx5qW1KNcWbJP5"
+        }
+      }
+    }
+  ]
+}

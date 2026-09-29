@@ -5,16 +5,37 @@ import { describe, expect, it } from 'vitest';
 
 import type { OpenCodeWireEvent } from '@loomria/shared/opencode';
 
-import { selectMessages, selectPermissions, selectSessionSummary, selectSessionStatus } from './selectors.js';
+import {
+  assembleMessageText,
+  finalTextPartForMessage,
+  selectMessages,
+  selectPermissions,
+  selectSessionSummary,
+  selectSessionStatus,
+} from './selectors.js';
 import { applyOpenCodeWireEvent, createEmptyOpenCodeStore } from './store.js';
 
 const fixtureDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '__fixtures__');
 
+type FixtureFile = {
+  events: OpenCodeWireEvent[];
+  promptCount?: number;
+};
+
 function loadFixture(name: string): OpenCodeWireEvent[] {
-  const raw = JSON.parse(readFileSync(path.join(fixtureDir, name), 'utf8')) as {
-    events: OpenCodeWireEvent[];
-  };
+  const raw = JSON.parse(readFileSync(path.join(fixtureDir, name), 'utf8')) as FixtureFile;
   return raw.events;
+}
+
+function fixtureSessionId(events: OpenCodeWireEvent[]): string {
+  const created = events.find((e) => e.type === 'session.created');
+  const props = created?.properties ?? {};
+  const info = props.info as { id?: string } | undefined;
+  return (
+    (typeof props.sessionID === 'string' ? props.sessionID : undefined) ??
+    info?.id ??
+    ''
+  );
 }
 
 function replay(events: OpenCodeWireEvent[]) {
@@ -72,5 +93,40 @@ describe('OpenCode store replay', () => {
     }
     expect(twice.seenEventIds.size).toBe(events.length);
     expect(twice.parts.part_text).toEqual(once.parts.part_text);
+  });
+});
+
+describe('OpenCode store live turn replay', () => {
+  const liveEvents = loadFixture('live-turn.json');
+  const sessionId = fixtureSessionId(liveEvents);
+
+  it('replays captured server turn faithfully', () => {
+    expect(sessionId.length).toBeGreaterThan(0);
+    const state = replay(liveEvents);
+    const messages = selectMessages(state, sessionId);
+    expect(messages.some((m) => m.role === 'user')).toBe(true);
+    expect(messages.some((m) => m.role === 'assistant')).toBe(true);
+
+    const assistantWithText = messages
+      .filter((m) => m.role === 'assistant')
+      .find((m) => assembleMessageText(state, m.id).includes('hello'));
+    expect(assistantWithText).toBeDefined();
+    const finalText = finalTextPartForMessage(state, assistantWithText!.id);
+    expect(finalText).toBeDefined();
+    expect(assembleMessageText(state, assistantWithText!.id)).toContain(finalText!.text);
+
+    const toolPart = Object.values(state.parts).find((p) => p.type === 'tool');
+    expect(toolPart?.type).toBe('tool');
+    if (toolPart?.type === 'tool') {
+      expect(toolPart.state.status).toBe('completed');
+    }
+
+    const summary = selectSessionSummary(state, sessionId);
+    expect(summary.tokens).toBeDefined();
+    expect((summary.tokens ?? 0) > 0).toBe(true);
+    expect(summary.costUsd).toBeDefined();
+    expect((summary.costUsd ?? 0) > 0).toBe(true);
+
+    expect(selectSessionStatus(state, sessionId)).toBe('idle');
   });
 });

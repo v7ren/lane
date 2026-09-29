@@ -31,6 +31,33 @@ export function selectMessages(state: OpenCodeStoreState, sessionId: string): Me
   return ids.map((id) => state.messages[id]).filter(Boolean);
 }
 
+/** Text part contents for a message after delta application. */
+export function assembleMessageText(state: OpenCodeStoreState, messageId: string): string {
+  const partIds = state.partsByMessage[messageId] ?? [];
+  const chunks: string[] = [];
+  for (const partId of partIds) {
+    const part = state.parts[partId];
+    if (part?.type === 'text' && typeof part.text === 'string' && part.text.length > 0) {
+      chunks.push(part.text);
+    }
+  }
+  return chunks.join('');
+}
+
+export function finalTextPartForMessage(
+  state: OpenCodeStoreState,
+  messageId: string,
+): { partId: string; text: string } | undefined {
+  const partIds = state.partsByMessage[messageId] ?? [];
+  for (let i = partIds.length - 1; i >= 0; i -= 1) {
+    const part = state.parts[partIds[i]!];
+    if (part?.type === 'text') {
+      return { partId: part.id, text: part.text ?? '' };
+    }
+  }
+  return undefined;
+}
+
 export function selectSessionStatus(state: OpenCodeStoreState, sessionId: string): SessionStatus {
   return state.sessionStatus[sessionId] ?? 'unknown';
 }

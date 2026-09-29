@@ -147,8 +147,8 @@ export function applyOpenCodeWireEvent(
   switch (type) {
     case 'session.created':
     case 'session.updated': {
-      const session = props.session as Session | undefined;
-      if (session) {
+      const session = (props.session ?? props.info) as Session | undefined;
+      if (session?.id) {
         next = upsertSession(next, session);
       }
       break;
