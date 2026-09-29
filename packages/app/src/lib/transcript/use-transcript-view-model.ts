@@ -14,11 +14,11 @@ export function useTranscriptViewModel(
   agentType: string | undefined,
   source: AgentSessionSource,
   timeline: AgentTimelineViewModel,
+  openCodeSessionId?: string | null,
 ): TranscriptViewModel {
   const demo = useDemoFixtures();
   const demoVm = demo ? demoTranscriptForPane(demo.variant, paneId) : null;
 
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const useStore =
     !demo &&
     isTauriRuntime() &&
@@ -27,19 +27,23 @@ export function useTranscriptViewModel(
 
   const store = useStore ? getOpenCodeStore(paneId) : null;
 
+  const [fallbackSessionId, setFallbackSessionId] = useState<string | null>(null);
+
   useEffect(() => {
-    if (!store || !active) return;
+    if (!store || !active || openCodeSessionId) return;
     let cancelled = false;
     void store.loadInitial().then(() => {
       if (cancelled) return;
       const state = store.getState();
       const id = state.sessionOrder[0] ?? Object.keys(state.sessions)[0] ?? null;
-      setSessionId(id);
+      setFallbackSessionId(id);
     });
     return () => {
       cancelled = true;
     };
-  }, [active, store]);
+  }, [active, openCodeSessionId, store]);
+
+  const sessionId = openCodeSessionId ?? fallbackSessionId;
 
   const storeState = useSyncExternalStore(
     store?.subscribe ?? (() => () => {}),

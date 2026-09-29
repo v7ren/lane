@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { Message, Session } from '@loomria/shared/opencode';
-import { getOpenCodeTransport } from './opencode-transport';
+import { getOpenCodeTransport } from '../opencode/transport.js';
 
 export type OpenCodeRequestArgs = {
   pane_id: string;

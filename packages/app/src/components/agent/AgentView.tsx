@@ -18,6 +18,8 @@ import {
   replyOpenCodeQuestion,
 } from '../../lib/commands/agent';
 import { useTranscriptViewModel } from '../../lib/transcript/use-transcript-view-model';
+import { useShellSelection } from '../../lib/shell-selection-context';
+import { useSessionActions } from '../../lib/sessions/session-actions-context';
 import { getOpenCodeStore } from '../../lib/opencode/store';
 import { tauri } from '../../lib/tauri';
 import { setSessionMuted } from '../../lib/session-notify-prefs';
@@ -59,6 +61,8 @@ export function AgentView({
   embedded?: boolean;
   paneCwd?: string | null;
 }) {
+  const { selectedSessionId } = useShellSelection();
+  const sessionActions = useSessionActions();
   const railState = sessionState?.state ?? null;
   const { capabilities, source, timeline, loading, error, refresh } = useAgentSession(
     paneId,
@@ -67,22 +71,26 @@ export function AgentView({
     railState,
   );
 
+  const openCodePane = sessionState?.agent_type === 'opencode_native' && source !== 'native_tui';
+
   const transcript = useTranscriptViewModel(
     paneId,
     true,
     sessionState?.agent_type ?? undefined,
     source,
     timeline,
+    openCodePane ? selectedSessionId : null,
   );
-
-  const openCodePane = sessionState?.agent_type === 'opencode_native' && source !== 'native_tui';
   const store = openCodePane ? getOpenCodeStore(paneId) : null;
   const ocState = useSyncExternalStore(
     store?.subscribe ?? (() => () => {}),
     () => (store ? store.getState() : null),
     () => null,
   );
-  const sessionId = ocState?.sessionOrder[0] ?? null;
+  const sessionId =
+    openCodePane
+      ? (selectedSessionId ?? ocState?.sessionOrder[0] ?? null)
+      : null;
 
   const pendingProtocol = timeline.pendingApprovals;
   const pendingPermissions = useMemo(() => {
@@ -334,7 +342,17 @@ export function AgentView({
         )}
 
         <div className="flex-1 min-h-[160px] flex flex-col overflow-hidden">
-          <TranscriptView vm={transcript} nativeTuiOnly={nativeTuiOnly} />
+          <TranscriptView
+            vm={transcript}
+            nativeTuiOnly={nativeTuiOnly}
+            onForkFromMessage={
+              openCodePane && sessionId
+                ? (messageId) => {
+                    void sessionActions.forkAt(paneId, sessionId, messageId);
+                  }
+                : undefined
+            }
+          />
         </div>
 
         {!nativeTuiOnly && (

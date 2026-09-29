@@ -8,9 +8,11 @@ const VIRTUAL_THRESHOLD = 200;
 export function TranscriptView({
   vm,
   nativeTuiOnly,
+  onForkFromMessage,
 }: {
   vm: TranscriptViewModel;
   nativeTuiOnly: boolean;
+  onForkFromMessage?: (messageId: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [stuckBottom, setStuckBottom] = useState(true);
@@ -100,7 +102,7 @@ export function TranscriptView({
                   }}
                 >
                   {row.turn.role === 'user' ? (
-                    <UserTurnRow turn={row.turn} />
+                    <UserTurnRow turn={row.turn} onForkFromHere={onForkFromMessage} />
                   ) : (
                     <AssistantTurnBlock turn={row.turn} />
                   )}
@@ -111,7 +113,7 @@ export function TranscriptView({
         ) : (
           rows.map((row) =>
             row.turn.role === 'user' ? (
-              <UserTurnRow key={row.id} turn={row.turn} />
+              <UserTurnRow key={row.id} turn={row.turn} onForkFromHere={onForkFromMessage} />
             ) : (
               <AssistantTurnBlock key={row.id} turn={row.turn} />
             ),

@@ -51,7 +51,10 @@ export default function App() {
   useEffect(() => {
     if (!demo) return;
     const flags = readDemoUrlFlags();
-    if (flags.paneId) setSelectedPaneId(flags.paneId);
+    if (flags.paneId) {
+      setSelectedPaneId(flags.paneId);
+      if (!flags.paneId.includes('opencode')) setSelectedSessionId(null);
+    }
     else if (demo.variant !== 'empty' && demo.defaultAgentPaneId) {
       setSelectedPaneId(demo.defaultAgentPaneId);
     } else if (demo.variant === 'empty') {

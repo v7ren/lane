@@ -22,6 +22,8 @@ import {
 import { composerAllowlistOk } from '../../lib/opencode/composer-allowlist';
 import { opencodeClient } from '../../lib/opencode/client';
 import { isTauriRuntime } from '../../lib/is-tauri';
+import { ADD_TO_COMPOSER_EVENT, type AddToComposerDetail } from '../../lib/editor/add-to-composer';
+import { useShellSelection } from '../../lib/shell-selection-context';
 
 type ModelChoice = { providerID: string; modelID: string; label: string };
 
@@ -53,6 +55,7 @@ export function AgentComposerPanel({
   onError: (message: string | null) => void;
 }) {
   const demo = useDemoFixtures();
+  const shell = useShellSelection();
   const features = openCode ? composerFeaturesOpenCode() : composerFeaturesForCapabilities(capabilities);
   const [draft, setDraft] = useState('');
   const [mode, setMode] = useState<ComposerMode>('chat');
@@ -79,6 +82,23 @@ export function AgentComposerPanel({
       setAllowlistBlocked(true);
     }
   }, [openCode]);
+
+  useEffect(() => {
+    const onAdd = (event: Event) => {
+      const detail = (event as CustomEvent<AddToComposerDetail>).detail;
+      if (!detail?.path) return;
+      shell.setBottomTab('agent');
+      const mention = `@${detail.path}`;
+      const block = detail.selection?.trim()
+        ? `\n\n"""${detail.selection.trim()}"""`
+        : '';
+      const insert = `${mention}${block}`;
+      setDraft((prev) => (prev.trim() ? `${prev.trimEnd()}\n${insert}` : insert));
+      window.setTimeout(() => textareaRef.current?.focus(), 0);
+    };
+    window.addEventListener(ADD_TO_COMPOSER_EVENT, onAdd);
+    return () => window.removeEventListener(ADD_TO_COMPOSER_EVENT, onAdd);
+  }, [shell]);
 
   useEffect(() => {
     if (demo && openCode) {

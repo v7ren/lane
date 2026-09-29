@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { components } from '@loomria/shared/opencode';
 
-import type { OpenCodeTransport } from './transport.js';
+import { getOpenCodeTransport } from './transport.js';
 
 type Session = components['schemas']['Session'];
 type Message = components['schemas']['Message'];
@@ -33,17 +33,10 @@ async function tauriRequest<T = unknown>(args: OpenCodeRequestArgs): Promise<T> 
   return invoke<T>('opencode_request', { args });
 }
 
-let openCodeTransport: OpenCodeTransport | null = null;
-
-export function setOpenCodeTransport(transport: OpenCodeTransport | null): void {
-  openCodeTransport = transport;
-}
-
-export function getOpenCodeTransport(): OpenCodeTransport | null {
-  return openCodeTransport;
-}
+export { setOpenCodeTransport, getOpenCodeTransport } from './transport.js';
 
 async function request<T = unknown>(args: OpenCodeRequestArgs): Promise<T> {
+  const openCodeTransport = getOpenCodeTransport();
   if (openCodeTransport) {
     return openCodeTransport(args) as Promise<T>;
   }

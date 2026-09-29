@@ -12,6 +12,7 @@ pub mod opencode;
 mod platform;
 pub mod process;
 mod project_path;
+mod fs_scoped;
 pub mod pty;
 mod settings_store;
 pub mod shell_env;
@@ -81,6 +82,15 @@ pub fn run() {
             commands::opencode_request,
             commands::opencode_server_info,
             commands::opencode_select_tui_session,
+            fs_scoped::fs_list_dir,
+            fs_scoped::fs_read_file,
+            fs_scoped::fs_write_file,
+            fs_scoped::fs_stat,
+            fs_scoped::fs_create,
+            fs_scoped::fs_rename,
+            fs_scoped::fs_delete,
+            fs_scoped::fs_walk_files,
+            fs_scoped::fs_start_watcher,
         ])
         .setup(|app| {
             let port_file = app_paths::bridge_port_file();

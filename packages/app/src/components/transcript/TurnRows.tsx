@@ -1,21 +1,27 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { TranscriptTurn } from '../../lib/transcript';
 import { formatAssistantMetaLine } from '../../lib/transcript';
 import { TranscriptItemView } from './TranscriptItemView';
 
-export function UserTurnRow({ turn }: { turn: TranscriptTurn }) {
+export function UserTurnRow({
+  turn,
+  onForkFromHere,
+}: {
+  turn: TranscriptTurn;
+  onForkFromHere?: (messageId: string) => void;
+}) {
   const prompt = turn.items.find((i) => i.kind === 'user_prompt');
   const [open, setOpen] = useState(!(prompt?.kind === 'user_prompt' && prompt.collapsedDefault));
   if (!prompt || prompt.kind !== 'user_prompt') return null;
   return (
     <div
-      className="rounded-md border border-border-subtle bg-elevated shadow-sm"
+      className="group rounded-md border border-border-subtle bg-elevated shadow-sm"
       data-testid="user-turn"
     >
+      <div className="flex items-start gap-1">
       <button
         type="button"
-        className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-hover rounded-md"
+        className="flex-1 flex items-start gap-2 px-3 py-2 text-left hover:bg-hover rounded-md min-w-0"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
@@ -24,9 +30,17 @@ export function UserTurnRow({ turn }: { turn: TranscriptTurn }) {
         <span className="flex-1 text-body text-text whitespace-pre-wrap break-words">
           {open ? prompt.text : prompt.text.split('\n')[0]}
         </span>
-        {!open && <ChevronRight className="w-4 h-4 text-text-3 shrink-0" />}
-        {open && <ChevronDown className="w-4 h-4 text-text-3 shrink-0" />}
       </button>
+      {onForkFromHere && (
+        <button
+          type="button"
+          className="shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 text-meta text-accent hover:underline px-2 py-2"
+          onClick={() => onForkFromHere(turn.id)}
+        >
+          Fork from here
+        </button>
+      )}
+      </div>
       {open && prompt.files.length > 0 && (
         <div className="px-3 pb-2 flex flex-wrap gap-1">
           {prompt.files.map((f) => (

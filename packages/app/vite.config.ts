@@ -32,5 +32,17 @@ export default defineConfig({
     target: 'es2022',
     minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
     sourcemap: !!process.env.TAURI_DEBUG,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('monaco-editor') || id.includes('@monaco-editor')) {
+            return 'monaco';
+          }
+        },
+      },
+    },
+  },
+  optimizeDeps: {
+    include: ['monaco-editor', '@monaco-editor/react'],
   },
 });

@@ -33,13 +33,15 @@ import { BottomPanel } from './BottomPanel';
 import { CommandPalette } from './CommandPalette';
 import { listLaunchPresets } from '@loomria/shared';
 import { ExplorerPanel } from './ExplorerPanel';
-import { MainLauncher } from './MainLauncher';
 import { TerminalShellBar } from './TerminalShellBar';
 import { ResizableSplitter } from './ResizableSplitter';
 import { RightRail } from './RightRail';
-import { ShellTitleBar, EditorTabsSlot } from './ShellTitleBar';
+import { ShellTitleBar } from './ShellTitleBar';
+import { EditorProvider, useEditor } from '../../lib/editor/EditorContext';
+import { EditorWorkspace } from '../editor/EditorWorkspace';
 import { SidebarPanel } from './SidebarPanel';
 import { RevertBanner } from '../sessions/RevertBanner';
+import { PanelErrorBoundary } from './PanelErrorBoundary';
 
 export type AppShellProps = {
   agentCatalog: AgentCatalog;
@@ -77,11 +79,12 @@ function AppShellInner({
   onJumpApproval,
 }: AppShellProps) {
   const demo = useDemoFixtures();
+  const editor = useEditor();
   const shell = useShellSelection();
   const selectedSession = useSelectedSession();
   const { layout, patchLayout, resetPanel, resetVisibility, markBottomPanelResized } =
     useShellLayout();
-  const hasEditorTabs = false;
+  const hasEditorTabs = editor.tabs.length > 0;
   const [viewportWidth, setViewportWidth] = useState(
     typeof window !== 'undefined' ? window.innerWidth : 1440,
   );
@@ -92,7 +95,10 @@ function AppShellInner({
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  const didResetVisibility = useRef(false);
   useEffect(() => {
+    if (didResetVisibility.current) return;
+    didResetVisibility.current = true;
     resetVisibility();
   }, [resetVisibility]);
 
@@ -406,6 +412,8 @@ function AppShellChrome(props: {
     layoutEpoch,
   } = props;
 
+  const editor = useEditor();
+
   const paletteCommands = useMemo(
     () =>
       buildPaletteCommands({
@@ -454,10 +462,20 @@ function AppShellChrome(props: {
             void actions.unrevertSession(selectedSession.paneId, selectedSession.sessionId);
           }
         },
+        editorHandlers: {
+          onQuickOpen: () => editor.openQuickOpen(),
+          onSearchPanel: () => editor.openSearch(),
+          onReview: () => editor.setMainView('review'),
+          onSave: () => void editor.saveActive(),
+          onCloseTab: () => {
+            if (editor.activeTabId) editor.closeTab(editor.activeTabId);
+          },
+        },
       }),
     [
       actions,
       agentCatalog,
+      editor,
       selectSession,
       selectedSession,
       setNewPaneOpen,
@@ -480,8 +498,7 @@ function AppShellChrome(props: {
       shell.setPaletteOpen(true);
     },
     onOpenFilePalette: () => {
-      shell.setPaletteFileMode(true);
-      shell.setPaletteOpen(true);
+      editor.openQuickOpen();
     },
     onSwitchTerminalTab: () => shell.setBottomTab('terminal'),
     onJumpApproval: props.onJumpApproval,
@@ -509,6 +526,7 @@ function AppShellChrome(props: {
               className="shrink-0 min-h-0 flex flex-col border-r border-border-subtle"
               data-testid="sidebar-column"
             >
+              <PanelErrorBoundary region="sidebar">
               <SidebarPanel
                 section={shell.railSection}
                 registry={registry}
@@ -519,6 +537,7 @@ function AppShellChrome(props: {
                 onProjectPathChange={onProjectPathChange}
                 onOpenWorkspace={handleOpenWorkspace}
               />
+              </PanelErrorBoundary>
             </div>
             <ResizableSplitter
               axis="horizontal"
@@ -537,9 +556,11 @@ function AppShellChrome(props: {
           <>
             <div
               style={{ width: layout.explorerWidth }}
-              className="shrink-0 min-h-0 border-r border-border-subtle"
+              className="shrink-0 min-h-0 border-r border-border-subtle flex flex-col"
             >
-              <ExplorerPanel />
+              <PanelErrorBoundary region="explorer">
+                <ExplorerPanel />
+              </PanelErrorBoundary>
             </div>
             <ResizableSplitter
               axis="horizontal"
@@ -555,21 +576,19 @@ function AppShellChrome(props: {
           </>
         )}
         <div className="flex flex-col flex-1 min-w-0 min-h-0">
-          <EditorTabsSlot />
-          <div className="flex-1 min-h-0 relative">
-            <MainLauncher
-              onNewAgent={() => setNewPaneOpen(true)}
-              onTogglePanel={toggleBottom}
-              onSearchFiles={() => {
-                shell.setPaletteFileMode(true);
-                shell.setPaletteOpen(true);
-              }}
-              onCommandPalette={() => {
-                shell.setPaletteFileMode(false);
-                shell.setPaletteOpen(true);
+          <PanelErrorBoundary region="main">
+            <EditorWorkspace
+              launcherProps={{
+                onNewAgent: () => setNewPaneOpen(true),
+                onTogglePanel: toggleBottom,
+                onSearchFiles: () => editor.openQuickOpen(),
+                onCommandPalette: () => {
+                  shell.setPaletteFileMode(false);
+                  shell.setPaletteOpen(true);
+                },
               }}
             />
-          </div>
+          </PanelErrorBoundary>
           {!layout.bottomPanelCollapsed && (
             <>
               <ResizableSplitter
@@ -592,35 +611,31 @@ function AppShellChrome(props: {
                 style={{ flex: `0 0 ${layout.bottomPanelPercent}%` }}
                 data-testid="bottom-panel-host"
               >
+                <PersistentPaneSurfaces
+                  bottomTab={shell.bottomTab}
+                  agentPaneId={selectedPaneId}
+                  selectedTerminalPaneId={shell.selectedTerminalPaneId}
+                  showTui={showTui}
+                  chatWidthPercent={showTui ? chatPercent : undefined}
+                  layoutEpoch={layoutEpoch}
+                  agentCatalog={agentCatalog}
+                  registry={registry}
+                  projectPath={projectPath}
+                  sessionStates={sessionStates}
+                  agentPaneTitle={agentPaneTitle}
+                  tuiSurfaceLive={tuiSurfaceLive}
+                  onHideTui={() => setShowTui(false)}
+                  onClosePane={onClosePane}
+                  onEnterAgent={(id) => setSelectedPaneId(id)}
+                />
+                <PanelErrorBoundary region="bottom">
                 <BottomPanel
                   tab={shell.bottomTab}
                   onTabChange={shell.setBottomTab}
-                  overlay={
-                    <PersistentPaneSurfaces
-                      bottomTab={shell.bottomTab}
-                      agentPaneId={selectedPaneId}
-                      selectedTerminalPaneId={shell.selectedTerminalPaneId}
-                      showTui={showTui}
-                      chatWidthPercent={showTui ? chatPercent : undefined}
-                      layoutEpoch={layoutEpoch}
-                      agentCatalog={agentCatalog}
-                      registry={registry}
-                      projectPath={projectPath}
-                      sessionStates={sessionStates}
-                      agentPaneTitle={agentPaneTitle}
-                      tuiSurfaceLive={tuiSurfaceLive}
-                      onHideTui={() => setShowTui(false)}
-                      onClosePane={onClosePane}
-                      onEnterAgent={(id) => selectSession(id)}
-                    />
-                  }
                   agentContent={
                     selectedPaneId ? (
                       <div className="relative flex flex-1 min-h-0 flex-col z-[1]">
-                        {demo &&
-                          readDemoUrlFlags().showRevertBanner &&
-                          selectedSession?.sessionId &&
-                          selectedSession.reverted && (
+                        {selectedSession?.sessionId && selectedSession.reverted && (
                             <RevertBanner
                               paneId={selectedSession.paneId}
                               sessionId={selectedSession.sessionId}
@@ -692,6 +707,7 @@ function AppShellChrome(props: {
                     </>
                   }
                 />
+                </PanelErrorBoundary>
               </div>
             </>
           )}
@@ -711,10 +727,12 @@ function AppShellChrome(props: {
             />
             <div
               style={{ width: layout.rightRailWidth }}
-              className="shrink-0 min-h-0 border-l border-border-subtle"
+              className="shrink-0 min-h-0 border-l border-border-subtle flex flex-col"
               data-testid="right-rail-column"
             >
-              <RightRail />
+              <PanelErrorBoundary region="right-rail">
+                <RightRail />
+              </PanelErrorBoundary>
             </div>
           </>
         )}
@@ -745,6 +763,16 @@ function AppShellChrome(props: {
         onProjectPathChange={onProjectPathChange}
       />
     </div>
+  );
+}
+
+function AppShellWithEditor(props: AppShellProps) {
+  const demo = useDemoFixtures();
+  const root = props.projectPath ?? demo?.projectPath ?? '';
+  return (
+    <EditorProvider projectRoot={root || null}>
+      <AppShellInner {...props} />
+    </EditorProvider>
   );
 }
 
@@ -807,7 +835,7 @@ export function AppShell(props: AppShellProps) {
 
   return (
     <ShellSelectionProvider value={selection}>
-      <AppShellInner {...props} />
+      <AppShellWithEditor {...props} />
     </ShellSelectionProvider>
   );
 }

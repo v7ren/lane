@@ -22,6 +22,7 @@
     "esbuild": "0.28.1",
     "openapi-typescript": "^7.8.0",
     "playwright": "1.63.0",
+    "pngjs": "7.0.0",
     "rimraf": "^6.0.1",
     "typescript": "^5.6.3"
   },

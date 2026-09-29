@@ -1,6 +1,6 @@
 import { listLaunchPresets, type AgentCatalog, type AgentId } from '@loomria/shared';
 import { registerAgentCommands } from './agent';
-import { registerEditorCommands } from './editor';
+import { registerEditorCommands, type EditorCommandHandlers } from './editor';
 import {
   buildShellCommandRegistry,
   createCommandRegistry,
@@ -28,6 +28,7 @@ export type SessionCommandDeps = {
   onShareSelected?: () => void;
   onExportMarkdown?: () => void;
   onUnrevertSelected?: () => void;
+  editorHandlers?: EditorCommandHandlers;
 };
 
 export function registerSessionCommands(registry: CommandRegistry, deps: SessionCommandDeps): void {
@@ -165,6 +166,8 @@ export function buildPaletteCommands(deps: SessionCommandDeps) {
     registry,
     registerSessionCommands: (r) => registerSessionCommands(r, deps),
     registerAgentCommands,
-    registerEditorCommands,
+    registerEditorCommands: (r) => {
+      if (deps.editorHandlers) registerEditorCommands(r, deps.editorHandlers);
+    },
   });
 }

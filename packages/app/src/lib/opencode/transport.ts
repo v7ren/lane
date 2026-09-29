@@ -2,6 +2,16 @@ import type { OpenCodeRequestArgs } from './client.js';
 
 export type OpenCodeTransport = (args: OpenCodeRequestArgs) => Promise<unknown>;
 
+let openCodeTransport: OpenCodeTransport | null = null;
+
+export function setOpenCodeTransport(transport: OpenCodeTransport | null): void {
+  openCodeTransport = transport;
+}
+
+export function getOpenCodeTransport(): OpenCodeTransport | null {
+  return openCodeTransport;
+}
+
 function encodeQueryComponent(value: string): string {
   return encodeURIComponent(value).replace(/[!'()*]/g, (c) =>
     `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
