@@ -73,11 +73,12 @@ export default function App() {
 
   useEffect(() => {
     if (!demo) return;
-    const { view, paneId } = readDemoUrlFlags();
+    const { view, paneId, showTui: demoShowTui } = readDemoUrlFlags();
     if (view === 'agent') {
       enterAgentMode(paneId ?? demo.defaultAgentPaneId);
+      if (demoShowTui) setShowTui(true);
     }
-  }, [demo, enterAgentMode]);
+  }, [demo, enterAgentMode, setShowTui]);
 
   useEffect(() => {
     if (!agentPaneId) return;
@@ -172,7 +173,7 @@ export default function App() {
         />
         <div
           data-agent-split-row
-          className={`flex flex-1 min-h-0 lr-mode-transition ${mode === 'agent' ? 'flex-row' : 'flex-col'}`}
+          className={`relative flex flex-1 min-h-0 lr-mode-transition ${mode === 'agent' ? 'flex-row' : 'flex-col'}`}
         >
           {mode === 'agent' && agentPaneId && (
             <AgentView

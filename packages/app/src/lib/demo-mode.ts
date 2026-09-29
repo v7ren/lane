@@ -13,8 +13,17 @@ export function isDemoMode(): boolean {
   return parseDemoVariant() !== null;
 }
 
-export function readDemoUrlFlags(): { view: 'workspace' | 'agent'; paneId: string | null } {
+export function readDemoUrlFlags(): {
+  view: 'workspace' | 'agent';
+  paneId: string | null;
+  showTui: boolean;
+} {
   const params = new URLSearchParams(window.location.search);
   const view = params.get('view') === 'agent' ? 'agent' : 'workspace';
-  return { view, paneId: params.get('pane') };
+  const tui = params.get('tui');
+  return {
+    view,
+    paneId: params.get('pane'),
+    showTui: tui === '1' || tui === 'open' || tui === 'true',
+  };
 }

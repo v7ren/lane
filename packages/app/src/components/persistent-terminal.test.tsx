@@ -131,4 +131,38 @@ describe('PersistentPaneSurfaces', () => {
     expect(terminalMountSpy.mock.calls.length).toBe(mountsAfterWorkspace);
     expect(disposeSpy).not.toHaveBeenCalled();
   });
+
+  it('parks terminals off-layout when agent TUI is collapsed', () => {
+    act(() => {
+      root.render(
+        <div className="relative flex flex-row w-[960px] h-[400px]">
+          <div className="flex-1 min-w-0 bg-lr-panel" data-testid="chat-column" />
+          <PersistentPaneSurfaces
+            mode="agent"
+            agentPaneId="pane-a"
+            showTui={false}
+            layoutEpoch={0}
+            agentCatalog={agentCatalog}
+            registry={registry}
+            projectPath={null}
+            sessionStates={new Map()}
+            agentPaneTitle="Pane A"
+            tuiSurfaceLive={false}
+            onHideTui={() => {}}
+            onClosePane={() => {}}
+            onEnterAgent={() => {}}
+          />
+        </div>,
+      );
+    });
+
+    const parked = container.querySelector('[data-agent-tui-layout="parked"]') as HTMLElement;
+    expect(parked).not.toBeNull();
+    expect(container.querySelector('[data-agent-tui-layout="open"]')).toBeNull();
+    expect(container.querySelector('[data-pane-id="pane-a"]')).not.toBeNull();
+    expect(parked.className).toContain('absolute');
+    expect(parked.className).not.toContain('flex-1');
+
+    expect(disposeSpy).not.toHaveBeenCalled();
+  });
 });

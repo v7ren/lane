@@ -138,8 +138,8 @@ export function AgentView({
 
   return (
     <div
-      className={`flex flex-col min-h-0 bg-lr-panel border-lr-border lr-agent-panel shrink-0 ${
-        showTui ? 'border-r' : 'flex-1 min-w-0'
+      className={`flex flex-col min-h-0 bg-lr-panel border-lr-border lr-agent-panel ${
+        showTui ? 'shrink-0 border-r' : 'flex-1 min-w-0 w-full z-[1]'
       }`}
       style={
         showTui && chatWidthPercent != null
@@ -149,7 +149,7 @@ export function AgentView({
             : undefined
       }
     >
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-lr-border shrink-0">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-lr-border shrink-0 w-full">
         <DisplayStatusDot status={displayStatus} pulse={displayStatus === 'needs_approval'} />
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium truncate">{agentLabel}</div>
@@ -183,28 +183,32 @@ export function AgentView({
         </button>
       </div>
 
-      {loading && <p className="text-xs text-lr-muted px-3 py-2">Loading session…</p>}
-      {error && (
-        <p className="text-xs text-lr-err px-3 py-2 border-b border-lr-err/30">{error}</p>
-      )}
+      <div
+        className={`flex flex-1 flex-col min-h-0 w-full mx-auto ${showTui ? '' : 'max-w-[52rem]'}`}
+      >
+        {loading && <p className="text-xs text-lr-muted px-3 py-2">Loading session…</p>}
+        {error && (
+          <p className="text-xs text-lr-err px-3 py-2 border-b border-lr-err/30">{error}</p>
+        )}
 
-      <AgentTimeline
-        vm={timeline}
-        nativeTuiOnly={nativeTuiOnly}
-        busy={busy}
-        onRespondApproval={(id, d) => void respondApproval(id, d)}
-      />
-
-      {!nativeTuiOnly && (
-        <AgentComposer
-          disabled={composerDisabled}
-          disabledReason={composerReason}
+        <AgentTimeline
+          vm={timeline}
+          nativeTuiOnly={nativeTuiOnly}
           busy={busy}
-          showCancel={capabilities.cancel && timeline.turnActive}
-          onSend={send}
-          onCancel={cancelTurn}
+          onRespondApproval={(id, d) => void respondApproval(id, d)}
         />
-      )}
+
+        {!nativeTuiOnly && (
+          <AgentComposer
+            disabled={composerDisabled}
+            disabledReason={composerReason}
+            busy={busy}
+            showCancel={capabilities.cancel && timeline.turnActive}
+            onSend={send}
+            onCancel={cancelTurn}
+          />
+        )}
+      </div>
     </div>
   );
 }

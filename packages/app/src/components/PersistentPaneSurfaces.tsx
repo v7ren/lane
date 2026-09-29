@@ -42,10 +42,13 @@ export function PersistentPaneSurfaces({
   const panes = paneList.filter((pane) => !pane.info.id.startsWith('loomria-orchestrator-'));
   const [showAdd, setShowAdd] = useState(false);
 
-  const workspaceGridClass =
+  const agentTuiColumnOpen = mode === 'agent' && showTui;
+  const rootLayoutClass =
     mode === 'workspace'
       ? 'grid grid-cols-1 xl:grid-cols-2 gap-2 auto-rows-[minmax(260px,auto)] p-2'
-      : 'relative flex-1 min-w-0 min-h-0 flex flex-col';
+      : agentTuiColumnOpen
+        ? 'relative flex-1 min-w-0 min-h-0 flex flex-col'
+        : 'absolute inset-0 overflow-visible pointer-events-none z-0';
 
   const addPane = async (agent: AgentId) => {
     setShowAdd(false);
@@ -58,8 +61,9 @@ export function PersistentPaneSurfaces({
 
   return (
     <div
-      className={`flex-1 min-h-0 overflow-auto bg-lr-bg lr-mode-transition ${workspaceGridClass}`}
+      className={`min-h-0 lr-mode-transition ${mode === 'workspace' ? 'flex-1 overflow-auto bg-lr-bg' : agentTuiColumnOpen ? 'flex-1 overflow-auto bg-lr-bg' : ''} ${rootLayoutClass}`}
       data-mode={mode}
+      data-agent-tui-layout={mode === 'agent' ? (agentTuiColumnOpen ? 'open' : 'parked') : undefined}
     >
       {panes.map((pane) => {
         const isSelected = pane.info.id === agentPaneId;
