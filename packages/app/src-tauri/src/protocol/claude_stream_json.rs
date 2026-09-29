@@ -105,7 +105,7 @@ impl ProtocolSession for ClaudeStreamJsonSession {
             chat: true,
             send_prompt: true,
             approvals: false,
-            cancel: true,
+            cancel: false,
             file_changes: true,
             attach_tui: true,
         }
@@ -143,6 +143,10 @@ impl ProtocolSession for ClaudeStreamJsonSession {
         Err(AgentError::Unsupported(
             "unsupported: cancel for claude stream-json".into(),
         ))
+    }
+
+    fn child_pid(&self) -> Option<u32> {
+        Some(self.child.lock().id())
     }
 }
 

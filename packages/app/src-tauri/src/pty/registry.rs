@@ -40,6 +40,12 @@ pub struct PaneInfo {
     pub cwd: String,
     pub cols: u16,
     pub rows: u16,
+    #[serde(default = "default_surface")]
+    pub surface: String,
+}
+
+fn default_surface() -> String {
+    "tui".into()
 }
 
 /// Internal handle — owns the PTY master and the reader thread handle.
@@ -62,6 +68,8 @@ pub struct PaneState {
     pub opencode: Option<crate::opencode::OpenCodeLink>,
     /// Pending key-swap event for wait_for_panes (consumed on wake).
     pub opencode_key_event: Option<crate::opencode::quota::KeySwapEvent>,
+    pub codex: Option<crate::codex::CodexLink>,
+    pub claude_session_id: Option<String>,
     pub process_tree: crate::process::ProcessTree,
 }
 
@@ -248,6 +256,8 @@ pub struct SpawnPaneArgs {
     pub rows: Option<u16>,
     pub extra_args: Option<Vec<String>>,
     pub pane_id: Option<String>,
+    /// `tui` (default) or `headless` (Claude stream-json Agent Mode surface).
+    pub surface: Option<String>,
 }
 
 /// Spawn a pane. The reader thread pushes raw bytes to the scrollback,
@@ -259,6 +269,7 @@ pub fn spawn_pane(
     catalog: &AgentCatalog,
     app: &AppHandle,
     args: SpawnPaneArgs,
+    session_store: Option<&crate::session::SessionStateStore>,
 ) -> Result<String, String> {
     let manifest = catalog
         .get(&args.agent_type)
@@ -268,6 +279,38 @@ pub fn spawn_pane(
         return crate::opencode::native::spawn_native_pane(Arc::clone(registry), app, args);
     }
 
+    if args.agent_type == "codex"
+        && manifest.launch_server().is_some()
+        && manifest.launch_attach().is_some()
+        && args.surface.as_deref() != Some("headless")
+    {
+        return crate::codex::spawn_dual_pane(
+            Arc::clone(registry),
+            catalog,
+            app,
+            args,
+            session_store,
+        );
+    }
+
+    if args.agent_type == "claude" && args.surface.as_deref() == Some("headless") {
+        return crate::session::claude_headless::spawn_headless_pane(
+            Arc::clone(registry),
+            catalog,
+            app,
+            args,
+        );
+    }
+
+    spawn_plain_tui_pane(registry, catalog, app, args)
+}
+
+pub fn spawn_plain_tui_pane(
+    registry: &Arc<Mutex<PaneRegistry>>,
+    catalog: &AgentCatalog,
+    app: &AppHandle,
+    args: SpawnPaneArgs,
+) -> Result<String, String> {
     let cwd = crate::project_path::resolve_spawn_cwd(
         args.cwd.clone(),
         registry.lock().project_path.clone(),
@@ -337,6 +380,7 @@ pub fn spawn_pane(
         cwd: cwd.clone(),
         cols,
         rows,
+        surface: "tui".into(),
     };
 
     let process_tree = crate::process::ProcessTree::new();
@@ -354,6 +398,8 @@ pub fn spawn_pane(
         exited: exited.clone(),
         opencode: None,
         opencode_key_event: None,
+        codex: None,
+        claude_session_id: None,
         process_tree,
     };
 
@@ -767,6 +813,7 @@ impl PaneRegistry {
             cwd: ".".into(),
             cols: 10,
             rows: 3,
+            surface: "tui".into(),
         };
         PaneState {
             info,
@@ -780,6 +827,8 @@ impl PaneRegistry {
             exited: Arc::new(Mutex::new(false)),
             opencode: None,
             opencode_key_event: None,
+            codex: None,
+            claude_session_id: None,
             process_tree: crate::process::ProcessTree::new(),
         }
     }

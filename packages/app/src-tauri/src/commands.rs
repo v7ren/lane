@@ -236,15 +236,109 @@ pub async fn spawn_pane(
     args: SpawnPaneArgs,
 ) -> Result<String, String> {
     let agent_type = args.agent_type.clone();
-    let pane_id = registry_spawn_pane(&state.registry, &state.agents, &app, args)?;
+    let surface = args.surface.clone();
+    let pane_id = registry_spawn_pane(
+        &state.registry,
+        &state.agents,
+        &app,
+        args,
+        Some(&state.session_states),
+    )?;
     if agent_type == "opencode_native" {
         crate::opencode::protocol::register_pane_protocol(
             &state.protocol_hub,
             &state.registry,
             &pane_id,
         )?;
+    } else if agent_type == "codex" {
+        let has_dual = {
+            let reg = state.registry.lock();
+            reg.panes
+                .get(&pane_id)
+                .map(|p| p.codex.is_some())
+                .unwrap_or(false)
+        };
+        if has_dual {
+            crate::codex::protocol::register_pane_protocol(
+                &state.protocol_hub,
+                &state.registry,
+                &pane_id,
+            )?;
+        }
+    } else if agent_type == "claude" && surface.as_deref() == Some("headless") {
+        register_claude_headless_protocol(&state, &pane_id)?;
     }
     Ok(pane_id)
+}
+
+fn register_claude_headless_protocol(state: &AppState, pane_id: &str) -> Result<(), String> {
+    let session_id = crate::session::claude_headless::claude_session_id(&state.registry, pane_id)?;
+    let cwd = {
+        let reg = state.registry.lock();
+        reg.panes
+            .get(pane_id)
+            .map(|p| p.info.cwd.clone())
+            .ok_or_else(|| format!("unknown pane: {pane_id}"))?
+    };
+    let adapter = crate::protocol::adapter_for(crate::agents::ProtocolKind::ClaudeStreamJson)
+        .ok_or_else(|| "claude-stream-json adapter missing".to_string())?;
+    state.protocol_hub.register(
+        pane_id.to_string(),
+        adapter,
+        crate::protocol::Endpoint {
+            url: String::new(),
+            session_id: Some(session_id),
+            cwd: Some(cwd),
+        },
+    )?;
+    if let Some(pid) = state.protocol_hub.protocol_child_pid(pane_id) {
+        let mut reg = state.registry.lock();
+        if let Some(pane) = reg.panes.get_mut(pane_id) {
+            crate::process::assign_pid_to_pane_job(&pane.process_tree, pid);
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn session_open_in_tui(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    pane_id: String,
+) -> Result<String, String> {
+    let session_id =
+        crate::session::claude_headless::claude_session_id(&state.registry, &pane_id)?;
+    let cwd = {
+        let reg = state.registry.lock();
+        reg.panes
+            .get(&pane_id)
+            .map(|p| p.info.cwd.clone())
+            .ok_or_else(|| format!("unknown pane: {pane_id}"))?
+    };
+    let manifest = state
+        .agents
+        .get("claude")
+        .ok_or_else(|| "missing claude manifest".to_string())?;
+    let resume = manifest
+        .launch_resume_args()
+        .ok_or_else(|| "claude manifest missing launch.resume".to_string())?;
+    let extra_args = crate::session::substitute_args(resume, 0, "", &session_id, &cwd);
+    let new_pane_id = registry_spawn_pane(
+        &state.registry,
+        &state.agents,
+        &app,
+        SpawnPaneArgs {
+            agent_type: "claude".to_string(),
+            cwd: Some(cwd),
+            cols: None,
+            rows: None,
+            extra_args: Some(extra_args),
+            pane_id: None,
+            surface: None,
+        },
+        None,
+    )?;
+    Ok(new_pane_id)
 }
 
 #[tauri::command]
@@ -261,6 +355,10 @@ pub async fn kill_pane_cmd(
 
 #[tauri::command]
 pub async fn kill_all_panes(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    let ids: Vec<String> = state.registry.lock().panes.keys().cloned().collect();
+    for id in ids {
+        state.protocol_hub.unregister(&id);
+    }
     registry_kill_all(&state.registry);
     let _ = app.emit("pty://panes-changed", ());
     Ok(())

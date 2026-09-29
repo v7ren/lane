@@ -192,6 +192,9 @@ pub trait ProtocolSession: Send + Sync {
     fn send_prompt(&self, text: String) -> Result<(), AgentError>;
     fn respond_to_approval(&self, approval_id: &str, decision: &str) -> Result<(), AgentError>;
     fn cancel_turn(&self) -> Result<(), AgentError>;
+    fn child_pid(&self) -> Option<u32> {
+        None
+    }
 }
 
 #[cfg(test)]

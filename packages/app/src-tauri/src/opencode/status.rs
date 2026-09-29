@@ -1,4 +1,5 @@
 //! Compact OpenCode native worker status for MCP (low token footprint).
+#![allow(dead_code)]
 
 use crate::opencode::client::{self, OpenCodeModelRef};
 use crate::opencode::quota::PendingKeySwapInfo;

@@ -127,6 +127,7 @@ pub fn spawn_native_pane(
         cwd: cwd.clone(),
         cols,
         rows,
+        surface: "tui".into(),
     };
 
     let opencode = OpenCodeLink::new(
@@ -156,6 +157,8 @@ pub fn spawn_native_pane(
         exited: exited.clone(),
         opencode: Some(opencode),
         opencode_key_event: None,
+        codex: None,
+        claude_session_id: None,
         process_tree,
     };
 
@@ -214,6 +217,7 @@ pub fn restart_native_pane(
             rows: Some(pane.info.rows),
             extra_args: None,
             pane_id: Some(pane_id.to_string()),
+            surface: None,
         }
     };
     crate::opencode::keys::apply_active_auth()?;

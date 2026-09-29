@@ -19,6 +19,7 @@ struct PaneProtocol {
     history: VecDeque<AgentEventEnvelope>,
     seq: u64,
     session: Arc<dyn ProtocolSession>,
+    protocol_child_pid: Option<u32>,
     _pump: thread::JoinHandle<()>,
 }
 
@@ -77,6 +78,7 @@ impl ProtocolHub {
             .connect(endpoint)
             .map_err(|e| e.to_string())?;
         let capabilities = session.capabilities();
+        let protocol_child_pid = session.child_pid();
         let session: Arc<dyn ProtocolSession> = Arc::from(session);
         let mut rx = session.subscribe();
         let hub = Arc::clone(self);
@@ -97,6 +99,7 @@ impl ProtocolHub {
                 history: VecDeque::new(),
                 seq: 0,
                 session,
+                protocol_child_pid,
                 _pump: pump,
             },
         );
@@ -151,6 +154,14 @@ impl ProtocolHub {
         session
             .respond_to_approval(approval_id, decision)
             .map_err(|e| e.to_string())
+    }
+
+    pub fn protocol_child_pid(self: &Arc<Self>, pane_id: &str) -> Option<u32> {
+        self.inner
+            .lock()
+            .panes
+            .get(pane_id)
+            .and_then(|p| p.protocol_child_pid)
     }
 
     pub fn cancel_turn(self: &Arc<Self>, pane_id: &str) -> Result<(), String> {
@@ -250,7 +261,7 @@ pub fn agent_error_message(err: AgentError) -> String {
     err.to_string()
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(target_os = "windows")))]
 mod tests {
     use super::*;
     use crate::agents::ProtocolKind;
@@ -301,6 +312,73 @@ mod tests {
             Ok(Box::new(FakeSession {
                 tx: self.tx.clone(),
             }))
+        }
+    }
+
+    #[test]
+    fn seq_increments_and_ring_buffer_caps() {
+        let hub = ProtocolHub::new();
+        let (tx, _rx) = tokio::sync::broadcast::channel(8);
+        let adapter = Arc::new(FakeAdapter { tx: tx.clone() });
+        hub.register(
+            "p-seq".into(),
+            adapter,
+            Endpoint {
+                url: "http://127.0.0.1:1".into(),
+                session_id: Some("s".into()),
+                cwd: None,
+            },
+        )
+        .expect("register");
+
+        for i in 0..(HISTORY_CAP + 5) {
+            tx.send(AgentEvent::TurnStarted {
+                turn_id: format!("t{i}"),
+            })
+            .ok();
+            thread::sleep(Duration::from_millis(2));
+        }
+        thread::sleep(Duration::from_millis(50));
+        let history = hub.history("p-seq");
+        assert_eq!(history.len(), HISTORY_CAP);
+        assert_eq!(history.last().map(|e| e.seq), Some((HISTORY_CAP + 5) as u64));
+    }
+
+    #[test]
+    fn message_deltas_coalesce_per_message_id() {
+        let hub = ProtocolHub::new();
+        let (tx, _rx) = tokio::sync::broadcast::channel(16);
+        let adapter = Arc::new(FakeAdapter { tx: tx.clone() });
+        hub.register(
+            "p-coalesce".into(),
+            adapter,
+            Endpoint {
+                url: "http://127.0.0.1:1".into(),
+                session_id: None,
+                cwd: None,
+            },
+        )
+        .expect("register");
+
+        for text in ["a", "ab", "abc"] {
+            tx.send(AgentEvent::MessageDelta {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                role: crate::protocol::MessageRole::Assistant,
+                text: text.to_string(),
+            })
+            .ok();
+            thread::sleep(Duration::from_millis(5));
+        }
+        thread::sleep(Duration::from_millis(80));
+        let history = hub.history("p-coalesce");
+        let deltas: Vec<_> = history
+            .iter()
+            .filter(|e| matches!(e.event, AgentEvent::MessageDelta { .. }))
+            .collect();
+        assert_eq!(deltas.len(), 1);
+        if let AgentEvent::MessageDelta { text, .. } = &deltas[0].event {
+            assert_eq!(text, "abc");
         }
     }
 

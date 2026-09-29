@@ -38,6 +38,8 @@ toml = "0.8"
 tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"], optional = true }
 
 [dev-dependencies]
+uuid = { version = "1", features = ["v4"] }
+
 tempfile = "3"
 
 [target.'cfg(windows)'.dependencies]

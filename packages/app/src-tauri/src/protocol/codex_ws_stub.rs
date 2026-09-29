@@ -13,6 +13,7 @@ impl CodexWsClient {
     pub fn spawn_with_thread(
         _ws_url: String,
         _thread_id: String,
+        _cwd: String,
     ) -> Result<Arc<Self>, AgentError> {
         Self::spawn(String::new())
     }

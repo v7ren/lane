@@ -438,7 +438,7 @@ fn route(
             }
             "POST" => {
                 let req: SpawnPaneArgs = parse_json(body)?;
-                let pane_id = registry_spawn_pane(&registry, &agents, &app, req)
+                let pane_id = registry_spawn_pane(&registry, &agents, &app, req, None)
                     .map_err(|err| (500, json!({ "error": err })))?;
                 emit_panes_changed(&registry, &app);
                 return Ok((201, json!({ "pane_id": pane_id, "ok": true })));

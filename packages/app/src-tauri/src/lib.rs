@@ -2,6 +2,7 @@ pub mod agents;
 mod app_lifecycle;
 pub mod protocol;
 pub mod session;
+mod codex;
 mod app_paths;
 mod bridge;
 mod bridge_auth;
@@ -72,6 +73,7 @@ pub fn run() {
             commands::session_send_prompt,
             commands::session_respond_approval,
             commands::session_cancel_turn,
+            commands::session_open_in_tui,
             commands::read_opencode_messages,
             commands::list_opencode_permissions,
             commands::reply_opencode_question,

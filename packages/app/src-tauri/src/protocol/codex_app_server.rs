@@ -17,8 +17,12 @@ impl ProtocolAdapter for CodexAppServerAdapter {
     }
 
     fn connect(&self, endpoint: Endpoint) -> Result<Box<dyn ProtocolSession>, AgentError> {
+        let cwd = endpoint
+            .cwd
+            .clone()
+            .unwrap_or_else(|| std::env::temp_dir().to_string_lossy().to_string());
         let client = if let Some(thread_id) = endpoint.session_id.clone() {
-            CodexWsClient::spawn_with_thread(endpoint.url, thread_id)?
+            CodexWsClient::spawn_with_thread(endpoint.url, thread_id, cwd)?
         } else {
             CodexWsClient::spawn(endpoint.url)?
         };

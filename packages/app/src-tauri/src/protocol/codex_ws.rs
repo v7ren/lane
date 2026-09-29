@@ -19,10 +19,18 @@ pub struct CodexWsClient {
 
 impl CodexWsClient {
     pub fn spawn(ws_url: String) -> Result<Arc<Self>, AgentError> {
-        Self::spawn_with_thread(ws_url, uuid::Uuid::new_v4().to_string())
+        Self::spawn_with_thread(
+            ws_url,
+            uuid::Uuid::new_v4().to_string(),
+            std::env::temp_dir().to_string_lossy().to_string(),
+        )
     }
 
-    pub fn spawn_with_thread(ws_url: String, thread_id: String) -> Result<Arc<Self>, AgentError> {
+    pub fn spawn_with_thread(
+        ws_url: String,
+        thread_id: String,
+        cwd: String,
+    ) -> Result<Arc<Self>, AgentError> {
         let (events_tx, _) = broadcast::channel(256);
         let (request_tx, request_rx) = std::sync::mpsc::channel();
         let thread_slot = Arc::new(parking_lot::Mutex::new(Some(thread_id.clone())));
@@ -37,8 +45,15 @@ impl CodexWsClient {
         std::thread::Builder::new()
             .name("codex-ws".into())
             .spawn(move || {
-                if let Err(message) =
-                    run_ws_loop(ws_url, events_tx, request_rx, thread_slot, turn_counter, thread_id)
+                if let Err(message) = run_ws_loop(
+                    ws_url,
+                    events_tx,
+                    request_rx,
+                    thread_slot,
+                    turn_counter,
+                    thread_id,
+                    cwd,
+                )
                 {
                     let _ = events_err.send(AgentEvent::Error { message });
                 }
@@ -104,6 +119,7 @@ fn run_ws_loop(
     thread_id_slot: Arc<parking_lot::Mutex<Option<String>>>,
     turn_counter: Arc<AtomicU64>,
     resume_thread_id: String,
+    cwd: String,
 ) -> Result<(), String> {
     let (mut ws, _) = connect(&ws_url).map_err(|e| format!("codex ws connect: {e}"))?;
     set_read_timeout(&mut ws)?;
@@ -121,11 +137,11 @@ fn run_ws_loop(
         &mut ws,
         json!({
             "jsonrpc": "2.0",
-            "id": "thread-resume",
-            "method": "thread/resume",
+            "id": "thread-start",
+            "method": "thread/start",
             "params": {
                 "threadId": resume_thread_id,
-                "cwd": std::env::temp_dir().to_string_lossy(),
+                "cwd": cwd,
             }
         }),
     )?;
