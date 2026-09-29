@@ -22,8 +22,25 @@ function messageDurationMs(message: Message): number | undefined {
   return undefined;
 }
 
+function partSortKey(state: OpenCodeStoreState, partId: string): number {
+  const part = state.parts[partId];
+  if (!part) return Number.MAX_SAFE_INTEGER;
+  const time =
+    'time' in part
+      ? (part.time as { start?: number; end?: number } | undefined)
+      : undefined;
+  if (time?.start != null) return time.start;
+  if (time?.end != null) return time.end;
+  return Number.MAX_SAFE_INTEGER;
+}
+
 function partIdsForMessage(state: OpenCodeStoreState, messageId: string): string[] {
-  return state.partsByMessage[messageId] ?? [];
+  const ids = state.partsByMessage[messageId] ?? [];
+  return [...ids].sort((a, b) => {
+    const delta = partSortKey(state, a) - partSortKey(state, b);
+    if (delta !== 0) return delta;
+    return a.localeCompare(b);
+  });
 }
 
 function buildUserTurn(state: OpenCodeStoreState, message: Message): TranscriptTurn {

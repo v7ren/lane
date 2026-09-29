@@ -45,9 +45,11 @@ export function AgentView({
   headlessClaude,
   embedded,
   paneCwd,
+  agentType,
 }: {
   paneId: string;
   agentCatalog: AgentCatalog;
+  agentType?: string | null;
   paneStatus?: string;
   sessionState?: SessionRailState | null;
   paneTitle?: string | null;
@@ -71,7 +73,8 @@ export function AgentView({
     railState,
   );
 
-  const openCodePane = sessionState?.agent_type === 'opencode_native' && source !== 'native_tui';
+  const resolvedAgentType = agentType ?? sessionState?.agent_type ?? null;
+  const openCodePane = resolvedAgentType === 'opencode_native' && source !== 'native_tui';
 
   const transcript = useTranscriptViewModel(
     paneId,

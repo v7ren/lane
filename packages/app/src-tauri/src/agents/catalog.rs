@@ -100,8 +100,12 @@ impl AgentCatalog {
     pub fn summaries(&self) -> Vec<AgentManifestSummary> {
         self.manifests
             .values()
+            .filter(|m| is_catalog_agent_visible(&m.id))
             .filter_map(|m| {
                 let (command, base_args) = m.resolve_tui_command().ok()?;
+                if !crate::shell_env::is_command_available(&command) {
+                    return None;
+                }
                 Some(AgentManifestSummary {
                     id: m.id.clone(),
                     label: m.label.clone(),
@@ -134,6 +138,45 @@ impl AgentCatalog {
 pub struct AgentsListResponse {
     pub agents: Vec<AgentManifestSummary>,
     pub report: ManifestLoadReport,
+}
+
+const HARNESS_AGENT_IDS: &[&str] = &["fake-agent", "broken-agent"];
+
+fn is_catalog_agent_visible(id: &str) -> bool {
+    !HARNESS_AGENT_IDS.contains(&id)
+}
+
+#[cfg(test)]
+mod catalog_tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn summaries_exclude_harness_agent_ids() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let manifest = r#"
+schema_version = 1
+id = "fake-agent"
+label = "Fake Agent (fixture)"
+description = "test"
+icon = "FA"
+is_tui = true
+show_in_new_pane_menu = true
+
+[launch.tui.windows]
+command = "cmd.exe"
+args = ["/C", "echo ok"]
+"#;
+        fs::write(temp.path().join("fake-agent.toml"), manifest).expect("write");
+        let catalog = AgentCatalog::load_with_user_agents_dir(Some(temp.path()));
+        assert!(
+            !catalog
+                .summaries()
+                .iter()
+                .any(|summary| summary.id == "fake-agent"),
+            "harness agents must not appear in production catalog"
+        );
+    }
 }
 
 fn merge_user_manifest_dir(

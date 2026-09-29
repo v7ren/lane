@@ -4,6 +4,7 @@ label = "PowerShell"
 description = "Windows PowerShell"
 icon = "PS"
 is_tui = true
+show_in_new_pane_menu = true
 
 [launch.tui.windows]
 command = "powershell.exe"

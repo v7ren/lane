@@ -55,6 +55,11 @@ function store(): LazyStore {
   return cached;
 }
 
+/** Single LazyStore instance for settings.json (shared with recent-workspaces, etc.). */
+export function getSettingsLazyStore(): LazyStore {
+  return store();
+}
+
 /** Drop in-memory cache after the bridge writes settings on disk. */
 export function invalidateSettingsCache(): void {
   cached = null;
@@ -79,7 +84,7 @@ function readLegacySidebarWidth(): number | undefined {
   return Number.isFinite(parsed) ? clampSidebarWidth(parsed) : undefined;
 }
 
-function mergeLoadedSettings(raw: Settings | null | undefined): Settings {
+export function mergeLoadedSettings(raw: Settings | null | undefined): Settings {
   const merged = { ...DEFAULT_SETTINGS, ...(raw ?? {}) };
   const legacySidebar = readLegacySidebarWidth();
   return {

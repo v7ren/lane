@@ -2,7 +2,7 @@ import { Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PaneRegistryApi } from '../../hooks/usePaneRegistry';
 import type { ActivityRailSection } from '../../lib/shell-selection-context';
-import { pickProjectFolder } from '../../lib/project-path';
+import { pickProjectFolder, projectPathsEqual } from '../../lib/project-path';
 import { loadRecentWorkspaces, pushRecentWorkspace } from '../../lib/sessions/recent-workspaces';
 import { SessionsSidebar } from '../sessions/SessionsSidebar';
 import { useOpenCodePaneStates } from '../../lib/sessions/use-opencode-stores';
@@ -44,7 +44,6 @@ export function SidebarPanel({
     if (picked) {
       const next = await pushRecentWorkspace(picked);
       setRecent(next);
-      await onProjectPathChange(picked);
       await onOpenWorkspace(picked);
     }
   };
@@ -53,10 +52,9 @@ export function SidebarPanel({
     async (path: string) => {
       const next = await pushRecentWorkspace(path);
       setRecent(next);
-      await onProjectPathChange(path);
       await onOpenWorkspace(path);
     },
-    [onOpenWorkspace, onProjectPathChange],
+    [onOpenWorkspace],
   );
 
   const displayRecent = useMemo(() => {
@@ -93,12 +91,14 @@ export function SidebarPanel({
         )}
         {displayRecent.map((path) => {
           const name = path.split(/[/\\]/).filter(Boolean).pop() ?? path;
-          const active = projectPath === path;
+          const active = projectPath != null && projectPathsEqual(projectPath, path);
           const paneForPath = registry.paneList.find(
-            (p) => isOpenCodePane(p) && p.info.cwd === path,
+            (p) => isOpenCodePane(p) && projectPathsEqual(p.info.cwd, path),
           );
           const ocState = paneForPath ? ocStates.get(paneForPath.info.id) : undefined;
-          const status = ocState?.connectionStatus ?? (active ? 'unknown' : undefined);
+          const status =
+            ocState?.connectionStatus ??
+            (ocState?.healthy ? 'connected' : active ? 'unknown' : undefined);
           return (
             <button
               key={path}

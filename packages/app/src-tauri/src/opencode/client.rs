@@ -39,12 +39,12 @@ pub struct OpenCodeSession {
     pub id: String,
 }
 
-pub fn create_session(base_url: &str, title: &str) -> Result<OpenCodeSession, String> {
+pub fn create_session(base_url: &str) -> Result<OpenCodeSession, String> {
     let base = normalize_base_url(base_url);
     let url = format!("{base}/session");
     let response = ureq::post(&url)
         .timeout(DEFAULT_TIMEOUT)
-        .send_json(json!({ "title": title }))
+        .send_json(json!({}))
         .map_err(|err| format!("opencode create session: {err}"))?;
     if !(200..300).contains(&response.status()) {
         return Err(format!(

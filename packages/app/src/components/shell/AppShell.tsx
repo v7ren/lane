@@ -23,6 +23,7 @@ import { SessionActionsProvider, useSessionActions } from '../../lib/sessions/se
 import { ShellToastProvider } from '../../lib/sessions/shell-toast';
 import { useOpenCodeTuiSync } from '../../lib/sessions/use-tui-sync';
 import { isOpenCodePane } from '../../lib/sessions/merge-sessions';
+import { findOpenCodePaneForProject } from '../../lib/sessions/workspace-pane';
 import {
   defaultBottomRatio,
   readBottomRatioUserTouched,
@@ -164,7 +165,8 @@ function AppShellInner({
 
   const handleOpenWorkspace = useCallback(
     async (path: string) => {
-      const existing = panes.find((p) => isOpenCodePane(p) && p.info.cwd === path);
+      await onProjectPathChange(path);
+      const existing = findOpenCodePaneForProject(panes, path);
       if (existing) {
         selectSession(existing.info.id, selectedSessionId ?? undefined);
         return;
@@ -172,7 +174,7 @@ function AppShellInner({
       const id = await registry.spawnPane({ agent_type: 'opencode_native', cwd: path });
       if (id) selectSession(id);
     },
-    [panes, registry, selectSession, selectedSessionId],
+    [onProjectPathChange, panes, registry, selectSession, selectedSessionId],
   );
 
   const terminalPanes = useMemo(
@@ -648,6 +650,7 @@ function AppShellChrome(props: {
                         <AgentView
                           embedded
                           paneId={selectedPaneId}
+                          agentType={selectedPane?.info.agent_type}
                           agentCatalog={agentCatalog}
                           paneStatus={selectedPane?.status}
                           sessionState={sessionForAgent ?? null}

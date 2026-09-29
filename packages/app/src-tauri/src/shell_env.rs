@@ -77,6 +77,24 @@ pub fn resolve_codex_executable() -> Result<String, String> {
     Err("codex not found on PATH".into())
 }
 
+/// Whether a manifest TUI program is available (PATH lookup or absolute path).
+pub fn is_command_available(program: &str) -> bool {
+    let trimmed = program.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    if trimmed.contains('/') || trimmed.contains('\\') {
+        return std::path::Path::new(trimmed).is_file();
+    }
+    let base = std::path::Path::new(trimmed)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(trimmed);
+    which_on_path(base).is_some()
+        || which_on_path(&format!("{base}.exe")).is_some()
+        || which_on_path(&format!("{base}.cmd")).is_some()
+}
+
 fn which_on_path(name: &str) -> Option<String> {
     #[cfg(windows)]
     let sep = ';';

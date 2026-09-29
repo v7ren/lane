@@ -398,11 +398,8 @@ impl OpenCodeLive {
         let server_pid = spawned.child.id();
         tree.assign_pid(server_pid).expect("assign");
 
-        let session = loomria_app_lib::opencode::client::create_session(
-            &spawned.base_url,
-            "loomria live",
-        )
-        .expect("create session");
+        let session = loomria_app_lib::opencode::client::create_session(&spawned.base_url)
+            .expect("create session");
 
         let hub = ProtocolHub::new();
         let pane_id: String = "live-opencode".into();

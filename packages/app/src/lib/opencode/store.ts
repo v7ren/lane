@@ -84,12 +84,32 @@ function upsertMessage(state: OpenCodeStoreState, message: Message): OpenCodeSto
   return { ...state, messages, messagesBySession };
 }
 
+function partSortKey(part: Part | undefined): number {
+  if (!part) return Number.MAX_SAFE_INTEGER;
+  const time =
+    'time' in part
+      ? (part.time as { start?: number; end?: number } | undefined)
+      : undefined;
+  if (time?.start != null) return time.start;
+  if (time?.end != null) return time.end;
+  return Number.MAX_SAFE_INTEGER;
+}
+
+function sortPartIds(state: OpenCodeStoreState, messageId: string, partIds: string[]): string[] {
+  return [...partIds].sort((a, b) => {
+    const delta = partSortKey(state.parts[a]) - partSortKey(state.parts[b]);
+    if (delta !== 0) return delta;
+    return a.localeCompare(b);
+  });
+}
+
 function upsertPart(state: OpenCodeStoreState, messageId: string, part: Part): OpenCodeStoreState {
   const parts = { ...state.parts, [part.id]: part };
   const list = state.partsByMessage[messageId] ?? [];
+  const merged = list.includes(part.id) ? list : [...list, part.id];
   const partsByMessage = {
     ...state.partsByMessage,
-    [messageId]: list.includes(part.id) ? list : [...list, part.id],
+    [messageId]: sortPartIds({ ...state, parts }, messageId, merged),
   };
   return { ...state, parts, partsByMessage };
 }
@@ -222,9 +242,19 @@ export function applyOpenCodeWireEvent(
     }
     case 'message.part.delta': {
       const partID = props.partID as string | undefined;
+      const messageID = props.messageID as string | undefined;
       const field = props.field as string | undefined;
       const delta = props.delta as string | undefined;
       if (partID && field && typeof delta === 'string') {
+        if (!next.parts[partID] && messageID) {
+          const stub = {
+            id: partID,
+            messageID,
+            type: field === 'text' ? 'text' : 'reasoning',
+            text: '',
+          } as Part;
+          next = upsertPart(next, messageID, stub);
+        }
         next = applyPartDelta(next, partID, field, delta);
       }
       break;
@@ -346,6 +376,7 @@ export function createOpenCodeStore(paneId: string): OpenCodeStore {
           directory: info.directory,
           serverVersion: info.version ?? null,
           healthy: info.healthy,
+          connectionStatus: info.healthy ? 'connected' : 'disconnected',
         };
         for (const session of sessions) {
           next = upsertSession(next, session);
