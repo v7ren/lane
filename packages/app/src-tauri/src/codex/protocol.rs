@@ -34,6 +34,7 @@ pub fn register_pane_protocol(
             session_id: Some(thread_id),
             cwd: Some(cwd),
             codex: None,
+            connect_pane_id: None,
         },
     )
 }

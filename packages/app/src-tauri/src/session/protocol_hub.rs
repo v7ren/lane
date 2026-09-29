@@ -339,6 +339,7 @@ mod tests {
                 session_id: Some("s".into()),
                 cwd: None,
                 codex: None,
+                connect_pane_id: None,
             },
         )
         .expect("register");
@@ -369,6 +370,7 @@ mod tests {
                 session_id: None,
                 cwd: None,
                 codex: None,
+                connect_pane_id: None,
             },
         )
         .expect("register");
@@ -410,6 +412,7 @@ mod tests {
                 session_id: Some("s".into()),
                 cwd: None,
                 codex: None,
+                connect_pane_id: None,
             },
         )
         .expect("register");
