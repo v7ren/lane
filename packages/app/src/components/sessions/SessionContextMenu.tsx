@@ -15,6 +15,15 @@ export function SessionContextMenu({
 }) {
   const actions = useSessionActions();
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, open]);
+
   if (!open) return null;
 
   const confirmDelete = () => {

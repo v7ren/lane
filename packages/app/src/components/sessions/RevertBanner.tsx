@@ -1,22 +1,31 @@
-import { useSelectedSession } from '../../lib/shell-data';
-import { useSessionActions } from '../../lib/sessions/session-actions-context';
+import { opencodeSessionActions } from '../../lib/sessions/opencode-session-actions';
 
-export function RevertBanner() {
-  const session = useSelectedSession();
-  const actions = useSessionActions();
+/**
+ * Shown above the agent transcript when a session has undone messages.
+ *
+ * @example
+ * ```tsx
+ * <RevertBanner paneId={paneId} sessionId={sessionId} />
+ * ```
+ */
+export type RevertBannerProps = {
+  /** OpenCode pane id (Tauri proxy scope). */
+  paneId: string;
+  /** OpenCode session id with an active revert state. */
+  sessionId: string;
+};
 
-  if (!session?.reverted || !session.sessionId) return null;
-
+export function RevertBanner({ paneId, sessionId }: RevertBannerProps) {
   return (
     <div
-      className="mx-2 mt-2 rounded-sm border border-lr-warn/40 bg-lr-warn/10 px-2 py-1.5 flex items-center justify-between gap-2"
+      className="mx-3 mt-2 mb-1 rounded-sm border border-lr-warn/40 bg-lr-warn/10 px-3 py-2 flex items-center justify-between gap-3 shrink-0"
       data-testid="revert-banner"
     >
-      <span className="text-meta text-text-2">Session has reverted messages</span>
+      <span className="text-meta text-text-2">Some messages were undone</span>
       <button
         type="button"
-        className="text-meta text-accent hover:underline"
-        onClick={() => void actions.unrevertSession(session.paneId, session.sessionId!)}
+        className="text-meta text-accent hover:underline shrink-0"
+        onClick={() => void opencodeSessionActions.unrevertSession(paneId, sessionId)}
       >
         Redo
       </button>

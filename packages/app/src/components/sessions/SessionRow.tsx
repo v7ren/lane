@@ -4,7 +4,6 @@ import {
   DISPLAY_STATUS_LABEL,
   displayStatusRailAccentClass,
   displayStatusRailSurfaceClass,
-  displayStatusTextClass,
 } from '../../lib/display-status';
 import { formatRelativeTime } from '../../lib/sessions/filter-sort';
 import { useSessionActions } from '../../lib/sessions/session-actions-context';
@@ -31,12 +30,19 @@ export function SessionRow({
     if (renaming) inputRef.current?.focus();
   }, [renaming]);
 
-  const depthPad = (session.depth ?? 0) * 12;
+  const depthPad = (session.depth ?? 0) * 10;
+  const metaLine = [
+    DISPLAY_STATUS_LABEL[session.status],
+    formatRelativeTime(session.updatedAt),
+    session.lastMessagePreview,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <div
-      className={`relative mx-1 max-w-[calc(100%-0.5rem)] rounded-sm border-l-2 ${displayStatusRailAccentClass(session.status)} ${displayStatusRailSurfaceClass(session.status, selected)}`}
-      style={{ marginLeft: `${4 + depthPad}px` }}
+      className={`group relative min-w-0 rounded-sm border-l-2 ${displayStatusRailAccentClass(session.status)} ${displayStatusRailSurfaceClass(session.status, selected)}`}
+      style={{ marginLeft: `${4 + depthPad}px`, marginRight: 4 }}
       data-testid="session-row"
       data-session-id={session.sessionId ?? session.id}
     >
@@ -61,10 +67,10 @@ export function SessionRow({
             }
             setRenaming(false);
           }}
-          className="w-full px-2 py-1 text-meta bg-transparent outline-none"
+          className="w-full min-w-0 px-2 py-1.5 text-meta bg-transparent outline-none"
         />
       ) : (
-        <div className="flex items-start gap-0.5">
+        <>
           <button
             type="button"
             onClick={onSelect}
@@ -72,37 +78,36 @@ export function SessionRow({
               e.preventDefault();
               setMenuOpen(true);
             }}
-            className="flex-1 text-left px-2 py-1 flex flex-col gap-0.5 min-w-0"
+            className="w-full min-w-0 text-left px-2 py-1.5 pr-7"
           >
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0 w-full">
               <DisplayStatusDot status={session.status} pulse={session.status === 'needs_approval'} />
-              <span className="text-meta font-medium text-text truncate flex-1">{session.title}</span>
+              <span className="text-meta font-medium text-text truncate min-w-0 flex-1">
+                {session.title}
+              </span>
               {session.unread && (
                 <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" aria-label="Unread" />
               )}
-              <span className={`text-[10px] shrink-0 ${displayStatusTextClass(session.status)}`}>
-                {DISPLAY_STATUS_LABEL[session.status]}
-              </span>
-              <span className="text-[10px] text-text-3 shrink-0">
-                {formatRelativeTime(session.updatedAt)}
-              </span>
+              {session.reverted && (
+                <span className="shrink-0 text-[10px] uppercase tracking-wide text-lr-warn px-1 rounded bg-lr-warn/15">
+                  reverted
+                </span>
+              )}
             </div>
-            {session.lastMessagePreview && (
-              <p className="text-[10px] text-text-3 truncate pl-5">{session.lastMessagePreview}</p>
-            )}
-            {session.workspaceLabel && session.depth === 0 && (
-              <p className="text-[10px] text-text-3 truncate pl-5">{session.workspaceLabel}</p>
-            )}
+            <p className="text-[11px] leading-snug text-text-3 truncate pl-[18px] mt-0.5">{metaLine}</p>
           </button>
           <button
             type="button"
             aria-label="Session menu"
-            className="p-1 m-1 rounded hover:bg-hover text-text-3 shrink-0"
-            onClick={() => setMenuOpen((v) => !v)}
+            className="absolute right-1 top-1.5 p-0.5 rounded opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:bg-hover text-text-3 transition-opacity"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen((v) => !v);
+            }}
           >
             <MoreHorizontal size={14} strokeWidth={1.5} />
           </button>
-        </div>
+        </>
       )}
       <SessionContextMenu
         session={session}

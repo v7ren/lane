@@ -5,11 +5,13 @@ import { chromium } from 'playwright';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = path.join(root, 'docs', 'screenshots');
+const PORT = Number(process.env.P4_SCREENSHOT_PORT ?? 5199);
+const BASE = `http://127.0.0.1:${PORT}`;
 
-async function shot(page, name) {
+async function shot(page, url, name, waitFor) {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('http://127.0.0.1:5173/?demo', { waitUntil: 'networkidle' });
-  await page.waitForSelector('[data-testid="sidebar-sessions"]');
+  await page.goto(url, { waitUntil: 'networkidle' });
+  if (waitFor) await page.waitForSelector(waitFor);
   await page.screenshot({ path: path.join(outDir, name) });
 }
 
@@ -18,25 +20,34 @@ async function main() {
   const browser = await chromium.launch();
   const page = await browser.newPage();
 
-  await shot(page, 'sessions-sidebar.png');
+  await shot(page, `${BASE}/?demo`, 'sessions-sidebar.png', '[data-testid="sidebar-sessions"]');
 
-  await page.fill('[data-testid="session-search"]', 'MCP');
-  await page.screenshot({ path: path.join(outDir, 'sessions-sidebar.png') });
-
+  await page.locator('[data-testid="session-row"]').first().hover();
   await page.locator('[data-testid="session-row"]').first().locator('button[aria-label="Session menu"]').click();
   await page.waitForSelector('[data-testid="session-context-menu"]');
   await page.screenshot({ path: path.join(outDir, 'session-menu.png') });
 
   await page.keyboard.press('Escape');
-  await page.locator('[data-testid="right-rail"] button', { hasText: 'Session' }).click();
-  await page.screenshot({ path: path.join(outDir, 'right-rail-session.png') });
+  await shot(
+    page,
+    `${BASE}/?demo&rail=session`,
+    'right-rail-session.png',
+    '[data-testid="right-rail-session"]',
+  );
 
-  await page.locator('[data-testid="right-rail"] button', { hasText: 'Environment' }).click();
-  await page.screenshot({ path: path.join(outDir, 'right-rail-environment.png') });
+  await shot(
+    page,
+    `${BASE}/?demo&rail=environment`,
+    'right-rail-environment.png',
+    '[data-testid="right-rail-environment"]',
+  );
 
-  await page.locator('[data-testid="session-row"]').first().click();
-  await page.waitForSelector('[data-testid="revert-banner"]');
-  await page.screenshot({ path: path.join(outDir, 'revert-banner.png') });
+  await shot(
+    page,
+    `${BASE}/?demo&revert=1&session=demo-sess-parent&panel=open&bottom=agent`,
+    'revert-banner.png',
+    '[data-testid="revert-banner"]',
+  );
 
   await browser.close();
 }

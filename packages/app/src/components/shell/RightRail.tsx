@@ -1,18 +1,32 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DISPLAY_STATUS_LABEL } from '../../lib/display-status';
+import { readDemoUrlFlags } from '../../lib/demo-mode';
+import { useDemoFixtures } from '../../lib/demo/DemoContext';
 import {
   useEnvironment,
   useSelectedSession,
   useSessionSummary,
 } from '../../lib/shell-data';
+import { pathBasename } from '../../lib/sessions/workspace-groups';
 
 type Tab = 'session' | 'environment';
 
+function initialRightRailTab(demo: boolean): Tab {
+  if (!demo || typeof window === 'undefined') return 'session';
+  return readDemoUrlFlags().rightRailTab;
+}
+
 export function RightRail() {
-  const [tab, setTab] = useState<Tab>('session');
+  const demo = useDemoFixtures();
+  const [tab, setTab] = useState<Tab>(() => initialRightRailTab(Boolean(demo)));
   const session = useSelectedSession();
   const summary = useSessionSummary(session);
   const env = useEnvironment();
+
+  const directoryLabel = useMemo(() => {
+    if (!env.directory) return '—';
+    return pathBasename(env.directory);
+  }, [env.directory]);
 
   return (
     <aside
@@ -69,11 +83,16 @@ export function RightRail() {
         )}
         {tab === 'environment' && (
           <div className="space-y-3" data-testid="right-rail-environment">
-            <Field label="Directory" value={env.directory ?? '—'} mono />
+            <Field
+              label="Directory"
+              value={directoryLabel}
+              mono
+              title={env.directory ?? undefined}
+            />
             <Field label="Branch" value={env.branch ?? '—'} />
             <Field label="OpenCode server" value={env.serverUrl ?? '—'} mono />
             <Field label="Server status" value={env.serverStatus ?? '—'} />
-            <Field label="MCP" value={env.mcpSummary ?? '—'} />
+            <Field label="MCP servers" value={env.mcpSummary ?? '—'} />
             <Field label="LSP" value={env.lspSummary ?? '—'} />
           </div>
         )}
@@ -110,15 +129,22 @@ function Field({
   label,
   value,
   mono,
+  title,
 }: {
   label: string;
   value: string;
   mono?: boolean;
+  title?: string;
 }) {
   return (
     <div>
       <div className="text-section-label text-text-3 mb-0.5">{label}</div>
-      <div className={`text-meta text-text-2 break-all ${mono ? 'font-mono' : ''}`}>{value}</div>
+      <div
+        className={`text-meta text-text-2 break-all ${mono ? 'font-mono text-[11px]' : ''}`}
+        title={title}
+      >
+        {value}
+      </div>
     </div>
   );
 }

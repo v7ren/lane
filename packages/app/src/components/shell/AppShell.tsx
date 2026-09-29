@@ -35,6 +35,7 @@ import { ResizableSplitter } from './ResizableSplitter';
 import { RightRail } from './RightRail';
 import { ShellTitleBar, EditorTabsSlot } from './ShellTitleBar';
 import { SidebarPanel } from './SidebarPanel';
+import { RevertBanner } from '../sessions/RevertBanner';
 
 export type AppShellProps = {
   agentCatalog: AgentCatalog;
@@ -101,6 +102,7 @@ function AppShellInner({
       shell.setRightRailOpen(true);
     }
     if (flags.bottomTab === 'terminal') shell.setBottomTab('terminal');
+    if (flags.openBottomPanel) patchLayout({ bottomPanelCollapsed: false });
     // Demo URL flags apply once per variant load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demo?.variant]);
@@ -360,6 +362,7 @@ function AppShellChrome(props: {
     setShowTui,
     onNewSession,
     onClosePane,
+    demo,
     shell,
     layout,
     patchLayout,
@@ -601,7 +604,17 @@ function AppShellChrome(props: {
                   }
                   agentContent={
                     selectedPaneId ? (
-                      <div className="relative flex flex-1 min-h-0 flex-row z-[1]">
+                      <div className="relative flex flex-1 min-h-0 flex-col z-[1]">
+                        {demo &&
+                          readDemoUrlFlags().showRevertBanner &&
+                          selectedSession?.sessionId &&
+                          selectedSession.reverted && (
+                            <RevertBanner
+                              paneId={selectedSession.paneId}
+                              sessionId={selectedSession.sessionId}
+                            />
+                          )}
+                        <div className="relative flex flex-1 min-h-0 flex-row">
                         <AgentView
                           embedded
                           paneId={selectedPaneId}
@@ -634,6 +647,7 @@ function AppShellChrome(props: {
                             }}
                           />
                         )}
+                        </div>
                       </div>
                     ) : (
                       <AgentPanelEmpty onStartAgent={() => setNewPaneOpen(true)} />

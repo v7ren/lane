@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { Message, Session } from '@loomria/shared/opencode';
+import { getOpenCodeTransport } from './opencode-transport';
 
 export type OpenCodeRequestArgs = {
   pane_id: string;
@@ -10,6 +11,8 @@ export type OpenCodeRequestArgs = {
 };
 
 async function request<T = unknown>(args: OpenCodeRequestArgs): Promise<T> {
+  const custom = getOpenCodeTransport();
+  if (custom) return custom<T>(args);
   return invoke<T>('opencode_request', { args });
 }
 
@@ -96,6 +99,31 @@ export const opencodeSessionActions = {
 
   listMessages: (paneId: string, sessionId: string) =>
     request<Message[]>({ pane_id: paneId, method: 'GET', path: `/session/${sessionId}/message` }),
+
+  promptAsync: (
+    paneId: string,
+    sessionId: string,
+    body: {
+      parts: { type: 'text'; text: string }[];
+      agent?: string;
+      model?: { providerID: string; modelID: string };
+    },
+  ) =>
+    request<null>({
+      pane_id: paneId,
+      method: 'POST',
+      path: `/session/${sessionId}/prompt_async`,
+      body,
+    }),
+
+  getSession: (paneId: string, sessionId: string) =>
+    request<Session>({ pane_id: paneId, method: 'GET', path: `/session/${sessionId}` }),
+
+  listSessions: (paneId: string) =>
+    request<Session[]>({ pane_id: paneId, method: 'GET', path: '/session' }),
+
+  getSessionStatus: (paneId: string) =>
+    request<Record<string, string>>({ pane_id: paneId, method: 'GET', path: '/session/status' }),
 
   getVcsBranch: (paneId: string) =>
     request<{ branch?: string }>({ pane_id: paneId, method: 'GET', path: '/vcs' }),

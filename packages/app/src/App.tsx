@@ -57,6 +57,8 @@ export default function App() {
     } else if (demo.variant === 'empty') {
       setSelectedPaneId(null);
     }
+    if (flags.sessionId) setSelectedSessionId(flags.sessionId);
+    else if (flags.showRevertBanner) setSelectedSessionId('demo-sess-parent');
     if (flags.showTui) setShowTui(true);
   }, [demo]);
 

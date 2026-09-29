@@ -6,10 +6,22 @@ vi.mock('@tauri-apps/api/core', () => ({
 
 import { invoke } from '@tauri-apps/api/core';
 import { opencodeSessionActions, forkAt } from './opencode-session-actions';
+import { setOpenCodeTransport } from './opencode-transport';
 
 describe('opencodeSessionActions', () => {
   beforeEach(() => {
+    setOpenCodeTransport(null);
     vi.mocked(invoke).mockReset();
+  });
+
+  it('uses injected transport when set', async () => {
+    const transport = vi.fn().mockResolvedValue({ id: 'via-http' });
+    setOpenCodeTransport(transport);
+    await opencodeSessionActions.listSessions('pane-1');
+    expect(transport).toHaveBeenCalledWith(
+      expect.objectContaining({ method: 'GET', path: '/session', pane_id: 'pane-1' }),
+    );
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it('POST /session create', async () => {

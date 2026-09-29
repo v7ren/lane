@@ -1,5 +1,9 @@
 import type { ShellSession } from '../shell-data';
 
+const ROOT = 'C:\\Users\\demo\\loomria';
+const WEB = `${ROOT}\\packages\\web`;
+const API = `${ROOT}\\packages\\api`;
+
 /** Demo OpenCode sessions for ?demo sidebar screenshots. */
 export function buildDemoOpenCodeSessions(paneId: string): ShellSession[] {
   const now = Date.now();
@@ -16,8 +20,8 @@ export function buildDemoOpenCodeSessions(paneId: string): ShellSession[] {
       unread: false,
       reverted: true,
       lastMessagePreview: 'Checking opencode_request allowlist coverage…',
-      workspaceDirectory: 'C:\\Users\\demo\\loomria',
-      workspaceLabel: 'loomria',
+      workspaceDirectory: WEB,
+      workspaceLabel: 'web',
       depth: 0,
     },
     {
@@ -31,8 +35,8 @@ export function buildDemoOpenCodeSessions(paneId: string): ShellSession[] {
       updatedAt: now - 360_000,
       unread: true,
       lastMessagePreview: 'Summarized tool output for /mcp',
-      workspaceDirectory: 'C:\\Users\\demo\\loomria',
-      workspaceLabel: 'loomria',
+      workspaceDirectory: WEB,
+      workspaceLabel: 'web',
       depth: 1,
     },
     {
@@ -46,8 +50,8 @@ export function buildDemoOpenCodeSessions(paneId: string): ShellSession[] {
       unread: true,
       reverted: true,
       lastMessagePreview: 'Run npm run test --workspace=@loomria/app?',
-      workspaceDirectory: 'C:\\Users\\demo\\loomria',
-      workspaceLabel: 'loomria',
+      workspaceDirectory: API,
+      workspaceLabel: 'api',
     },
     {
       id: 'demo-sess-share',
@@ -59,7 +63,7 @@ export function buildDemoOpenCodeSessions(paneId: string): ShellSession[] {
       updatedAt: now - 86_400_000,
       unread: false,
       shareUrl: 'https://share.opencode.ai/demo-link',
-      workspaceDirectory: 'C:\\Users\\demo\\loomria',
+      workspaceDirectory: ROOT,
       workspaceLabel: 'loomria',
     },
   ];
@@ -67,11 +71,11 @@ export function buildDemoOpenCodeSessions(paneId: string): ShellSession[] {
 
 export function demoEnvironment() {
   return {
-    directory: 'C:\\Users\\demo\\loomria',
+    directory: WEB,
     branch: 'rebuild/p4-sessions',
     serverUrl: 'http://127.0.0.1:4096',
     serverStatus: 'connected' as const,
-    mcpSummary: '2 servers · 14 tools',
+    mcpSummary: 'context7 · cursor-ide-browser (14 tools)',
     lspSummary: 'typescript · rust-analyzer',
   };
 }
