@@ -8,6 +8,8 @@ import {
 } from '@loomria/shared';
 import { useTerminalSession } from '../hooks/useTerminalSession';
 import type { PaneData } from '../hooks/usePaneRegistry';
+import type { DisplayStatus } from '../lib/display-status';
+import { DisplayStatusDot } from './DisplayStatusDot';
 
 interface Props {
   agentCatalog: AgentCatalog;
@@ -15,18 +17,12 @@ interface Props {
   subscribePaneData: (paneId: string, cb: (data: Uint8Array) => void) => () => void;
   onClose: (paneId: string) => void;
   onPopOut?: (paneId: string, size?: { width: number; height: number }) => void;
-  onSwitchAgent: (paneId: string, agentType: AgentId) => Promise<void>;
-  onOpenChat?: (paneId: string) => void;
-  syncPTYResize?: boolean;
+  onSwitchAgent: (paneId: string, agentType: AgentId) => void | Promise<void>;
+  onOpenAgent?: (paneId: string) => void;
   reflowKey?: number | string;
+  displayStatus?: DisplayStatus;
+  compactChrome?: boolean;
 }
-
-const STATUS_COLOR: Record<string, string> = {
-  running: 'bg-pm-ok',
-  waiting_input: 'bg-pm-warn',
-  idle: 'bg-pm-muted',
-  error: 'bg-pm-err',
-};
 
 function switchPresetsFor(catalog: AgentCatalog, agent: AgentId): AgentPreset[] {
   const launchPresets = listLaunchPresets(catalog);
@@ -37,6 +33,14 @@ function switchPresetsFor(catalog: AgentCatalog, agent: AgentId): AgentPreset[] 
   return current ? [current, ...launchPresets] : launchPresets;
 }
 
+function paneDisplayStatus(pane: PaneData, override?: DisplayStatus): DisplayStatus {
+  if (override) return override;
+  if (pane.status === 'waiting_input') return 'needs_approval';
+  if (pane.status === 'running') return 'working';
+  if (pane.status === 'error') return 'error';
+  return 'idle';
+}
+
 export function TerminalPane({
   agentCatalog,
   pane,
@@ -44,9 +48,10 @@ export function TerminalPane({
   onClose,
   onPopOut,
   onSwitchAgent,
-  onOpenChat,
-  syncPTYResize = true,
+  onOpenAgent,
   reflowKey,
+  displayStatus,
+  compactChrome = false,
 }: Props) {
   const [switching, setSwitching] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -54,13 +59,13 @@ export function TerminalPane({
     paneId: pane.info.id,
     sessionKey: pane.info.created_at,
     subscribePaneData,
-    syncPTYResize,
     reflowKey,
   });
 
   const agent = pane.info.agent_type;
   const presets = switchPresetsFor(agentCatalog, agent);
   const preset = presets.find((p) => p.type === agent);
+  const status = paneDisplayStatus(pane, displayStatus);
 
   const handleAgentChange = async (next: AgentId) => {
     if (next === agent || switching) return;
@@ -73,68 +78,72 @@ export function TerminalPane({
   };
 
   return (
-    <div ref={rootRef} className="flex flex-col h-full rounded border border-pm-border bg-pm-bg overflow-hidden relative">
+    <div
+      ref={rootRef}
+      className="flex flex-col h-full rounded-lg border border-lr-border bg-lr-bg overflow-hidden relative"
+    >
       {switching && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-pm-bg/80 text-xs text-pm-muted">
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-lr-bg/80 text-xs text-lr-muted">
           Switching agent…
         </div>
       )}
-      <div className="flex items-center gap-2 px-2 py-1 border-b border-pm-border bg-pm-panel text-xs text-pm-text">
-        <span
-          className={`inline-block w-2 h-2 rounded-full ${STATUS_COLOR[pane.status] ?? 'bg-pm-muted'}`}
-          title={pane.status}
-        />
-        <select
-          className="bg-pm-bg border border-pm-border rounded px-1 py-0.5 text-xs disabled:opacity-50"
-          value={agent}
-          disabled={switching}
-          onChange={(e) => void handleAgentChange(e.target.value)}
-        >
-          {presets.map((p) => (
-            <option key={p.type} value={p.type}>
-              {p.label}
-            </option>
-          ))}
-        </select>
-        <span className="text-pm-muted truncate" title={pane.info.cwd}>
-          {preset?.label ?? pane.info.agent_type} · pid {pane.info.pid}
-        </span>
-        <div className="flex-1" />
-        {onOpenChat && pane.info.agent_type === 'opencode_native' && (
-          <button
-            type="button"
-            className="px-1.5 py-0.5 rounded text-pm-muted hover:text-pm-text hover:bg-pm-border/40"
-            title="Open chat composer (API)"
-            onClick={() => onOpenChat(pane.info.id)}
+      {!compactChrome && (
+        <div className="flex items-center gap-2 px-2 py-1 border-b border-lr-border bg-lr-panel text-xs text-lr-text">
+          <DisplayStatusDot status={status} pulse={status === 'needs_approval'} />
+          <select
+            className="bg-lr-bg border border-lr-border rounded px-1 py-0.5 text-xs disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-lr-accent/40"
+            value={agent}
+            disabled={switching}
+            aria-label="Agent type"
+            onChange={(e) => void handleAgentChange(e.target.value as AgentId)}
           >
-            Chat
-          </button>
-        )}
-        {onPopOut && (
+            {presets.map((p) => (
+              <option key={p.type} value={p.type}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+          <span className="text-lr-muted truncate" title={pane.info.cwd}>
+            {preset?.label ?? pane.info.agent_type} · pid {pane.info.pid}
+          </span>
+          <div className="flex-1" />
+          {onOpenAgent && (
+            <button
+              type="button"
+              className="px-1.5 py-0.5 rounded text-lr-muted hover:text-lr-text hover:bg-lr-border/40"
+              title="Open Agent Mode"
+              onClick={() => onOpenAgent(pane.info.id)}
+            >
+              Agent
+            </button>
+          )}
+          {onPopOut && (
+            <button
+              className="px-1.5 py-0.5 rounded text-lr-muted hover:text-lr-text hover:bg-lr-border/40"
+              title="Pop out pane"
+              onClick={() => {
+                const rect =
+                  containerRef.current?.getBoundingClientRect() ??
+                  rootRef.current?.getBoundingClientRect();
+                onPopOut(
+                  pane.info.id,
+                  rect ? { width: rect.width, height: rect.height } : undefined,
+                );
+              }}
+            >
+              ↗
+            </button>
+          )}
           <button
-            className="px-1.5 py-0.5 rounded text-pm-muted hover:text-pm-text hover:bg-pm-border/40"
-            title="Pop out pane"
-            onClick={() => {
-              const rect =
-                containerRef.current?.getBoundingClientRect() ??
-                rootRef.current?.getBoundingClientRect();
-              onPopOut(
-                pane.info.id,
-                rect ? { width: rect.width, height: rect.height } : undefined,
-              );
-            }}
+            className="px-1.5 py-0.5 rounded text-lr-muted hover:text-lr-err hover:bg-lr-err/10"
+            title="Kill pane"
+            aria-label="Kill pane"
+            onClick={() => onClose(pane.info.id)}
           >
-            ↗
+            ✕
           </button>
-        )}
-        <button
-          className="px-1.5 py-0.5 rounded text-pm-muted hover:text-pm-err hover:bg-pm-err/10"
-          title="Kill pane"
-          onClick={() => onClose(pane.info.id)}
-        >
-          ✕
-        </button>
-      </div>
+        </div>
+      )}
       <div className="relative flex-1 min-h-0">
         <div ref={containerRef} className="h-full overflow-hidden terminal-host" />
       </div>

@@ -1,14 +1,21 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AgentId } from '@loomria/shared';
+import { getPreset } from '@loomria/shared';
+import { AgentView } from './components/agent/AgentView';
+import { EmptyWorkspace } from './components/EmptyWorkspace';
+import { PersistentPaneSurfaces } from './components/PersistentPaneSurfaces';
+import { SessionRail } from './components/SessionRail';
+import { SettingsPanel } from './components/SettingsPanel';
+import { StatusLegend } from './components/StatusLegend';
 import { WorkspaceHeader } from './components/WorkspaceHeader';
 import { useAgentCatalog } from './hooks/useAgentCatalog';
-import { useSessionRail } from './hooks/useSessionRail';
-import { SessionRail } from './components/SessionRail';
-import { ChatDrawer } from './components/chat/ChatDrawer';
-import { TerminalGrid } from './components/TerminalGrid';
-import { SettingsPanel } from './components/SettingsPanel';
+import { useAppKeyboard } from './hooks/useAppKeyboard';
 import { usePaneRegistry } from './hooks/usePaneRegistry';
 import { useProjectPath } from './hooks/useProjectPath';
+import { useSessionNotifications } from './hooks/useSessionNotifications';
+import { useSessionRail } from './hooks/useSessionRail';
+import { useWorkspaceMode } from './hooks/useWorkspaceMode';
+import { isSessionMuted } from './lib/session-notify-prefs';
 import { loadSettings, saveSettings, syncPublicSettingsToBridge } from './lib/settings';
 import { tauri } from './lib/tauri';
 
@@ -16,28 +23,34 @@ export default function App() {
   const registry = usePaneRegistry();
   const agentCatalog = useAgentCatalog();
   const sessionStates = useSessionRail();
-  const [chatPaneId, setChatPaneId] = useState<string | null>(null);
+  const {
+    mode,
+    agentPaneId,
+    showTui,
+    setShowTui,
+    enterAgentMode,
+    exitToWorkspace,
+    toggleMode,
+    setAgentPaneId,
+  } = useWorkspaceMode();
   const { projectPath, setProjectPath } = useProjectPath();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [layoutEpoch, setLayoutEpoch] = useState(0);
+  const [railConnecting, setRailConnecting] = useState(true);
+  const [mutedMap, setMutedMap] = useState<Record<string, boolean>>({});
+
+  const panes = registry.paneList.filter((p) => !p.info.id.startsWith('loomria-orchestrator-'));
+  useEffect(() => {
+    const t = window.setTimeout(() => setRailConnecting(false), 2500);
+    if (sessionStates.size > 0) setRailConnecting(false);
+    return () => window.clearTimeout(t);
+  }, [sessionStates.size]);
 
   useEffect(() => {
     void syncPublicSettingsToBridge();
     let unlistenApply: (() => void) | null = null;
-    void tauri.onSettingsApply(async (patch) => {
-      if (
-        typeof patch.mobile_input_delay_ms === 'number' ||
-        typeof patch.mobile_input_visible === 'boolean'
-      ) {
-        const current = await loadSettings();
-        const merged = { ...current };
-        if (typeof patch.mobile_input_delay_ms === 'number') {
-          merged.mobile_input_delay_ms = patch.mobile_input_delay_ms;
-        }
-        if (typeof patch.mobile_input_visible === 'boolean') {
-          merged.mobile_input_visible = patch.mobile_input_visible;
-        }
-        await saveSettings(merged);
-      }
+    void tauri.onSettingsApply(async () => {
+      await loadSettings();
     }).then((fn) => {
       unlistenApply = fn;
     });
@@ -46,39 +59,126 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!agentPaneId) return;
+    void isSessionMuted(agentPaneId).then((muted) => {
+      setMutedMap((prev) => ({ ...prev, [agentPaneId]: muted }));
+    });
+  }, [agentPaneId]);
+
+  useEffect(() => {
+    setLayoutEpoch((n) => n + 1);
+  }, [mode, showTui, agentPaneId]);
+
+  useSessionNotifications(sessionStates, mode, agentPaneId);
+
+  const paneTitles = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const pane of panes) {
+      const label = getPreset(agentCatalog, pane.info.agent_type)?.label ?? pane.info.agent_type;
+      m.set(pane.info.id, label);
+    }
+    return m;
+  }, [agentCatalog, panes]);
+
+  const selectedPane = panes.find((p) => p.info.id === agentPaneId);
+  const sessionForAgent = agentPaneId ? sessionStates.get(agentPaneId) : undefined;
+
   const handleClose = async (paneId: string) => {
     await registry.killPane(paneId);
+    if (agentPaneId === paneId) {
+      setAgentPaneId(null);
+      exitToWorkspace();
+    }
   };
 
   const handleNewSession = async (agent: AgentId) => {
-    await registry.spawnPane({ agent_type: agent, cwd: projectPath ?? undefined });
+    const id = await registry.spawnPane({ agent_type: agent, cwd: projectPath ?? undefined });
+    if (id) enterAgentMode(id);
   };
 
+  const jumpApproval = useCallback(
+    (paneId: string) => {
+      enterAgentMode(paneId);
+    },
+    [enterAgentMode],
+  );
+
+  useAppKeyboard({
+    mode,
+    sessionStates,
+    agentPaneId,
+    onToggleMode: () => {
+      if (mode === 'workspace' && agentPaneId) enterAgentMode(agentPaneId);
+      else if (mode === 'agent') exitToWorkspace();
+      else toggleMode();
+    },
+    onJumpApproval: jumpApproval,
+    onApproveTop: () => {},
+    onDenyTop: () => {},
+  });
+
+  const showEmpty = panes.length === 0;
+
   return (
-    <div className="flex flex-col h-full">
-      <SessionRail states={sessionStates} />
-      <WorkspaceHeader
+    <div className="flex h-full min-h-0 lr-app-shell">
+      <SessionRail
+        states={sessionStates}
         agentCatalog={agentCatalog}
-        projectPath={projectPath}
-        onProjectPathChange={setProjectPath}
-        onKillAll={() => void registry.killAll()}
-        onNewSession={handleNewSession}
-        onOpenSettings={() => setSettingsOpen(true)}
+        paneTitles={paneTitles}
+        selectedPaneId={agentPaneId}
+        connecting={railConnecting}
+        onSelect={enterAgentMode}
       />
-      <div className="flex flex-1 min-h-0">
-        <TerminalGrid
+      <div className="flex flex-col flex-1 min-w-0 min-h-0">
+        <WorkspaceHeader
           agentCatalog={agentCatalog}
-          registry={registry}
           projectPath={projectPath}
-          onClosePane={handleClose}
-          onOpenChat={setChatPaneId}
+          mode={mode}
+          canEnterAgent={Boolean(agentPaneId ?? panes[0]?.info.id)}
+          onModeToggle={() => {
+            const target = agentPaneId ?? panes[0]?.info.id;
+            if (mode === 'workspace' && target) enterAgentMode(target);
+            else exitToWorkspace();
+          }}
+          onProjectPathChange={setProjectPath}
+          onKillAll={() => void registry.killAll()}
+          onNewSession={handleNewSession}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
-        <ChatDrawer
-          paneId={chatPaneId}
-          open={chatPaneId !== null}
-          sessionState={chatPaneId ? sessionStates.get(chatPaneId) ?? null : null}
-          onClose={() => setChatPaneId(null)}
-        />
+        <div
+          className={`flex flex-1 min-h-0 lr-mode-transition ${mode === 'agent' ? 'flex-row' : 'flex-col'}`}
+        >
+          {mode === 'agent' && agentPaneId && (
+            <AgentView
+              paneId={agentPaneId}
+              agentCatalog={agentCatalog}
+              paneStatus={selectedPane?.status}
+              sessionState={sessionForAgent ?? null}
+              showTui={showTui}
+              onToggleTui={() => setShowTui((v) => !v)}
+              onExitWorkspace={exitToWorkspace}
+              muted={Boolean(mutedMap[agentPaneId])}
+              onMutedChange={(muted) => setMutedMap((prev) => ({ ...prev, [agentPaneId]: muted }))}
+            />
+          )}
+          <PersistentPaneSurfaces
+            mode={mode}
+            agentPaneId={agentPaneId}
+            showTui={showTui}
+            layoutEpoch={layoutEpoch}
+            agentCatalog={agentCatalog}
+            registry={registry}
+            projectPath={projectPath}
+            sessionStates={sessionStates}
+            onClosePane={(id) => void handleClose(id)}
+            onEnterAgent={enterAgentMode}
+          />
+        </div>
+        {showEmpty && (
+          <EmptyWorkspace agentCatalog={agentCatalog} onLaunch={(a) => void handleNewSession(a)} />
+        )}
+        <StatusLegend compact />
       </div>
       <SettingsPanel
         open={settingsOpen}

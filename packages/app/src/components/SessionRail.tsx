@@ -1,30 +1,107 @@
+import { getPreset, type AgentCatalog } from '@loomria/shared';
 import type { SessionRailState } from '../hooks/useSessionRail';
+import {
+  DISPLAY_STATUS_LABEL,
+  DISPLAY_STATUS_ORDER,
+  mergePaneAndSessionStatus,
+  type DisplayStatus,
+} from '../lib/display-status';
+import { DisplayStatusDot } from './DisplayStatusDot';
 
-const LABEL: Record<string, string> = {
-  needs_approval: 'Needs approval',
-  working: 'Working',
-  idle: 'Idle',
-  done: 'Done',
-  error: 'Error',
-  rate_limited: 'Rate limited',
-};
+function sessionTitle(
+  row: SessionRailState,
+  agentCatalog: AgentCatalog,
+  paneTitles: Map<string, string>,
+): string {
+  const fromPane = paneTitles.get(row.pane_id);
+  if (fromPane) return fromPane;
+  if (row.agent_type) {
+    const preset = getPreset(agentCatalog, row.agent_type as never);
+    if (preset) return preset.label;
+  }
+  return `Session ${row.pane_id.slice(0, 8)}`;
+}
 
-export function SessionRail({ states }: { states: Map<string, SessionRailState> }) {
-  const rows = [...states.values()].sort((a, b) => b.updated_at_ms - a.updated_at_ms);
-  if (rows.length === 0) return null;
+function sortRows(rows: SessionRailState[]): SessionRailState[] {
+  return [...rows].sort((a, b) => {
+    const sa = DISPLAY_STATUS_ORDER[mergePaneAndSessionStatus(null, a.state)] ?? 99;
+    const sb = DISPLAY_STATUS_ORDER[mergePaneAndSessionStatus(null, b.state)] ?? 99;
+    if (sa !== sb) return sa - sb;
+    return b.updated_at_ms - a.updated_at_ms;
+  });
+}
+
+export function SessionRail({
+  states,
+  agentCatalog,
+  paneTitles,
+  selectedPaneId,
+  connecting,
+  onSelect,
+}: {
+  states: Map<string, SessionRailState>;
+  agentCatalog: AgentCatalog;
+  paneTitles: Map<string, string>;
+  selectedPaneId: string | null;
+  connecting?: boolean;
+  onSelect: (paneId: string) => void;
+}) {
+  const rows = sortRows([...states.values()]);
 
   return (
-    <div className="flex gap-2 px-3 py-1 border-b border-pm-border bg-pm-panel/80 text-xs overflow-x-auto shrink-0">
-      {rows.map((row) => (
-        <span
-          key={row.pane_id}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-pm-border whitespace-nowrap"
-          title={row.detail ?? row.pane_id}
-        >
-          <span className="font-mono text-pm-muted">{row.pane_id.slice(0, 8)}</span>
-          <span>{LABEL[row.state] ?? row.state}</span>
-        </span>
-      ))}
-    </div>
+    <aside
+      className="w-52 shrink-0 border-r border-lr-border bg-lr-panel flex flex-col min-h-0"
+      aria-label="Sessions"
+    >
+      <div className="px-3 py-2 border-b border-lr-border text-[11px] font-semibold uppercase tracking-wide text-lr-muted">
+        Sessions
+      </div>
+      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        {connecting && rows.length === 0 && (
+          <p className="text-xs text-lr-muted px-2 py-4">Connecting to session feed…</p>
+        )}
+        {!connecting && rows.length === 0 && (
+          <p className="text-xs text-lr-muted px-2 py-4">No active sessions yet.</p>
+        )}
+        {rows.map((row) => {
+          const status: DisplayStatus = mergePaneAndSessionStatus(null, row.state);
+          const selected = row.pane_id === selectedPaneId;
+          const title = sessionTitle(row, agentCatalog, paneTitles);
+          const agentLabel = row.agent_type
+            ? getPreset(agentCatalog, row.agent_type as never)?.label ?? row.agent_type
+            : 'Agent';
+
+          return (
+            <button
+              key={row.pane_id}
+              type="button"
+              onClick={() => onSelect(row.pane_id)}
+              className={`w-full text-left rounded-lg px-2 py-2 border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-lr-accent/50 ${
+                selected
+                  ? 'border-lr-accent/50 bg-lr-accent/10'
+                  : 'border-lr-border/60 bg-lr-bg/40 hover:bg-lr-raised/60'
+              }`}
+              title={row.detail ?? row.pane_id}
+            >
+              <div className="flex items-center gap-2">
+                <DisplayStatusDot status={status} pulse={status === 'needs_approval'} />
+                <span className="text-xs font-medium text-lr-text truncate flex-1">{title}</span>
+                {status === 'needs_approval' && (
+                  <span className="text-[9px] uppercase font-semibold text-lr-warn lr-status-pulse px-1 rounded bg-lr-warn/15">
+                    !
+                  </span>
+                )}
+              </div>
+              <div className="mt-0.5 flex items-center justify-between gap-1 pl-4">
+                <span className="text-[10px] text-lr-muted truncate">{agentLabel}</span>
+                <span className="text-[10px] text-lr-muted shrink-0">
+                  {DISPLAY_STATUS_LABEL[status]}
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </aside>
   );
 }

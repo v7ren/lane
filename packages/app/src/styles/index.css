@@ -4,16 +4,33 @@
 
 :root {
   color-scheme: dark;
-  --pm-bg: 10 10 10;
-  --pm-panel: 18 18 18;
-  --pm-raised: 25 25 25;
-  --pm-border: 45 45 45;
-  --pm-accent: 245 245 245;
-  --pm-text: 232 232 232;
-  --pm-muted: 150 150 150;
-  --pm-ok: 214 214 214;
-  --pm-warn: 180 180 180;
-  --pm-err: 255 255 255;
+  --lr-bg: 11 13 16;
+  --lr-panel: 17 20 26;
+  --lr-raised: 24 28 36;
+  --lr-border: 42 48 58;
+  --lr-accent: 120 162 255;
+  --lr-text: 232 236 244;
+  --lr-muted: 130 138 152;
+  --lr-ok: 72 187 120;
+  --lr-warn: 245 158 11;
+  --lr-err: 248 113 113;
+  --lr-info: 56 189 248;
+  --lr-status-accent: var(--lr-accent);
+  --lr-status-ok: var(--lr-ok);
+  --lr-status-warn: var(--lr-warn);
+  --lr-status-err: var(--lr-err);
+  --lr-status-info: var(--lr-info);
+  --lr-status-muted: var(--lr-muted);
+  --pm-bg: var(--lr-bg);
+  --pm-panel: var(--lr-panel);
+  --pm-raised: var(--lr-raised);
+  --pm-border: var(--lr-border);
+  --pm-accent: var(--lr-text);
+  --pm-text: var(--lr-text);
+  --pm-muted: var(--lr-muted);
+  --pm-ok: var(--lr-ok);
+  --pm-warn: var(--lr-warn);
+  --pm-err: var(--lr-err);
 }
 
 :root[data-theme='light'] {
@@ -182,4 +199,64 @@ body,
   overflow: auto;
   font: 10px/1.4 ui-monospace, Menlo, Consolas, monospace;
   white-space: pre-wrap;
+}
+
+.lr-app-shell {
+  background: rgb(var(--lr-bg));
+  color: rgb(var(--lr-text));
+}
+
+.lr-mode-transition {
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lr-mode-transition {
+    transition: none;
+  }
+  .lr-status-pulse,
+  .lr-approval-pulse {
+    animation: none !important;
+  }
+}
+
+.lr-status-pulse {
+  animation: lr-pulse 1.4s ease-in-out infinite;
+}
+
+.lr-approval-pulse {
+  animation: lr-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes lr-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.lr-fade-in {
+  animation: lr-fade-in 280ms ease;
+}
+
+@keyframes lr-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.lr-pane-surface--parked {
+  contain: strict;
+}
+
+.lr-agent-panel {
+  min-width: 0;
 }

@@ -8,7 +8,7 @@ interface Props {
   registry: PaneRegistryApi;
   projectPath: string | null;
   onClosePane: (paneId: string) => void;
-  onOpenChat?: (paneId: string) => void;
+  onOpenAgent?: (paneId: string) => void;
 }
 
 export function TerminalGrid({
@@ -16,7 +16,7 @@ export function TerminalGrid({
   registry,
   projectPath,
   onClosePane,
-  onOpenChat,
+  onOpenAgent,
 }: Props) {
   const { paneList, spawnPane, replacePaneAgent } = registry;
   const panes = paneList.filter((pane) => !pane.info.id.startsWith('loomria-orchestrator-'));
@@ -45,7 +45,7 @@ export function TerminalGrid({
               subscribePaneData={registry.subscribePaneData}
               onClose={onClosePane}
               onSwitchAgent={switchAgent}
-              onOpenChat={onOpenChat}
+              onOpenAgent={onOpenAgent}
             />
           </div>
         ))}

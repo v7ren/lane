@@ -1,9 +1,15 @@
 import type { McpLogEntry, OrchestratorChatEvent, PaneInfo } from '@loomria/shared';
 import type { AgentModelInspection } from './tauri';
-import { bridgeAuthHeaders, eventsUrlWithToken, loadBridgeSession, setBridgeSession } from './bridge-auth';
+import {
+  bridgeAuthHeaders,
+  eventsUrlWithToken,
+  isNgrokHost,
+  loadBridgeSession,
+  mergeBridgeHeaders,
+  ngrokRequestHeaders,
+  setBridgeSession,
+} from './bridge-auth';
 import type { PublicSettings } from './bridge-settings';
-import { isNgrokHost, ngrokRequestHeaders } from './bridge-ngrok';
-import { mergeBridgeHeaders } from './mobile-pairing-auth';
 import { subscribeBridgeEventsViaFetch } from './bridge-sse';
 
 const DEFAULT_POLL_HOST = '127.0.0.1';
@@ -646,6 +652,14 @@ export function subscribeBridgeEvents(
           height: payload.height,
           active: payload.active,
         });
+      } catch (err) {
+        onError?.(err);
+      }
+    });
+    es.addEventListener('session_state', (ev) => {
+      try {
+        const data = JSON.parse((ev as MessageEvent).data) as Record<string, unknown>;
+        onEvent({ type: 'session_state', data });
       } catch (err) {
         onError?.(err);
       }
