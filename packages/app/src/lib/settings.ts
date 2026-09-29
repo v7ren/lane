@@ -99,7 +99,6 @@ async function closeSettingsStore(): Promise<void> {
 export function enqueueSettingsFileWrite<T>(fn: () => Promise<T>): Promise<T> {
 
   const run = settingsFileQueue.then(async () => {
-    await closeSettingsStore();
     await migrateLegacySettingsFile();
     return fn();
   });
