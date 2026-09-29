@@ -1,0 +1,274 @@
+{
+  "events": [
+    {
+      "id": "e-session-created",
+      "type": "session.created",
+      "properties": {
+        "session": {
+          "id": "sess_test",
+          "slug": "test",
+          "projectID": "proj",
+          "directory": "/tmp/proj",
+          "title": "Test",
+          "version": "1.18.18",
+          "time": { "created": 1, "updated": 1 }
+        }
+      }
+    },
+    {
+      "id": "e-user-msg",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_user",
+          "sessionID": "sess_test",
+          "role": "user",
+          "time": { "created": 2 },
+          "agent": "build",
+          "model": { "providerID": "anthropic", "modelID": "claude-sonnet-4" }
+        }
+      }
+    },
+    {
+      "id": "e-asst-msg",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_asst",
+          "sessionID": "sess_test",
+          "role": "assistant",
+          "time": { "created": 3, "completed": 4 },
+          "agent": "build",
+          "model": { "providerID": "anthropic", "modelID": "claude-sonnet-4" }
+        }
+      }
+    },
+    {
+      "id": "e-part-text",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst",
+        "part": {
+          "id": "part_text",
+          "messageID": "msg_asst",
+          "sessionID": "sess_test",
+          "type": "text",
+          "text": "hel"
+        }
+      }
+    },
+    {
+      "id": "e-part-delta",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "sess_test",
+        "messageID": "msg_asst",
+        "partID": "part_text",
+        "field": "text",
+        "delta": "lo"
+      }
+    },
+    {
+      "id": "e-tool-pending",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst",
+        "part": {
+          "id": "part_tool",
+          "messageID": "msg_asst",
+          "sessionID": "sess_test",
+          "type": "tool",
+          "tool": "bash",
+          "state": { "status": "pending" }
+        }
+      }
+    },
+    {
+      "id": "e-tool-running",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst",
+        "part": {
+          "id": "part_tool",
+          "messageID": "msg_asst",
+          "sessionID": "sess_test",
+          "type": "tool",
+          "tool": "bash",
+          "state": { "status": "running", "input": "echo hi" }
+        }
+      }
+    },
+    {
+      "id": "e-tool-done",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst",
+        "part": {
+          "id": "part_tool",
+          "messageID": "msg_asst",
+          "sessionID": "sess_test",
+          "type": "tool",
+          "tool": "bash",
+          "state": { "status": "completed", "output": "hi\n" }
+        }
+      }
+    },
+    {
+      "id": "e-step-finish",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst",
+        "part": {
+          "id": "part_finish",
+          "messageID": "msg_asst",
+          "sessionID": "sess_test",
+          "type": "step-finish",
+          "tokens": { "input": 10, "output": 5, "reasoning": 0, "cache": { "read": 0, "write": 0 } },
+          "cost": 0.001
+        }
+      }
+    },
+    {
+      "id": "e-file-part",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst",
+        "part": {
+          "id": "part_file",
+          "messageID": "msg_asst",
+          "sessionID": "sess_test",
+          "type": "file",
+          "mime": "text/plain",
+          "filename": "note.txt",
+          "url": "file:///note.txt"
+        }
+      }
+    },
+    {
+      "id": "e-subtask",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst",
+        "part": {
+          "id": "part_subtask",
+          "messageID": "msg_asst",
+          "sessionID": "sess_test",
+          "type": "subtask",
+          "prompt": "do thing"
+        }
+      }
+    },
+    {
+      "id": "e-retry",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst",
+        "part": {
+          "id": "part_retry",
+          "messageID": "msg_asst",
+          "sessionID": "sess_test",
+          "type": "retry",
+          "attempt": 1
+        }
+      }
+    },
+    {
+      "id": "e-compaction",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst",
+        "part": {
+          "id": "part_compact",
+          "messageID": "msg_asst",
+          "sessionID": "sess_test",
+          "type": "compaction",
+          "summary": "compacted"
+        }
+      }
+    },
+    {
+      "id": "e-snapshot",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst",
+        "part": {
+          "id": "part_snap",
+          "messageID": "msg_asst",
+          "sessionID": "sess_test",
+          "type": "snapshot",
+          "snapshot": "snap-1"
+        }
+      }
+    },
+    {
+      "id": "e-agent-part",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst",
+        "part": {
+          "id": "part_agent",
+          "messageID": "msg_asst",
+          "sessionID": "sess_test",
+          "type": "agent",
+          "name": "build"
+        }
+      }
+    },
+    {
+      "id": "e-perm",
+      "type": "permission.asked",
+      "properties": {
+        "permission": {
+          "id": "perm_1",
+          "sessionID": "sess_test",
+          "title": "Run command",
+          "pattern": "bash"
+        }
+      }
+    },
+    {
+      "id": "e-perm-reply",
+      "type": "permission.replied",
+      "properties": { "requestID": "perm_1" }
+    },
+    {
+      "id": "e-question",
+      "type": "question.asked",
+      "properties": {
+        "question": {
+          "id": "q_1",
+          "sessionID": "sess_test",
+          "questions": [{ "question": "Continue?", "options": [{ "label": "Yes" }, { "label": "No" }] }]
+        }
+      }
+    },
+    {
+      "id": "e-question-reply",
+      "type": "question.replied",
+      "properties": { "requestID": "q_1" }
+    },
+    {
+      "id": "e-status-busy",
+      "type": "session.status",
+      "properties": { "sessionID": "sess_test", "status": "busy" }
+    },
+    {
+      "id": "e-status-idle",
+      "type": "session.idle",
+      "properties": { "sessionID": "sess_test" }
+    },
+    {
+      "id": "e-todo",
+      "type": "todo.updated",
+      "properties": {
+        "sessionID": "sess_test",
+        "todos": [{ "id": "t1", "content": "Ship", "status": "pending", "priority": "medium" }]
+      }
+    },
+    {
+      "id": "e-vcs",
+      "type": "vcs.branch.updated",
+      "properties": { "branch": "main" }
+    }
+  ]
+}
