@@ -170,13 +170,15 @@ function buildAssistantMeta(message: Message, items: TranscriptItem[]): Assistan
   const assistant = message as Message & {
     tokens?: { input?: number; output?: number; reasoning?: number };
     model?: { id?: string; providerID?: string };
+    modelID?: string;
+    providerID?: string;
     cost?: number;
     agent?: string;
   };
   return {
     agent: assistant.agent,
-    model: assistant.model?.id,
-    provider: assistant.model?.providerID,
+    model: assistant.model?.id ?? assistant.modelID,
+    provider: assistant.model?.providerID ?? assistant.providerID,
     durationMs,
     inputTokens: step?.kind === 'step_usage' ? step.inputTokens : assistant.tokens?.input,
     outputTokens: step?.kind === 'step_usage' ? step.outputTokens : assistant.tokens?.output,

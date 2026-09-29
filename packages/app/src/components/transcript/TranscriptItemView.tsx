@@ -48,7 +48,7 @@ function TruncatedMono({
 }
 
 function ToolCard({ tool }: { tool: TranscriptToolCall }) {
-  const [open, setOpen] = useState(tool.status === 'running');
+  const [open, setOpen] = useState(tool.status === 'running' || tool.status === 'completed');
   const name = tool.name.toLowerCase();
   return (
     <div
@@ -156,7 +156,7 @@ export function TranscriptItemView({ item }: { item: TranscriptItem }) {
           : item.streaming
             ? 'Thought…'
             : 'Thought';
-      return <CollapsibleMuted label={label} body={item.text} defaultOpen={false} />;
+      return <CollapsibleMuted label={label} body={item.text} defaultOpen />;
     }
     case 'tool_call':
       return <ToolCard tool={item} />;

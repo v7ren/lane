@@ -1,0 +1,1756 @@
+{
+  "sessionId": "ses_f114a7d3fffevOPai6NyEB5OJa",
+  "events": [
+    {
+      "id": "evt_0eeb582cf001dLs3djucb1IUKQ",
+      "type": "server.connected",
+      "properties": {}
+    },
+    {
+      "id": "evt_0eeb582e7001jKbnr2AL4lA2F7",
+      "type": "session.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "info": {
+          "id": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "slug": "nimble-falcon",
+          "projectID": "global",
+          "directory": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+          "path": "Users/Ren-pc/AppData/Local/Temp/loomria-live-oc-J4ToSF",
+          "title": "live test",
+          "agent": "build",
+          "model": {
+            "id": "mimo-v2.5",
+            "providerID": "opencode-go",
+            "variant": "default"
+          },
+          "version": "1.18.18",
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          },
+          "time": {
+            "created": 1790711268032,
+            "updated": 1790711268069
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb582ee001IS86AKyWaae7l7",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "info": {
+          "id": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "role": "user",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "time": {
+            "created": 1790711268069
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "opencode-go",
+            "modelID": "mimo-v2.5"
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb582f1001TYoHvYJy6ZPAnQ",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "part": {
+          "type": "text",
+          "text": "Read hello.txt and reply with its first word only.",
+          "messageID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "id": "prt_0eeb582ed001Ky98sPr5EIcuWO"
+        },
+        "time": 1790711268081
+      }
+    },
+    {
+      "id": "evt_0eeb582f60011EbT6jVD2MxNEJ",
+      "type": "session.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "info": {
+          "id": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "slug": "nimble-falcon",
+          "projectID": "global",
+          "directory": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+          "path": "Users/Ren-pc/AppData/Local/Temp/loomria-live-oc-J4ToSF",
+          "title": "live test",
+          "agent": "build",
+          "model": {
+            "id": "mimo-v2.5",
+            "providerID": "opencode-go",
+            "variant": "default"
+          },
+          "version": "1.18.18",
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          },
+          "time": {
+            "created": 1790711268032,
+            "updated": 1790711268085
+          }
+        }
+      }
+    },
+    {
+      "id": "hydrate-message-msg_0eeb582e50013xDzWZ1jidMH2x",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "role": "user",
+          "time": {
+            "created": 1790711268069
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "opencode-go",
+            "modelID": "mimo-v2.5"
+          }
+        }
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb582ed001Ky98sPr5EIcuWO",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb582ed001Ky98sPr5EIcuWO",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "type": "text",
+          "text": "Read hello.txt and reply with its first word only."
+        },
+        "messageID": "msg_0eeb582e50013xDzWZ1jidMH2x"
+      }
+    },
+    {
+      "id": "hydrate-message-msg_0eeb58300001uTHbH47rkDLcbD",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "role": "assistant",
+          "time": {
+            "created": 1790711268096
+          },
+          "parentID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+            "root": "/"
+          },
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb582fd001Xs2Toj43V6iidy",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "status": {
+          "type": "busy"
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb583000013Kljhw4rtWpHka",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "info": {
+          "id": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "parentID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+            "root": "/"
+          },
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          },
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": {
+            "created": 1790711268096
+          },
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa"
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb58348001TBPCSZiwuMSByQ",
+      "type": "session.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "info": {
+          "id": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "slug": "nimble-falcon",
+          "projectID": "global",
+          "directory": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+          "path": "Users/Ren-pc/AppData/Local/Temp/loomria-live-oc-J4ToSF",
+          "title": "live test",
+          "agent": "build",
+          "model": {
+            "id": "mimo-v2.5",
+            "providerID": "opencode-go",
+            "variant": "default"
+          },
+          "version": "1.18.18",
+          "summary": {
+            "additions": 0,
+            "deletions": 0,
+            "files": 0
+          },
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          },
+          "time": {
+            "created": 1790711268032,
+            "updated": 1790711268167
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb5834b001jfOXya7fd7SZhw",
+      "type": "session.diff",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "diff": []
+      }
+    },
+    {
+      "id": "evt_0eeb5834d001iMYeZH3UKxGGVw",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "info": {
+          "role": "user",
+          "time": {
+            "created": 1790711268069
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "opencode-go",
+            "modelID": "mimo-v2.5"
+          },
+          "id": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "summary": {
+            "diffs": []
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb5835d001tKZsp2XawGjhYS",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "status": {
+          "type": "busy"
+        }
+      }
+    },
+    {
+      "id": "hydrate-message-msg_0eeb582e50013xDzWZ1jidMH2x",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "role": "user",
+          "time": {
+            "created": 1790711268069
+          },
+          "summary": {
+            "diffs": []
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "opencode-go",
+            "modelID": "mimo-v2.5"
+          }
+        }
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb582ed001Ky98sPr5EIcuWO",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb582ed001Ky98sPr5EIcuWO",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "type": "text",
+          "text": "Read hello.txt and reply with its first word only."
+        },
+        "messageID": "msg_0eeb582e50013xDzWZ1jidMH2x"
+      }
+    },
+    {
+      "id": "hydrate-message-msg_0eeb58300001uTHbH47rkDLcbD",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "role": "assistant",
+          "time": {
+            "created": 1790711268096
+          },
+          "parentID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+            "root": "/"
+          },
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "hydrate-message-msg_0eeb582e50013xDzWZ1jidMH2x",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "role": "user",
+          "time": {
+            "created": 1790711268069
+          },
+          "summary": {
+            "diffs": []
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "opencode-go",
+            "modelID": "mimo-v2.5"
+          }
+        }
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb582ed001Ky98sPr5EIcuWO",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb582ed001Ky98sPr5EIcuWO",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "type": "text",
+          "text": "Read hello.txt and reply with its first word only."
+        },
+        "messageID": "msg_0eeb582e50013xDzWZ1jidMH2x"
+      }
+    },
+    {
+      "id": "hydrate-message-msg_0eeb58300001uTHbH47rkDLcbD",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "role": "assistant",
+          "time": {
+            "created": 1790711268096
+          },
+          "parentID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+            "root": "/"
+          },
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb5978c001YJzMMKil1dIUdP",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "part": {
+          "id": "prt_0eeb5978c001NXAZKnSxOkmI5y",
+          "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "type": "step-start"
+        },
+        "time": 1790711273356
+      }
+    },
+    {
+      "id": "evt_0eeb59791001I4x0K4fje6I5v2",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "part": {
+          "id": "prt_0eeb59791001ZNg0Kvxtp0kuH1",
+          "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "type": "reasoning",
+          "text": "",
+          "time": {
+            "start": 1790711273361
+          }
+        },
+        "time": 1790711273361
+      }
+    },
+    {
+      "id": "evt_0eeb59794001NTQuZpkhLhnL1W",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+        "partID": "prt_0eeb59791001ZNg0Kvxtp0kuH1",
+        "field": "text",
+        "delta": "The user wants"
+      }
+    },
+    {
+      "id": "evt_0eeb59795001gU0W39L1hCjDBV",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+        "partID": "prt_0eeb59791001ZNg0Kvxtp0kuH1",
+        "field": "text",
+        "delta": " me to read"
+      }
+    },
+    {
+      "id": "evt_0eeb59850001bGyykYF7uyRs8f",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+        "partID": "prt_0eeb59791001ZNg0Kvxtp0kuH1",
+        "field": "text",
+        "delta": " a file called"
+      }
+    },
+    {
+      "id": "evt_0eeb598510017nTHJue1Ou34Yl",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+        "partID": "prt_0eeb59791001ZNg0Kvxtp0kuH1",
+        "field": "text",
+        "delta": " hello"
+      }
+    },
+    {
+      "id": "evt_0eeb59851002lDu5vg0r1MJFVQ",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+        "partID": "prt_0eeb59791001ZNg0Kvxtp0kuH1",
+        "field": "text",
+        "delta": ".txt and reply"
+      }
+    },
+    {
+      "id": "evt_0eeb598510036gC44aqROVliFN",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+        "partID": "prt_0eeb59791001ZNg0Kvxtp0kuH1",
+        "field": "text",
+        "delta": " with only"
+      }
+    },
+    {
+      "id": "evt_0eeb59919001x1tFzGZtbaSTSp",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+        "partID": "prt_0eeb59791001ZNg0Kvxtp0kuH1",
+        "field": "text",
+        "delta": " the first word"
+      }
+    },
+    {
+      "id": "evt_0eeb5991a001IvNeYIPh0R0ffM",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+        "partID": "prt_0eeb59791001ZNg0Kvxtp0kuH1",
+        "field": "text",
+        "delta": " of"
+      }
+    },
+    {
+      "id": "evt_0eeb5991a002w6jGzXQ0SBBAgS",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+        "partID": "prt_0eeb59791001ZNg0Kvxtp0kuH1",
+        "field": "text",
+        "delta": " its"
+      }
+    },
+    {
+      "id": "evt_0eeb5991b001NBGlSWQT7q5hRP",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+        "partID": "prt_0eeb59791001ZNg0Kvxtp0kuH1",
+        "field": "text",
+        "delta": " content."
+      }
+    },
+    {
+      "id": "evt_0eeb599e70019IXIBV6NT5addT",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "part": {
+          "id": "prt_0eeb59791001ZNg0Kvxtp0kuH1",
+          "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "type": "reasoning",
+          "text": "The user wants me to read a file called hello.txt and reply with only the first word of its content.",
+          "time": {
+            "start": 1790711273361,
+            "end": 1790711273959
+          }
+        },
+        "time": 1790711273959
+      }
+    },
+    {
+      "id": "evt_0eeb599ea001njSWL7urOKalB1",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "part": {
+          "id": "prt_0eeb599ea001ry7Ag3JqzZW2Re",
+          "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "type": "tool",
+          "tool": "read",
+          "callID": "call_4089b5e0776d41418949dc09",
+          "state": {
+            "status": "pending",
+            "input": {},
+            "raw": ""
+          }
+        },
+        "time": 1790711273962
+      }
+    },
+    {
+      "id": "evt_0eeb59a5600153EERTHIhQZa28",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "part": {
+          "type": "tool",
+          "tool": "read",
+          "callID": "call_4089b5e0776d41418949dc09",
+          "state": {
+            "status": "running",
+            "input": {
+              "filePath": "hello.txt"
+            },
+            "time": {
+              "start": 1790711274070
+            }
+          },
+          "id": "prt_0eeb599ea001ry7Ag3JqzZW2Re",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb58300001uTHbH47rkDLcbD"
+        },
+        "time": 1790711274070
+      }
+    },
+    {
+      "id": "evt_0eeb59a68001pwX64ZMG9Ijvt6",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "part": {
+          "type": "tool",
+          "tool": "read",
+          "callID": "call_4089b5e0776d41418949dc09",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "hello.txt"
+            },
+            "output": "<path>C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF\\hello.txt</path>\n<type>file</type>\n<content>\n1: hello world\n\n(End of file - total 1 lines)\n</content>",
+            "metadata": {
+              "preview": "hello world",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF\\hello.txt",
+                "text": "hello world",
+                "lineStart": 1,
+                "lineEnd": 1,
+                "totalLines": 1,
+                "truncated": false
+              }
+            },
+            "title": "Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF\\hello.txt",
+            "time": {
+              "start": 1790711274070,
+              "end": 1790711274088
+            }
+          },
+          "id": "prt_0eeb599ea001ry7Ag3JqzZW2Re",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb58300001uTHbH47rkDLcbD"
+        },
+        "time": 1790711274088
+      }
+    },
+    {
+      "id": "evt_0eeb59ac2001M8087AN5Q5cDNq",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "part": {
+          "id": "prt_0eeb59ac2001V86DEukx6rk1DQ",
+          "reason": "tool-calls",
+          "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "type": "step-finish",
+          "tokens": {
+            "total": 9084,
+            "input": 7247,
+            "output": 22,
+            "reasoning": 23,
+            "cache": {
+              "write": 0,
+              "read": 1792
+            }
+          },
+          "cost": 0.0010321976
+        },
+        "time": 1790711274178
+      }
+    },
+    {
+      "id": "evt_0eeb59ac9001DIc4XSd4Fn04Oc",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "info": {
+          "id": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "parentID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+            "root": "/"
+          },
+          "cost": 0.0010321976,
+          "tokens": {
+            "total": 9084,
+            "input": 7247,
+            "output": 22,
+            "reasoning": 23,
+            "cache": {
+              "write": 0,
+              "read": 1792
+            }
+          },
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": {
+            "created": 1790711268096,
+            "completed": 1790711274201
+          },
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "finish": "tool-calls"
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb59ad900137XQv43APtZVuu",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "info": {
+          "id": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "parentID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+            "root": "/"
+          },
+          "cost": 0.0010321976,
+          "tokens": {
+            "total": 9084,
+            "input": 7247,
+            "output": 22,
+            "reasoning": 23,
+            "cache": {
+              "write": 0,
+              "read": 1792
+            }
+          },
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": {
+            "created": 1790711268096,
+            "completed": 1790711274201
+          },
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "finish": "tool-calls"
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb59adc001MLX9OcV6E3yU5l",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "status": {
+          "type": "busy"
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb59ade0010pW5wwBkOP223m",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "info": {
+          "id": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+          "parentID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+            "root": "/"
+          },
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          },
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": {
+            "created": 1790711274206
+          },
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa"
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb59ae4001ltpbLKn45BYLRl",
+      "type": "session.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "info": {
+          "id": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "slug": "nimble-falcon",
+          "projectID": "global",
+          "directory": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+          "path": "Users/Ren-pc/AppData/Local/Temp/loomria-live-oc-J4ToSF",
+          "title": "live test",
+          "agent": "build",
+          "model": {
+            "id": "mimo-v2.5",
+            "providerID": "opencode-go",
+            "variant": "default"
+          },
+          "version": "1.18.18",
+          "summary": {
+            "additions": 0,
+            "deletions": 0,
+            "files": 0
+          },
+          "cost": 0.0010321976,
+          "tokens": {
+            "input": 7247,
+            "output": 22,
+            "reasoning": 23,
+            "cache": {
+              "read": 1792,
+              "write": 0
+            }
+          },
+          "time": {
+            "created": 1790711268032,
+            "updated": 1790711274211
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb59ae6001EbF9g1sLrg1kOv",
+      "type": "session.diff",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "diff": []
+      }
+    },
+    {
+      "id": "evt_0eeb59ae80011w0iLeKx9bJGZw",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "info": {
+          "role": "user",
+          "time": {
+            "created": 1790711268069
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "opencode-go",
+            "modelID": "mimo-v2.5"
+          },
+          "summary": {
+            "diffs": []
+          },
+          "id": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa"
+        }
+      }
+    },
+    {
+      "id": "hydrate-message-msg_0eeb582e50013xDzWZ1jidMH2x",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "role": "user",
+          "time": {
+            "created": 1790711268069
+          },
+          "summary": {
+            "diffs": []
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "opencode-go",
+            "modelID": "mimo-v2.5"
+          }
+        }
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb582ed001Ky98sPr5EIcuWO",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb582ed001Ky98sPr5EIcuWO",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "type": "text",
+          "text": "Read hello.txt and reply with its first word only."
+        },
+        "messageID": "msg_0eeb582e50013xDzWZ1jidMH2x"
+      }
+    },
+    {
+      "id": "hydrate-message-msg_0eeb58300001uTHbH47rkDLcbD",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "role": "assistant",
+          "time": {
+            "created": 1790711268096,
+            "completed": 1790711274201
+          },
+          "parentID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+            "root": "/"
+          },
+          "cost": 0.0010321976,
+          "tokens": {
+            "total": 9084,
+            "input": 7247,
+            "output": 22,
+            "reasoning": 23,
+            "cache": {
+              "read": 1792,
+              "write": 0
+            }
+          },
+          "finish": "tool-calls"
+        }
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb5978c001NXAZKnSxOkmI5y",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb5978c001NXAZKnSxOkmI5y",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "type": "step-start"
+        },
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD"
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb59791001ZNg0Kvxtp0kuH1",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb59791001ZNg0Kvxtp0kuH1",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "type": "reasoning",
+          "text": "The user wants me to read a file called hello.txt and reply with only the first word of its content.",
+          "time": {
+            "start": 1790711273361,
+            "end": 1790711273959
+          }
+        },
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD"
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb599ea001ry7Ag3JqzZW2Re",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb599ea001ry7Ag3JqzZW2Re",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "type": "tool",
+          "callID": "call_4089b5e0776d41418949dc09",
+          "tool": "read",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "hello.txt"
+            },
+            "output": "<path>C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF\\hello.txt</path>\n<type>file</type>\n<content>\n1: hello world\n\n(End of file - total 1 lines)\n</content>",
+            "title": "Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF\\hello.txt",
+            "metadata": {
+              "preview": "hello world",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF\\hello.txt",
+                "text": "hello world",
+                "lineStart": 1,
+                "lineEnd": 1,
+                "totalLines": 1,
+                "truncated": false
+              }
+            },
+            "time": {
+              "start": 1790711274070,
+              "end": 1790711274088
+            }
+          }
+        },
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD"
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb59ac2001V86DEukx6rk1DQ",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb59ac2001V86DEukx6rk1DQ",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "type": "step-finish",
+          "reason": "tool-calls",
+          "cost": 0.0010321976,
+          "tokens": {
+            "total": 9084,
+            "input": 7247,
+            "output": 22,
+            "reasoning": 23,
+            "cache": {
+              "read": 1792,
+              "write": 0
+            }
+          }
+        },
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD"
+      }
+    },
+    {
+      "id": "hydrate-message-msg_0eeb59ade001s8wI27rQ58i9Hy",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "role": "assistant",
+          "time": {
+            "created": 1790711274206
+          },
+          "parentID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+            "root": "/"
+          },
+          "cost": 0,
+          "tokens": {
+            "input": 0,
+            "output": 0,
+            "reasoning": 0,
+            "cache": {
+              "read": 0,
+              "write": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb59b00001D7xNQaCPANfCZC",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "status": {
+          "type": "busy"
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb5a011001OxvkUGWeEyCZLX",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "part": {
+          "id": "prt_0eeb5a010001AqBqTBDBJvkGKm",
+          "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "type": "step-start"
+        },
+        "time": 1790711275537
+      }
+    },
+    {
+      "id": "evt_0eeb5a013001563aCTO8doB91z",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "part": {
+          "id": "prt_0eeb5a013001Wb4bumcR4MPIQU",
+          "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "type": "reasoning",
+          "text": "",
+          "time": {
+            "start": 1790711275539
+          }
+        },
+        "time": 1790711275539
+      }
+    },
+    {
+      "id": "evt_0eeb5a015001Ka0DGpKEOWbMJx",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+        "partID": "prt_0eeb5a013001Wb4bumcR4MPIQU",
+        "field": "text",
+        "delta": "The file contains"
+      }
+    },
+    {
+      "id": "evt_0eeb5a015002OD5BHRrIdkUmzs",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+        "partID": "prt_0eeb5a013001Wb4bumcR4MPIQU",
+        "field": "text",
+        "delta": " \"hello world"
+      }
+    },
+    {
+      "id": "evt_0eeb5a104001OoettDyS8vnQvL",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+        "partID": "prt_0eeb5a013001Wb4bumcR4MPIQU",
+        "field": "text",
+        "delta": "\". The first"
+      }
+    },
+    {
+      "id": "evt_0eeb5a107001GAA5fi02lyoQiC",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+        "partID": "prt_0eeb5a013001Wb4bumcR4MPIQU",
+        "field": "text",
+        "delta": " word is \""
+      }
+    },
+    {
+      "id": "evt_0eeb5a10a00122Jy2Q3l6VWOj0",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+        "partID": "prt_0eeb5a013001Wb4bumcR4MPIQU",
+        "field": "text",
+        "delta": "hello\"."
+      }
+    },
+    {
+      "id": "evt_0eeb5a10b001ixnPX0g9roxuv3",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "part": {
+          "id": "prt_0eeb5a013001Wb4bumcR4MPIQU",
+          "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "type": "reasoning",
+          "text": "The file contains \"hello world\". The first word is \"hello\".",
+          "time": {
+            "start": 1790711275539,
+            "end": 1790711275786
+          }
+        },
+        "time": 1790711275787
+      }
+    },
+    {
+      "id": "evt_0eeb5a10f0015WZppsx37SBU1t",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "part": {
+          "id": "prt_0eeb5a10e001GrfhCbODqr9ZFg",
+          "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "type": "text",
+          "text": "",
+          "time": {
+            "start": 1790711275790
+          }
+        },
+        "time": 1790711275791
+      }
+    },
+    {
+      "id": "evt_0eeb5a112001FSi7YXWWb3S1DI",
+      "type": "message.part.delta",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+        "partID": "prt_0eeb5a10e001GrfhCbODqr9ZFg",
+        "field": "text",
+        "delta": "hello"
+      }
+    },
+    {
+      "id": "evt_0eeb5a113001Ji4Fe6t6pbAVwG",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "part": {
+          "id": "prt_0eeb5a10e001GrfhCbODqr9ZFg",
+          "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "type": "text",
+          "text": "hello",
+          "time": {
+            "start": 1790711275790,
+            "end": 1790711275795
+          }
+        },
+        "time": 1790711275795
+      }
+    },
+    {
+      "id": "evt_0eeb5a117001NjabozddA9AnWD",
+      "type": "message.part.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "part": {
+          "id": "prt_0eeb5a1170016jD5p18GJ0z64u",
+          "reason": "stop",
+          "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "type": "step-finish",
+          "tokens": {
+            "total": 9170,
+            "input": 128,
+            "output": 3,
+            "reasoning": 15,
+            "cache": {
+              "write": 0,
+              "read": 9024
+            }
+          },
+          "cost": 0.0000482272
+        },
+        "time": 1790711275799
+      }
+    },
+    {
+      "id": "evt_0eeb5a11b001H0EeUUFpk04a5i",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "info": {
+          "id": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+          "parentID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+            "root": "/"
+          },
+          "cost": 0.0000482272,
+          "tokens": {
+            "total": 9170,
+            "input": 128,
+            "output": 3,
+            "reasoning": 15,
+            "cache": {
+              "write": 0,
+              "read": 9024
+            }
+          },
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": {
+            "created": 1790711274206,
+            "completed": 1790711275806
+          },
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "finish": "stop"
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb5a11e0018MwbHaPeuOkM8t",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "info": {
+          "id": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+          "parentID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "role": "assistant",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+            "root": "/"
+          },
+          "cost": 0.0000482272,
+          "tokens": {
+            "total": 9170,
+            "input": 128,
+            "output": 3,
+            "reasoning": 15,
+            "cache": {
+              "write": 0,
+              "read": 9024
+            }
+          },
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "time": {
+            "created": 1790711274206,
+            "completed": 1790711275806
+          },
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "finish": "stop"
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb5a121001anlhQqZ4GwpJug",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "status": {
+          "type": "busy"
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb5a124001uqTCUGNewxujrr",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "status": {
+          "type": "idle"
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb5a124002dpTIIZDkcEDlB6",
+      "type": "session.idle",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa"
+      }
+    },
+    {
+      "id": "evt_0eeb5a1250013sIbx5hGHmWiAl",
+      "type": "session.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "info": {
+          "id": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "slug": "nimble-falcon",
+          "projectID": "global",
+          "directory": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+          "path": "Users/Ren-pc/AppData/Local/Temp/loomria-live-oc-J4ToSF",
+          "title": "live test",
+          "agent": "build",
+          "model": {
+            "id": "mimo-v2.5",
+            "providerID": "opencode-go",
+            "variant": "default"
+          },
+          "version": "1.18.18",
+          "summary": {
+            "additions": 0,
+            "deletions": 0,
+            "files": 0
+          },
+          "cost": 0.0010804248,
+          "tokens": {
+            "input": 7375,
+            "output": 25,
+            "reasoning": 38,
+            "cache": {
+              "read": 10816,
+              "write": 0
+            }
+          },
+          "time": {
+            "created": 1790711268032,
+            "updated": 1790711275812
+          }
+        }
+      }
+    },
+    {
+      "id": "evt_0eeb5a13b001vZTn5XctF1aZUs",
+      "type": "session.diff",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "diff": []
+      }
+    },
+    {
+      "id": "evt_0eeb5a13d001ZlWBCuPfuGDwd3",
+      "type": "message.updated",
+      "properties": {
+        "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+        "info": {
+          "role": "user",
+          "time": {
+            "created": 1790711268069
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "opencode-go",
+            "modelID": "mimo-v2.5"
+          },
+          "summary": {
+            "diffs": []
+          },
+          "id": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa"
+        }
+      }
+    },
+    {
+      "id": "hydrate-message-msg_0eeb582e50013xDzWZ1jidMH2x",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "role": "user",
+          "time": {
+            "created": 1790711268069
+          },
+          "summary": {
+            "diffs": []
+          },
+          "agent": "build",
+          "model": {
+            "providerID": "opencode-go",
+            "modelID": "mimo-v2.5"
+          }
+        }
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb582ed001Ky98sPr5EIcuWO",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb582ed001Ky98sPr5EIcuWO",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "type": "text",
+          "text": "Read hello.txt and reply with its first word only."
+        },
+        "messageID": "msg_0eeb582e50013xDzWZ1jidMH2x"
+      }
+    },
+    {
+      "id": "hydrate-message-msg_0eeb58300001uTHbH47rkDLcbD",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "role": "assistant",
+          "time": {
+            "created": 1790711268096,
+            "completed": 1790711274201
+          },
+          "parentID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+            "root": "/"
+          },
+          "cost": 0.0010321976,
+          "tokens": {
+            "total": 9084,
+            "input": 7247,
+            "output": 22,
+            "reasoning": 23,
+            "cache": {
+              "read": 1792,
+              "write": 0
+            }
+          },
+          "finish": "tool-calls"
+        }
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb5978c001NXAZKnSxOkmI5y",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb5978c001NXAZKnSxOkmI5y",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "type": "step-start"
+        },
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD"
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb59791001ZNg0Kvxtp0kuH1",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb59791001ZNg0Kvxtp0kuH1",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "type": "reasoning",
+          "text": "The user wants me to read a file called hello.txt and reply with only the first word of its content.",
+          "time": {
+            "start": 1790711273361,
+            "end": 1790711273959
+          }
+        },
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD"
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb599ea001ry7Ag3JqzZW2Re",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb599ea001ry7Ag3JqzZW2Re",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "type": "tool",
+          "callID": "call_4089b5e0776d41418949dc09",
+          "tool": "read",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "hello.txt"
+            },
+            "output": "<path>C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF\\hello.txt</path>\n<type>file</type>\n<content>\n1: hello world\n\n(End of file - total 1 lines)\n</content>",
+            "title": "Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF\\hello.txt",
+            "metadata": {
+              "preview": "hello world",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF\\hello.txt",
+                "text": "hello world",
+                "lineStart": 1,
+                "lineEnd": 1,
+                "totalLines": 1,
+                "truncated": false
+              }
+            },
+            "time": {
+              "start": 1790711274070,
+              "end": 1790711274088
+            }
+          }
+        },
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD"
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb59ac2001V86DEukx6rk1DQ",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb59ac2001V86DEukx6rk1DQ",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb58300001uTHbH47rkDLcbD",
+          "type": "step-finish",
+          "reason": "tool-calls",
+          "cost": 0.0010321976,
+          "tokens": {
+            "total": 9084,
+            "input": 7247,
+            "output": 22,
+            "reasoning": 23,
+            "cache": {
+              "read": 1792,
+              "write": 0
+            }
+          }
+        },
+        "messageID": "msg_0eeb58300001uTHbH47rkDLcbD"
+      }
+    },
+    {
+      "id": "hydrate-message-msg_0eeb59ade001s8wI27rQ58i9Hy",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "role": "assistant",
+          "time": {
+            "created": 1790711274206,
+            "completed": 1790711275806
+          },
+          "parentID": "msg_0eeb582e50013xDzWZ1jidMH2x",
+          "modelID": "mimo-v2.5",
+          "providerID": "opencode-go",
+          "mode": "build",
+          "agent": "build",
+          "path": {
+            "cwd": "C:\\Users\\Ren-pc\\AppData\\Local\\Temp\\loomria-live-oc-J4ToSF",
+            "root": "/"
+          },
+          "cost": 0.0000482272,
+          "tokens": {
+            "total": 9170,
+            "input": 128,
+            "output": 3,
+            "reasoning": 15,
+            "cache": {
+              "read": 9024,
+              "write": 0
+            }
+          },
+          "finish": "stop"
+        }
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb5a010001AqBqTBDBJvkGKm",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb5a010001AqBqTBDBJvkGKm",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+          "type": "step-start"
+        },
+        "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy"
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb5a013001Wb4bumcR4MPIQU",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb5a013001Wb4bumcR4MPIQU",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+          "type": "reasoning",
+          "text": "The file contains \"hello world\". The first word is \"hello\".",
+          "time": {
+            "start": 1790711275539,
+            "end": 1790711275786
+          }
+        },
+        "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy"
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb5a10e001GrfhCbODqr9ZFg",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb5a10e001GrfhCbODqr9ZFg",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+          "type": "text",
+          "text": "hello",
+          "time": {
+            "start": 1790711275790,
+            "end": 1790711275795
+          }
+        },
+        "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy"
+      }
+    },
+    {
+      "id": "hydrate-part-prt_0eeb5a1170016jD5p18GJ0z64u",
+      "type": "message.part.updated",
+      "properties": {
+        "part": {
+          "id": "prt_0eeb5a1170016jD5p18GJ0z64u",
+          "sessionID": "ses_f114a7d3fffevOPai6NyEB5OJa",
+          "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy",
+          "type": "step-finish",
+          "reason": "stop",
+          "cost": 0.0000482272,
+          "tokens": {
+            "total": 9170,
+            "input": 128,
+            "output": 3,
+            "reasoning": 15,
+            "cache": {
+              "read": 9024,
+              "write": 0
+            }
+          }
+        },
+        "messageID": "msg_0eeb59ade001s8wI27rQ58i9Hy"
+      }
+    }
+  ]
+}

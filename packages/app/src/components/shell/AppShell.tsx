@@ -18,6 +18,10 @@ import { readDemoUrlFlags } from '../../lib/demo-mode';
 import { useDemoFixtures } from '../../lib/demo/DemoContext';
 import { isSessionMuted } from '../../lib/session-notify-prefs';
 import { filterAgentSessionStates } from '../../lib/agent-session-states';
+import {
+  defaultBottomRatio,
+  readBottomRatioUserTouched,
+} from '../../lib/shell-layout';
 import { ActivityRail } from './ActivityRail';
 import { AgentPanelEmpty } from './AgentPanelEmpty';
 import { BottomPanel } from './BottomPanel';
@@ -63,7 +67,9 @@ function AppShellInner({
 }: AppShellProps) {
   const demo = useDemoFixtures();
   const shell = useShellSelection();
-  const { layout, patchLayout, resetPanel, resetVisibility } = useShellLayout();
+  const { layout, patchLayout, resetPanel, resetVisibility, markBottomPanelResized } =
+    useShellLayout();
+  const hasEditorTabs = false;
   const [viewportWidth, setViewportWidth] = useState(
     typeof window !== 'undefined' ? window.innerWidth : 1440,
   );
@@ -77,6 +83,11 @@ function AppShellInner({
   useEffect(() => {
     resetVisibility();
   }, [resetVisibility]);
+
+  useEffect(() => {
+    if (readBottomRatioUserTouched()) return;
+    patchLayout({ bottomPanelPercent: defaultBottomRatio({ hasEditorTabs }) });
+  }, [hasEditorTabs, patchLayout]);
 
   useEffect(() => {
     if (!demo) return;
@@ -349,6 +360,7 @@ function AppShellInner({
                   dragBase.current = layout.bottomPanelPercent;
                 }}
                 onDrag={(delta) => {
+                  markBottomPanelResized();
                   const el = document.querySelector('[data-testid="app-shell"]');
                   const h = el?.clientHeight ?? 800;
                   const next = dragBase.current - (delta / h) * 100;

@@ -12,6 +12,14 @@ import {
   type ComposerMode,
   type PromptPart,
 } from '../../lib/commands/agent';
+import { useDemoFixtures } from '../../lib/demo/DemoContext';
+import {
+  demoComposerAgents,
+  demoComposerCommands,
+  demoComposerModels,
+  demoMentionFiles,
+} from '../../lib/demo/composer-fixtures';
+import { composerAllowlistOk } from '../../lib/opencode/composer-allowlist';
 import { opencodeClient } from '../../lib/opencode/client';
 import { isTauriRuntime } from '../../lib/is-tauri';
 
@@ -29,6 +37,7 @@ export function AgentComposerPanel({
   onSendProtocol,
   onCancelProtocol,
   onError,
+  sessionModel,
 }: {
   paneId: string;
   sessionId: string | null;
@@ -38,10 +47,12 @@ export function AgentComposerPanel({
   disabledReason?: string;
   busy: boolean;
   showStop: boolean;
+  sessionModel?: { model: string; provider?: string } | null;
   onSendProtocol: (text: string) => Promise<void>;
   onCancelProtocol: () => Promise<void>;
   onError: (message: string | null) => void;
 }) {
+  const demo = useDemoFixtures();
   const features = openCode ? composerFeaturesOpenCode() : composerFeaturesForCapabilities(capabilities);
   const [draft, setDraft] = useState('');
   const [mode, setMode] = useState<ComposerMode>('chat');
@@ -59,9 +70,38 @@ export function AgentComposerPanel({
   const [fileParts, setFileParts] = useState<PromptPart[]>([]);
   const historyRef = useRef<string[]>([]);
   const historyIdx = useRef<number | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [focused, setFocused] = useState(false);
+  const [allowlistBlocked, setAllowlistBlocked] = useState(false);
 
   useEffect(() => {
-    if (!openCode || !isTauriRuntime()) return;
+    if (openCode && isTauriRuntime() && !composerAllowlistOk()) {
+      setAllowlistBlocked(true);
+    }
+  }, [openCode]);
+
+  useEffect(() => {
+    if (demo && openCode) {
+      setAgents(demoComposerAgents.map((a) => ({ name: a.name })));
+      setModels(demoComposerModels);
+      setCommands(demoComposerCommands);
+      const preferred =
+        demoComposerModels.find((m) => m.modelID.includes('deepseek')) ?? demoComposerModels[0];
+      if (preferred) setModel(preferred);
+    }
+  }, [demo, openCode]);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const max = 160;
+    el.style.height = `${Math.min(el.scrollHeight, max)}px`;
+  }, [draft]);
+
+  useEffect(() => {
+    if (!openCode || demo) return;
+    if (!isTauriRuntime()) return;
     void opencodeClient.listAgents(paneId).then((list) => {
       setAgents(
         list.map((a) => ({
@@ -97,6 +137,13 @@ export function AgentComposerPanel({
   useEffect(() => {
     if (picker !== 'mention' || !openCode) return;
     const q = mentionQuery.trim();
+    if (demo) {
+      const hits = demoMentionFiles.filter((f) =>
+        q.length < 1 ? true : f.path.toLowerCase().includes(q.toLowerCase()),
+      );
+      setMentionHits(hits);
+      return;
+    }
     if (q.length < 1) {
       setMentionHits([]);
       return;
@@ -107,7 +154,7 @@ export function AgentComposerPanel({
       );
     }, 120);
     return () => window.clearTimeout(id);
-  }, [mentionQuery, openCode, paneId, picker]);
+  }, [demo, mentionQuery, openCode, paneId, picker]);
 
   const submit = useCallback(async () => {
     const raw = draft.trim();
@@ -194,10 +241,11 @@ export function AgentComposerPanel({
     setFileParts((prev) => [...prev, ...next]);
   };
 
-  const filteredModels = useMemo(() => {
-    if (!mentionQuery && picker === 'model') return models;
-    return models;
-  }, [models, mentionQuery, picker]);
+  const filteredModels = useMemo(() => models, [models]);
+
+  const modelPillPrimary = model?.modelID ?? sessionModel?.model;
+  const modelPillProvider = model?.providerID ?? sessionModel?.provider;
+  const modelPillLabel = modelPillPrimary ?? 'Select model';
 
   return (
     <div className="border-t border-border-subtle bg-surface shrink-0" data-testid="agent-composer">
@@ -207,17 +255,33 @@ export function AgentComposerPanel({
       {disabled && disabledReason && (
         <p className="text-meta text-text-3 px-3 pb-1">{disabledReason}</p>
       )}
-      <div className="px-3 pb-3">
-        <div className="rounded-lg border border-border-subtle bg-canvas focus-within:ring-2 focus-within:ring-accent/50">
+      {allowlistBlocked && (
+        <p className="text-meta text-status-error px-3 pb-1">
+          Some composer actions are unavailable because the desktop proxy allowlist is missing routes.
+        </p>
+      )}
+      <div className="px-3 pb-2">
+        <div
+          className="rounded-lg border border-border-subtle bg-canvas focus-within:ring-2 focus-within:ring-accent/50"
+          title={focused ? '! for shell · / for commands · @ for files' : undefined}
+        >
           <textarea
+            ref={textareaRef}
             data-agent-composer
-            className="w-full bg-transparent px-3 py-2 text-body text-text resize-none min-h-[4.5rem] max-h-40 focus:outline-none"
+            rows={2}
+            className="w-full bg-transparent px-3 py-2 text-body text-text resize-none min-h-[3rem] max-h-40 focus:outline-none overflow-y-auto"
             placeholder="Ask your agent…"
             value={draft}
             disabled={disabled || busy}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             onChange={(e) => {
               setDraft(e.target.value);
-              if (e.target.value.includes('@')) setPicker('mention');
+              const at = e.target.value.lastIndexOf('@');
+              if (at >= 0) {
+                setPicker('mention');
+                setMentionQuery(e.target.value.slice(at + 1));
+              }
             }}
             onKeyDown={onKeyDown}
           />
@@ -253,7 +317,8 @@ export function AgentComposerPanel({
             <div className="flex-1" />
             {features.modelPicker && (
               <Pill
-                label={model?.label ?? 'Model'}
+                label={modelPillLabel}
+                sublabel={modelPillPrimary ? modelPillProvider : undefined}
                 open={picker === 'model'}
                 onClick={() => setPicker((p) => (p === 'model' ? null : 'model'))}
                 testId="picker-model"
@@ -353,22 +418,21 @@ export function AgentComposerPanel({
             }}
           />
         )}
-        {!openCode && (
-          <p className="text-meta text-text-3 mt-1">
-            Capability-limited composer · Enter send · Shift+Enter newline
-          </p>
-        )}
-        {openCode && permissionMode === 'ask' && (
-          <p className="text-meta text-text-3 mt-1">
-            Permission mode UI only — server enforces approvals via the permission dock.
-          </p>
-        )}
-        {openCode && (
-          <p className="text-meta text-text-3 mt-1">
-            <button type="button" className="underline" onClick={() => setMode(mode === 'shell' ? 'chat' : 'shell')}>
-              {mode === 'shell' ? 'Shell mode on' : 'Shell mode off'}
-            </button>
-            {' · '}! prefix runs `/session/:id/shell`
+        {focused && (
+          <p className="text-[11px] text-text-3 mt-1 px-0.5">
+            Enter send · Shift+Enter newline · ! for shell · / for commands · @ for files
+            {openCode && (
+              <>
+                {' · '}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => setMode(mode === 'shell' ? 'chat' : 'shell')}
+                >
+                  {mode === 'shell' ? 'Shell mode on' : 'Shell mode off'}
+                </button>
+              </>
+            )}
           </p>
         )}
       </div>
@@ -378,12 +442,14 @@ export function AgentComposerPanel({
 
 function Pill({
   label,
+  sublabel,
   onClick,
   open,
   testId,
   wide,
 }: {
   label: string;
+  sublabel?: string;
   onClick: () => void;
   open: boolean;
   testId?: string;
@@ -393,12 +459,13 @@ function Pill({
     <button
       type="button"
       data-testid={testId}
-      className={`h-8 px-3 rounded-full border border-border-subtle bg-elevated text-meta text-text hover:bg-hover ${
-        wide ? 'max-w-[14rem] truncate' : ''
+      className={`h-8 px-3 rounded-full border border-border-subtle bg-elevated text-meta hover:bg-hover inline-flex items-center gap-1 min-w-0 ${
+        wide ? 'max-w-[14rem]' : ''
       } ${open ? 'ring-2 ring-accent/40' : ''}`}
       onClick={onClick}
     >
-      {label}
+      <span className={`truncate ${sublabel ? 'text-text' : 'text-text'}`}>{label}</span>
+      {sublabel && <span className="truncate text-text-3">{sublabel}</span>}
     </button>
   );
 }

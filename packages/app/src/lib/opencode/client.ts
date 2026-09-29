@@ -1,6 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { components } from '@loomria/shared/opencode';
 
+import type { OpenCodeTransport } from './transport.js';
+
 type Session = components['schemas']['Session'];
 type Message = components['schemas']['Message'];
 type Part = components['schemas']['Part'];
@@ -27,8 +29,25 @@ export type OpenCodeServerInfo = {
   directory: string;
 };
 
-async function request<T = unknown>(args: OpenCodeRequestArgs): Promise<T> {
+async function tauriRequest<T = unknown>(args: OpenCodeRequestArgs): Promise<T> {
   return invoke<T>('opencode_request', { args });
+}
+
+let openCodeTransport: OpenCodeTransport | null = null;
+
+export function setOpenCodeTransport(transport: OpenCodeTransport | null): void {
+  openCodeTransport = transport;
+}
+
+export function getOpenCodeTransport(): OpenCodeTransport | null {
+  return openCodeTransport;
+}
+
+async function request<T = unknown>(args: OpenCodeRequestArgs): Promise<T> {
+  if (openCodeTransport) {
+    return openCodeTransport(args) as Promise<T>;
+  }
+  return tauriRequest<T>(args);
 }
 
 export async function getServerInfo(paneId: string): Promise<OpenCodeServerInfo> {
@@ -77,11 +96,25 @@ export const opencodeClient = {
   listAgents: (paneId: string) => request<Agent[]>({ pane_id: paneId, method: 'GET', path: '/agent' }),
   listCommands: (paneId: string) => request<Command[]>({ pane_id: paneId, method: 'GET', path: '/command' }),
   listProviders: (paneId: string) => request<Provider[]>({ pane_id: paneId, method: 'GET', path: '/provider' }),
+  listConfigProviders: (paneId: string) =>
+    request<unknown>({ pane_id: paneId, method: 'GET', path: '/config/providers' }),
   getConfig: (paneId: string) => request<Record<string, unknown>>({ pane_id: paneId, method: 'GET', path: '/config' }),
   patchConfig: (paneId: string, body: Record<string, unknown>) =>
     request<Record<string, unknown>>({ pane_id: paneId, method: 'PATCH', path: '/config', body }),
   listFiles: (paneId: string, query?: Record<string, string>) =>
     request<FileNode[]>({ pane_id: paneId, method: 'GET', path: '/file', query }),
+  findFiles: async (paneId: string, query: Record<string, string>) => {
+    const raw = await request<unknown>({
+      pane_id: paneId,
+      method: 'GET',
+      path: '/find/file',
+      query,
+    });
+    if (!Array.isArray(raw)) return [];
+    return raw.map((entry) =>
+      typeof entry === 'string' ? { path: entry } : (entry as { path: string; name?: string }),
+    );
+  },
   getProjectCurrent: (paneId: string) =>
     request<Record<string, unknown>>({ pane_id: paneId, method: 'GET', path: '/project/current' }),
   getVcsStatus: (paneId: string) =>

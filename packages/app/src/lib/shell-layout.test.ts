@@ -1,5 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { DEFAULT_SHELL_LAYOUT, mergeShellLayout } from './shell-layout';
+import {
+  DEFAULT_SHELL_LAYOUT,
+  defaultBottomRatio,
+  mergeShellLayout,
+} from './shell-layout';
 
 const saveSettings = vi.fn();
 
@@ -24,5 +28,10 @@ describe('shell layout defaults', () => {
     const parsed = mergeShellLayout({ sidebarWidth: 199 });
     expect(parsed.sidebarWidth).toBe(199);
     expect(parsed.sidebarCollapsed).toBe(false);
+  });
+
+  it('defaultBottomRatio favors agent panel without editor tabs', () => {
+    expect(defaultBottomRatio({ hasEditorTabs: false })).toBe(70);
+    expect(defaultBottomRatio({ hasEditorTabs: true })).toBe(42);
   });
 });

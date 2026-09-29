@@ -1,5 +1,6 @@
 import type { DemoVariant } from '../demo-mode';
 import type { TranscriptViewModel } from '../transcript';
+import { flattenTranscriptTurns } from '../transcript/types';
 
 const opencodeDemo: TranscriptViewModel = {
   turns: [
@@ -10,9 +11,9 @@ const opencodeDemo: TranscriptViewModel = {
         {
           kind: 'user_prompt',
           id: 'u-demo',
-          text: 'Add retry logic to the bridge SSE reconnect loop.',
+          text: 'hi',
           files: [],
-          collapsedDefault: true,
+          collapsedDefault: false,
         },
       ],
     },
@@ -23,14 +24,13 @@ const opencodeDemo: TranscriptViewModel = {
         {
           kind: 'reasoning',
           id: 'r1',
-          text: 'Need to inspect bridge.ts and add exponential backoff with jitter.',
+          text: 'User greeted; respond briefly and continue with the bridge task.',
           durationMs: 2200,
         },
         {
           kind: 'assistant_text',
           id: 't1',
-          markdown:
-            "I'll update the bridge client to backoff with jitter and register session_state on localhost EventSource.",
+          markdown: 'Hi! I will read the project file and summarize the first word for you.',
         },
         {
           kind: 'tool_call',
@@ -40,7 +40,17 @@ const opencodeDemo: TranscriptViewModel = {
           status: 'completed',
           durationMs: 1400,
           input: 'npm run test --workspace=@loomria/app',
-          output: 'Tests: 42 passed',
+          output: 'Tests: 42 passed\n',
+        },
+        {
+          kind: 'tool_call',
+          id: 'tool-read',
+          name: 'read',
+          title: 'read',
+          status: 'completed',
+          durationMs: 400,
+          input: { path: 'packages/app/src/lib/bridge.ts', start: 1, end: 40 },
+          output: 'export function connect() {',
         },
         {
           kind: 'tool_call',
@@ -63,7 +73,7 @@ const opencodeDemo: TranscriptViewModel = {
       ],
       meta: {
         agent: 'build',
-        model: 'MiMo V2.5',
+        model: 'deepseek-v3.1-flash',
         provider: 'opencode-go',
         durationMs: 6100,
         inputTokens: 7200,
@@ -73,10 +83,12 @@ const opencodeDemo: TranscriptViewModel = {
     },
   ],
   flatItems: [],
-  sessionBusy: true,
-  turnActive: true,
+  sessionBusy: false,
+  turnActive: false,
   globalFilePaths: ['packages/app/src/lib/bridge.ts'],
 };
+
+opencodeDemo.flatItems = flattenTranscriptTurns(opencodeDemo.turns);
 
 const codexDemo: TranscriptViewModel = {
   turns: [
@@ -111,9 +123,11 @@ const codexDemo: TranscriptViewModel = {
   globalFilePaths: [],
 };
 
+codexDemo.flatItems = flattenTranscriptTurns(codexDemo.turns);
+
 export function demoTranscriptForPane(variant: DemoVariant, paneId: string): TranscriptViewModel | null {
   if (variant === 'empty') return null;
-  if (paneId.includes('codex')) return codexDemo;
+  if (paneId.includes('codex') && !paneId.includes('Rate')) return codexDemo;
   if (paneId.includes('opencode')) return opencodeDemo;
   return null;
 }

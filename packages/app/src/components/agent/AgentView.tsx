@@ -242,9 +242,28 @@ export function AgentView({
       ? 'This session cannot accept prompts from the composer.'
       : undefined;
 
+  const sessionModelHint = useMemo(() => {
+    for (let i = transcript.turns.length - 1; i >= 0; i -= 1) {
+      const turn = transcript.turns[i];
+      if (turn?.role === 'assistant' && turn.meta?.model) {
+        return { model: turn.meta.model, provider: turn.meta.provider };
+      }
+    }
+    const session = sessionId ? ocState?.sessions[sessionId] : undefined;
+    const sessionModel = session && typeof session === 'object' ? session.model : undefined;
+    const model =
+      sessionModel && typeof sessionModel === 'object'
+        ? (sessionModel as { id?: string; providerID?: string })
+        : undefined;
+    if (model?.id) {
+      return { model: model.id, provider: model.providerID };
+    }
+    return null;
+  }, [ocState?.sessions, sessionId, transcript.turns]);
+
   return (
     <div
-      className={`flex flex-col min-h-0 bg-surface border-border-subtle lr-agent-panel ${
+      className={`flex flex-col min-h-0 h-full bg-surface border-border-subtle lr-agent-panel ${
         showTui ? 'shrink-0 border-r' : 'flex-1 min-w-0 w-full z-[1]'
       }`}
       style={
@@ -301,19 +320,25 @@ export function AgentView({
       </div>
 
       <div
-        className={`flex flex-1 flex-col min-h-0 w-full mx-auto ${showTui ? '' : 'max-w-[52rem]'}`}
+        className={`flex flex-1 flex-col min-h-0 overflow-hidden w-full mx-auto ${showTui ? '' : 'max-w-[52rem]'}`}
       >
-        {loading && <p className="text-meta text-text-3 px-3 py-2">Loading session…</p>}
-        {(error || actionError) && (
-          <p className="text-meta text-status-error px-3 py-2 border-b border-status-error/30">
-            {actionError ?? error}
-          </p>
+        {(loading || error || actionError) && (
+          <div className="shrink-0">
+            {loading && <p className="text-meta text-text-3 px-3 py-2">Loading session…</p>}
+            {(error || actionError) && (
+              <p className="text-meta text-status-error px-3 py-2 border-b border-status-error/30">
+                {actionError ?? error}
+              </p>
+            )}
+          </div>
         )}
 
-        <TranscriptView vm={transcript} nativeTuiOnly={nativeTuiOnly} />
+        <div className="flex-1 min-h-[160px] flex flex-col overflow-hidden">
+          <TranscriptView vm={transcript} nativeTuiOnly={nativeTuiOnly} />
+        </div>
 
         {!nativeTuiOnly && (
-          <>
+          <div className="shrink-0 flex flex-col max-h-[45%] min-h-0 overflow-y-auto border-t border-border-subtle/50">
             <PermissionDock
               permissions={permissionDockItems}
               busy={busy}
@@ -338,11 +363,12 @@ export function AgentView({
               disabledReason={composerReason}
               busy={busy}
               showStop={Boolean((capabilities.cancel && transcript.turnActive) || transcript.sessionBusy)}
+              sessionModel={sessionModelHint}
               onSendProtocol={send}
               onCancelProtocol={cancelTurn}
               onError={setActionError}
             />
-          </>
+          </div>
         )}
       </div>
     </div>
