@@ -25,10 +25,6 @@ pub fn apply_to_process() {
     std::env::set_var("Path", path);
 }
 
-/// Resolve the OpenCode binary for `std::process::Command` / PTY spawn.
-///
-/// On Windows, npm installs `opencode` as a `.ps1` shim which `CreateProcess`
-/// cannot execute directly — use the real `opencode.exe` under the npm package.
 pub fn resolve_opencode_executable() -> Result<String, String> {
     #[cfg(windows)]
     {
@@ -58,6 +54,20 @@ pub fn resolve_opencode_executable() -> Result<String, String> {
         }
         Err("opencode not found on PATH (install: npm i -g opencode-ai)".into())
     }
+}
+
+pub fn resolve_claude_executable() -> Result<String, String> {
+    if let Some(path) = which_on_path("claude.exe").or_else(|| which_on_path("claude")) {
+        return Ok(path);
+    }
+    Err("claude not found on PATH".into())
+}
+
+pub fn resolve_codex_executable() -> Result<String, String> {
+    if let Some(path) = which_on_path("codex.exe").or_else(|| which_on_path("codex")) {
+        return Ok(path);
+    }
+    Err("codex not found on PATH".into())
 }
 
 fn which_on_path(name: &str) -> Option<String> {

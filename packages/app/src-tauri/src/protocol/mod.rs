@@ -1,10 +1,13 @@
 mod claude_stream_json;
 mod codex_app_server;
+mod codex_ws;
 mod opencode_http;
 mod types;
 
 pub use types::{
-    AgentError, AgentEvent, Capabilities, Endpoint, ProtocolAdapter, ProtocolSession,
+    AgentError, AgentEvent, AgentEventEnvelope, ApprovalDecision, ApprovalKind, Capabilities,
+    Endpoint, MessageRole, ProtocolAdapter, ProtocolSession, ToolStatus, TurnStatus,
+    AGENT_EVENT_CHANNEL, HISTORY_CAP,
 };
 pub use crate::agents::ProtocolKind;
 

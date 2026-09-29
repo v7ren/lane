@@ -1,8 +1,9 @@
 //! Per-pane session state derived from the event sink.
 
 use crate::events::{subscribe, EventEntry, SystemEvent};
+use crate::protocol::AgentEvent;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use parking_lot::Mutex;
 
@@ -29,6 +30,7 @@ pub struct SessionStateSnapshot {
 pub struct SessionStateStore {
     states: Mutex<HashMap<String, SessionStateSnapshot>>,
     agent_types: Mutex<HashMap<String, String>>,
+    protocol_panes: Mutex<HashSet<String>>,
 }
 
 impl SessionStateStore {
@@ -36,7 +38,47 @@ impl SessionStateStore {
         Self {
             states: Mutex::new(HashMap::new()),
             agent_types: Mutex::new(HashMap::new()),
+            protocol_panes: Mutex::new(HashSet::new()),
         }
+    }
+
+    pub fn set_protocol_backed(&self, pane_id: &str, backed: bool) {
+        let mut set = self.protocol_panes.lock();
+        if backed {
+            set.insert(pane_id.to_string());
+        } else {
+            set.remove(pane_id);
+        }
+    }
+
+    pub fn apply_agent_event(&self, pane_id: &str, event: &AgentEvent) -> Option<SessionStateSnapshot> {
+        let (state, detail) = match event {
+            AgentEvent::ApprovalRequested { title, .. } => {
+                (SessionStateKind::NeedsApproval, Some(title.clone()))
+            }
+            AgentEvent::TurnStarted { .. } | AgentEvent::MessageDelta { .. } => {
+                (SessionStateKind::Working, None)
+            }
+            AgentEvent::TurnCompleted { status, error, .. } => match status {
+                crate::protocol::TurnStatus::Ok => (SessionStateKind::Done, None),
+                crate::protocol::TurnStatus::Cancelled => (SessionStateKind::Idle, None),
+                crate::protocol::TurnStatus::Error => (
+                    SessionStateKind::Error,
+                    error.clone().or_else(|| Some("turn error".into())),
+                ),
+            },
+            AgentEvent::Error { message } => (SessionStateKind::Error, Some(message.clone())),
+            AgentEvent::RateLimited { message, .. } => {
+                (SessionStateKind::RateLimited, Some(message.clone()))
+            }
+            _ => return None,
+        };
+        Some(self.upsert(
+            pane_id.to_string(),
+            state,
+            detail,
+            crate::events::now_ms(),
+        ))
     }
 
     pub fn snapshot_all(&self) -> Vec<SessionStateSnapshot> {
@@ -57,9 +99,13 @@ impl SessionStateStore {
             }
             SystemEvent::PaneKilled { pane_id } => {
                 self.agent_types.lock().remove(&pane_id.0);
+                self.protocol_panes.lock().remove(&pane_id.0);
                 Some((pane_id.0.clone(), SessionStateKind::Idle, None))
             }
             SystemEvent::PaneStatusChanged { pane_id, status } => {
+                if self.protocol_panes.lock().contains(&pane_id.0) {
+                    return None;
+                }
                 let kind = match status.as_str() {
                     "waiting_input" => SessionStateKind::NeedsApproval,
                     "idle" => SessionStateKind::Idle,
@@ -74,6 +120,9 @@ impl SessionStateStore {
                 text,
                 ..
             } => {
+                if self.protocol_panes.lock().contains(&pane_id.0) {
+                    return None;
+                }
                 let kind = match observation.as_str() {
                     "permission_prompt" => SessionStateKind::NeedsApproval,
                     "agent_blocked" => SessionStateKind::NeedsApproval,
@@ -85,6 +134,9 @@ impl SessionStateStore {
                 Some((pane_id.0.clone(), kind, text.clone()))
             }
             SystemEvent::PaneOutputObserved { pane_id, .. } => {
+                if self.protocol_panes.lock().contains(&pane_id.0) {
+                    return None;
+                }
                 Some((pane_id.0.clone(), SessionStateKind::Working, None))
             }
             _ => None,
@@ -154,6 +206,13 @@ pub fn spawn_state_monitor(store: Arc<SessionStateStore>) {
             }
         })
         .expect("spawn session state monitor");
+}
+
+pub fn push_agent_state(_store: &SessionStateStore, snap: SessionStateSnapshot) {
+    crate::bridge::push_session_state_sse(&snap);
+    if snap.state == SessionStateKind::NeedsApproval || snap.state == SessionStateKind::Done {
+        crate::session::notify::maybe_notify(&snap);
+    }
 }
 
 impl SessionStateKind {

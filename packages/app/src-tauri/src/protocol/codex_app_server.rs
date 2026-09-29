@@ -1,9 +1,11 @@
-//! Codex `app-server` WebSocket adapter (minimal; version fallback to TUI-only is manifest-driven).
+//! Codex `app-server` WebSocket adapter.
 
 use super::types::{
-    AgentError, AgentEvent, Capabilities, Endpoint, ProtocolAdapter, ProtocolSession,
+    AgentError, AgentEvent, ApprovalDecision, Capabilities, Endpoint, ProtocolAdapter,
+    ProtocolSession,
 };
 use crate::agents::ProtocolKind;
+use crate::protocol::codex_ws::CodexWsClient;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
@@ -15,45 +17,54 @@ impl ProtocolAdapter for CodexAppServerAdapter {
     }
 
     fn connect(&self, endpoint: Endpoint) -> Result<Box<dyn ProtocolSession>, AgentError> {
-        Ok(Box::new(CodexAppServerSession {
-            endpoint: endpoint.url,
-        }))
+        let client = CodexWsClient::spawn(endpoint.url)?;
+        Ok(Box::new(CodexAppServerSession { client }))
     }
 }
 
 struct CodexAppServerSession {
-    endpoint: String,
+    client: Arc<CodexWsClient>,
 }
 
 impl ProtocolSession for CodexAppServerSession {
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             chat: true,
+            send_prompt: true,
             approvals: true,
-            cancel_turn: true,
+            cancel: true,
             file_changes: false,
+            attach_tui: true,
         }
     }
 
     fn subscribe(&self) -> broadcast::Receiver<AgentEvent> {
-        let (_tx, rx) = broadcast::channel(8);
-        rx
+        self.client.subscribe()
     }
 
     fn send_prompt(&self, text: String) -> Result<(), AgentError> {
-        // Full WS JSON-RPC lands in a follow-up; composer can still route to TUI when unsupported.
-        tracing::debug!(endpoint = %self.endpoint, len = text.len(), "codex app-server prompt (stub)");
-        Err(AgentError::Unsupported(
-            "codex app-server wire protocol not connected in this build — use TUI pane".into(),
-        ))
+        self.client.send_turn(&text)
     }
 
-    fn respond_to_approval(&self, _approved: bool, _remember: bool) -> Result<(), AgentError> {
-        Err(AgentError::Unsupported("codex app-server approval stub".into()))
+    fn respond_to_approval(&self, approval_id: &str, decision: &str) -> Result<(), AgentError> {
+        let parsed = ApprovalDecision::parse(decision)
+            .map_err(|e| AgentError::Protocol(e))?;
+        let approved = !matches!(parsed, ApprovalDecision::Deny);
+        let remember = matches!(parsed, ApprovalDecision::AllowAlways);
+        self.client.send_rpc(serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": format!("approval-{approval_id}"),
+            "method": "command/respondApproval",
+            "params": {
+                "requestId": approval_id,
+                "approved": approved,
+                "remember": remember,
+            }
+        }))
     }
 
     fn cancel_turn(&self) -> Result<(), AgentError> {
-        Err(AgentError::Unsupported("codex app-server cancel stub".into()))
+        self.client.interrupt()
     }
 }
 

@@ -17,3 +17,23 @@ args = []
 [launch.tui.linux]
 command = "claude"
 args = []
+
+[launch.server]
+args = [
+  "-p",
+  "--input-format",
+  "stream-json",
+  "--output-format",
+  "stream-json",
+  "--include-partial-messages",
+  "--verbose",
+  "--session-id",
+  "{session_id}",
+  "--permission-mode",
+  "default",
+]
+protocol = "claude-stream-json"
+ready = { kind = "stdout_regex", path = ".", timeout_ms = 60000 }
+
+[launch.resume]
+args = ["--resume", "{session_id}"]

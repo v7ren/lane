@@ -21,6 +21,14 @@ args = []
 command = "opencode"
 args = []
 
+[launch.server]
+args = ["serve", "--hostname", "127.0.0.1", "--port", "{port}"]
+protocol = "opencode-http"
+ready = { kind = "http", path = "/global/health", timeout_ms = 45000 }
+
+[launch.attach]
+args = ["attach", "{url}", "-s", "{session_id}"]
+
 [[attention]]
 pattern = "(?i)enter submit"
 means = "needs_approval"
