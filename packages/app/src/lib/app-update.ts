@@ -1,5 +1,5 @@
 /** GitHub releases used for desktop update checks. */
-export const RELEASE_REPO = 'Potato-dev-inc/puppet-master';
+export const RELEASE_REPO = 'Potato-dev-inc/loomria';
 export const RELEASES_LATEST_URL = `https://github.com/${RELEASE_REPO}/releases/latest`;
 export const RELEASES_API_URL = `https://api.github.com/repos/${RELEASE_REPO}/releases/latest`;
 

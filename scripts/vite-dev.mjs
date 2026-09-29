@@ -17,7 +17,10 @@ import {
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const appDir = join(repoRoot, 'packages', 'app');
-const portFile = join(repoRoot, 'puppet-master.bridge.port');
+const portFiles = [
+  join(repoRoot, 'loomria.bridge.port'),
+  join(repoRoot, 'puppet-master.bridge.port'),
+];
 const VITE_PORT = 1420;
 const VITE_URL = `http://127.0.0.1:${VITE_PORT}`;
 
@@ -79,7 +82,7 @@ void waitForVite().then(async () => {
       tunnelUrl = devTunnel?.url ?? null;
       tunnelProvider = devTunnel?.provider ?? null;
     } catch (err) {
-      console.error('[puppet-master] tunnel failed:', err instanceof Error ? err.message : err);
+      console.error('[loomria] tunnel failed:', err instanceof Error ? err.message : err);
     }
   }
 
@@ -91,7 +94,7 @@ void waitForVite().then(async () => {
   });
 
   console.error('');
-  console.error('[puppet-master] dev stack ready');
+  console.error('[loomria] dev stack ready');
   console.error(`  vite / PWA:     ${VITE_URL}`);
   console.error(`  bridge proxy:   ${VITE_URL}/bridge  (→ desktop bridge when app is up)`);
   if (bridge) console.error(`  bridge direct:  ${bridge}`);
@@ -131,7 +134,8 @@ async function waitForVite(maxMs = 90_000) {
 
 function readBridgeUrl() {
   try {
-    if (!existsSync(portFile)) return null;
+    const portFile = portFiles.find((path) => existsSync(path));
+    if (!portFile) return null;
     const raw = readFileSync(portFile, 'utf-8').trim();
     if (!raw) return null;
     if (raw.includes(':')) {

@@ -2,12 +2,16 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { ProxyOptions } from 'vite';
 
-const PORT_FILE = resolve(__dirname, '../../puppet-master.bridge.port');
+const PORT_FILES = [
+  resolve(__dirname, '../../loomria.bridge.port'),
+  resolve(__dirname, '../../puppet-master.bridge.port'),
+];
 
 function readBridgeTarget(): string {
   try {
-    if (existsSync(PORT_FILE)) {
-      const raw = readFileSync(PORT_FILE, 'utf-8').trim();
+    const portFile = PORT_FILES.find((path) => existsSync(path));
+    if (portFile) {
+      const raw = readFileSync(portFile, 'utf-8').trim();
       if (raw.includes(':')) {
         const [host, port] = raw.split(':');
         return `http://${host || '127.0.0.1'}:${port}`;

@@ -1,8 +1,8 @@
 {
   "mcpServers": {
-    "puppet-master": {
+    "loomria": {
       "command": "npx",
-      "args": ["-y", "@puppet-master/mcp"]
+      "args": ["-y", "@loomria/mcp"]
     }
   }
 }

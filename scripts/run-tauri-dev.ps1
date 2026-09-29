@@ -45,7 +45,7 @@ Write-Host "[3/4] waiting for the tauri binary to launch (max 60s)…"
 $bin = $null
 for ($i = 0; $i -lt 60; $i++) {
   Start-Sleep -Seconds 1
-  $bin = Get-Process -Name "puppet_master_app" -ErrorAction SilentlyContinue | Select-Object -First 1
+  $bin = Get-Process -Name "loomria_app" -ErrorAction SilentlyContinue | Select-Object -First 1
   if ($bin) { Write-Host "  binary running — pid $($bin.Id), ${i}s after vite"; break }
 }
 if (-not $bin) {

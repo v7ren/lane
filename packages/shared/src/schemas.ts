@@ -24,7 +24,7 @@ export const LlmModelSchema = z.object({
 });
 export type LlmModel = z.infer<typeof LlmModelSchema>;
 
-/** How the Puppet Master sidebar drives orchestration. */
+/** How the Loomria sidebar drives orchestration. */
 export const OrchestratorBackendSchema = z.enum([
   'api',           // Direct LLM API + in-process MCP tool loop (current)
   'claude_cli',    // Dedicated Claude Code pane with MCP configured

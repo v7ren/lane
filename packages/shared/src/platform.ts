@@ -1,6 +1,9 @@
-export type PuppetPlatform = 'windows' | 'macos' | 'linux';
+export type LoomriaPlatform = 'windows' | 'macos' | 'linux';
 
-export function detectPlatform(): PuppetPlatform {
+/** @deprecated Use {@link LoomriaPlatform}. */
+export type PuppetPlatform = LoomriaPlatform;
+
+export function detectPlatform(): LoomriaPlatform {
   if (typeof process !== 'undefined' && process.platform) {
     switch (process.platform) {
       case 'win32':
@@ -21,14 +24,14 @@ export function detectPlatform(): PuppetPlatform {
   return 'linux';
 }
 
-export function isWindows(platform: PuppetPlatform = detectPlatform()): boolean {
+export function isWindows(platform: LoomriaPlatform = detectPlatform()): boolean {
   return platform === 'windows';
 }
 
-export function isMacOS(platform: PuppetPlatform = detectPlatform()): boolean {
+export function isMacOS(platform: LoomriaPlatform = detectPlatform()): boolean {
   return platform === 'macos';
 }
 
-export function isUnix(platform: PuppetPlatform = detectPlatform()): boolean {
+export function isUnix(platform: LoomriaPlatform = detectPlatform()): boolean {
   return platform === 'macos' || platform === 'linux';
 }

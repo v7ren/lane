@@ -1,20 +1,34 @@
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { BRIDGE_PORT_FILE_ENV, DEFAULT_BRIDGE_PORT_FILE } from './protocol.js';
+import {
+  BRIDGE_PORT_FILE_ENV,
+  DEFAULT_BRIDGE_PORT_FILE,
+  LEGACY_BRIDGE_PORT_FILE_ENV,
+  LEGACY_DEFAULT_BRIDGE_PORT_FILE,
+} from './protocol.js';
 
-const APP_ID = 'com.puppetmaster.app';
+const APP_ID = 'com.loomria.app';
+const LEGACY_APP_ID = 'com.puppetmaster.app';
 
-function defaultAppDataBridgePortFile(): string {
+function appDataBridgePortFile(appId: string, fileName: string): string {
   const home = homedir();
   switch (process.platform) {
     case 'win32':
-      return join(process.env.APPDATA ?? home, APP_ID, DEFAULT_BRIDGE_PORT_FILE);
+      return join(process.env.APPDATA ?? home, appId, fileName);
     case 'darwin':
-      return join(home, 'Library', 'Application Support', APP_ID, DEFAULT_BRIDGE_PORT_FILE);
+      return join(home, 'Library', 'Application Support', appId, fileName);
     default:
-      return join(home, '.local', 'share', APP_ID, DEFAULT_BRIDGE_PORT_FILE);
+      return join(home, '.local', 'share', appId, fileName);
   }
+}
+
+function defaultAppDataBridgePortFile(): string {
+  return appDataBridgePortFile(APP_ID, DEFAULT_BRIDGE_PORT_FILE);
+}
+
+function legacyAppDataBridgePortFile(): string {
+  return appDataBridgePortFile(LEGACY_APP_ID, LEGACY_DEFAULT_BRIDGE_PORT_FILE);
 }
 
 function parseBridgePort(raw: string): { port: number; host: string } {
@@ -28,9 +42,14 @@ function parseBridgePort(raw: string): { port: number; host: string } {
 
 function bridgePortCandidates(filePath?: string): string[] {
   if (filePath) return [filePath];
-  const envPath = process.env[BRIDGE_PORT_FILE_ENV];
-  if (envPath) return [envPath];
-  return [DEFAULT_BRIDGE_PORT_FILE, defaultAppDataBridgePortFile()];
+  const fromEnv = process.env[BRIDGE_PORT_FILE_ENV] ?? process.env[LEGACY_BRIDGE_PORT_FILE_ENV];
+  if (fromEnv) return [fromEnv];
+  return [
+    DEFAULT_BRIDGE_PORT_FILE,
+    LEGACY_DEFAULT_BRIDGE_PORT_FILE,
+    defaultAppDataBridgePortFile(),
+    legacyAppDataBridgePortFile(),
+  ];
 }
 
 export async function readBridgePort(filePath?: string): Promise<{ port: number; host: string }> {
@@ -45,7 +64,7 @@ export async function readBridgePort(filePath?: string): Promise<{ port: number;
     }
   }
   throw new Error(
-    `Puppet Master bridge port file not found (tried: ${candidates.map((p) => `"${p}"`).join(', ')}). ` +
-    `Start Puppet Master first (\`npx puppet-master\`).`
+    `Loomria bridge port file not found (tried: ${candidates.map((p) => `"${p}"`).join(', ')}). ` +
+      'Start the Loomria desktop app first (embedded HTTP bridge).'
   );
 }

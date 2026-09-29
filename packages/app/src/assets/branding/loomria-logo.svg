@@ -20,11 +20,11 @@
     <!-- Horizontal Split -->
     <line x1="54" y1="125" x2="166" y2="125" stroke="#A1A1AA" stroke-width="1" />
 
-    <!-- Puppet Master Controller Node (The Origin) -->
+    <!-- Loomria hub node (the origin) -->
     <circle cx="110" cy="40" r="3" fill="none" stroke="#18181B" stroke-width="1.5" />
     <circle cx="110" cy="40" r="1" fill="#18181B" />
 
-    <!-- Control Lines (Puppet Strings) -->
+    <!-- Control lines to panes -->
     <!-- Path to Pane 1 (Top Left) -->
     <path d="M 110,43 L 82,75 L 82,90" fill="none" stroke="#A1A1AA" stroke-width="1" stroke-dasharray="2,2" />
     
@@ -55,7 +55,7 @@
   <!-- ==================== TYPOGRAPHY ==================== -->
   <!-- Brand Name (Light, Geometric, Clean Monochrome) -->
   <text x="250" y="128" font-family="system-ui, -apple-system, sans-serif" font-weight="200" font-size="36" fill="#27272A" letter-spacing="6">
-    TMUX PUPPET <tspan font-weight="600" fill="#09090B">MASTER</tspan>
+    LOOM<tspan font-weight="600" fill="#09090B">RIA</tspan>
   </text>
 
   <!-- Active Cursor (Single Line) -->

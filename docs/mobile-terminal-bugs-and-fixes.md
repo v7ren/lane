@@ -1,6 +1,6 @@
 # Mobile Terminal Bugs and Fixes
 
-This document records several hard-won bugs encountered while building Puppet Master's mobile PWA terminal mirror — a phone that views and types into a desktop-owned PTY over a bridge tunnel — and how the current codebase addresses them.
+This document records several hard-won bugs encountered while building Loomria's (formerly Puppet Master) mobile PWA terminal mirror — a phone that views and types into a desktop-owned PTY over a bridge tunnel — and how the current codebase addresses them.
 
 ## Architecture context
 
