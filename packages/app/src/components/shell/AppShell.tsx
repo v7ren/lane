@@ -30,6 +30,7 @@ import { filterAgentSessionStates } from '../../lib/agent-session-states';
 import { buildPaletteCommands } from '../../lib/commands/sessions';
 import { SessionActionsProvider, useSessionActions } from '../../lib/sessions/session-actions-context';
 import { ShellToastProvider } from '../../lib/sessions/shell-toast';
+import { fetchAttachedOpenCodeSessionId } from '../../lib/sessions/opencode-attached-session';
 import { useOpenCodeTuiSync } from '../../lib/sessions/use-tui-sync';
 import { isOpenCodePane } from '../../lib/sessions/merge-sessions';
 import { findOpenCodePaneForProject } from '../../lib/sessions/workspace-pane';
@@ -170,8 +171,8 @@ function AppShellInner({
 
   useOpenCodeTuiSync(
     selectedPaneId,
-    selectedSessionId ?? selectedSession?.sessionId,
-    Boolean(selectedPaneId && (selectedSessionId ?? selectedSession?.sessionId)),
+    selectedSessionId,
+    Boolean(showTui && selectedPaneId && selectedSessionId),
   );
 
   const handleOpenWorkspace = useCallback(
@@ -183,10 +184,22 @@ function AppShellInner({
         return;
       }
       const id = await registry.spawnPane({ agent_type: 'opencode_native', cwd: path });
-      if (id) selectSession(id);
+      if (id) {
+        const attached = await fetchAttachedOpenCodeSessionId(id);
+        selectSession(id, attached ?? undefined);
+      }
     },
     [onProjectPathChange, panes, registry, selectSession, selectedSessionId],
   );
+
+  useEffect(() => {
+    if (!selectedPaneId || selectedSessionId) return;
+    const pane = panes.find((p) => p.info.id === selectedPaneId);
+    if (!pane || pane.info.agent_type !== 'opencode_native') return;
+    void fetchAttachedOpenCodeSessionId(selectedPaneId).then((attached) => {
+      if (attached) selectSession(selectedPaneId, attached);
+    });
+  }, [panes, selectSession, selectedPaneId, selectedSessionId]);
 
   const terminalPanes = useMemo(
     () => panes.filter((p) => isUserShellPane(p.info.agent_type)),
@@ -703,6 +716,13 @@ function AppShellChrome(props: {
                               e.preventDefault();
                               startDrag();
                             }}
+                          />
+                        )}
+                        {showTui && selectedPaneId && (
+                          <div
+                            data-agent-tui-region={selectedPaneId}
+                            className="flex-1 min-w-[280px] min-h-0 pointer-events-none"
+                            aria-hidden
                           />
                         )}
                         </div>

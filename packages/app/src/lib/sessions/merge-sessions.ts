@@ -78,10 +78,7 @@ export function buildOpenCodeShellSessions(args: {
       pending,
     );
     const updatedAt = session.time?.updated ?? session.time?.created ?? 0;
-    const selected =
-      selectedPaneId === paneId &&
-      (selectedSessionId === sessionId ||
-        (!selectedSessionId && state.sessionOrder[0] === sessionId));
+    const selected = selectedPaneId === paneId && selectedSessionId === sessionId;
     const lastRead = readAtMs[`${paneId}:${sessionId}`] ?? 0;
     const unread =
       !selected &&

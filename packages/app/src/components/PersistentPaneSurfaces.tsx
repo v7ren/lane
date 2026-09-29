@@ -1,7 +1,5 @@
-import {
-  agentTuiSurfaceTopPx,
-  terminalSurfaceTopPx,
-} from '../lib/shell-pane-chrome';
+import { useAgentTuiSurfaceLayout } from '../lib/agent-tui-surface-layout';
+import { terminalSurfaceTopPx } from '../lib/shell-pane-chrome';
 import type { AgentCatalog } from '@loomria/shared';
 import type { PaneRegistryApi } from '../hooks/usePaneRegistry';
 import type { SessionRailState } from '../hooks/useSessionRail';
@@ -51,6 +49,12 @@ export function PersistentPaneSurfaces({
   const agentTuiOpen =
     bottomTab === 'agent' && showTui && Boolean(agentPaneId);
 
+  const tuiSurfaceStyle = useAgentTuiSurfaceLayout(
+    agentPaneId,
+    agentTuiOpen,
+    layoutEpoch,
+  );
+
   return (
     <div
       className="absolute inset-0 overflow-visible pointer-events-none z-[5]"
@@ -78,12 +82,12 @@ export function PersistentPaneSurfaces({
         const displayStatus = mergePaneAndSessionStatus(pane.status, session?.state);
 
         const visibleStyle = agentTuiVisible
-          ? {
+          ? (tuiSurfaceStyle ?? {
               left: `${chatWidthPercent ?? 40}%`,
               right: 0,
-              top: agentTuiSurfaceTopPx(),
+              top: 0,
               bottom: 0,
-            }
+            })
           : terminalTabVisible
             ? { left: 0, right: 0, top: terminalSurfaceTopPx(), bottom: 0 }
             : { left: 0, right: 0, top: 0, bottom: 0 };

@@ -137,9 +137,15 @@ pub struct OpenCodeServerInfo {
     pub url_hidden: bool,
     pub healthy: bool,
     pub directory: String,
+    /// OpenCode session the native TUI attach process was started with for this pane.
+    pub attached_session_id: Option<String>,
 }
 
-pub fn fetch_server_info(base_url: &str, directory: &str) -> OpenCodeServerInfo {
+pub fn fetch_server_info(
+    base_url: &str,
+    directory: &str,
+    attached_session_id: Option<String>,
+) -> OpenCodeServerInfo {
     let base = normalize_base_url(base_url);
     let url = format!("{base}/global/health");
     let healthy = super::client::health_ok(&base);
@@ -168,5 +174,6 @@ pub fn fetch_server_info(base_url: &str, directory: &str) -> OpenCodeServerInfo 
         url_hidden: true,
         healthy,
         directory: directory.to_string(),
+        attached_session_id,
     }
 }

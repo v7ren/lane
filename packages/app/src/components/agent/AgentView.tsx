@@ -18,6 +18,7 @@ import {
   replyOpenCodeQuestion,
 } from '../../lib/commands/agent';
 import { useTranscriptViewModel } from '../../lib/transcript/use-transcript-view-model';
+import { useSelectedSession } from '../../lib/shell-data';
 import { useShellSelection } from '../../lib/shell-selection-context';
 import { useSessionActions } from '../../lib/sessions/session-actions-context';
 import { getOpenCodeStore } from '../../lib/opencode/store';
@@ -63,7 +64,8 @@ export function AgentView({
   embedded?: boolean;
   paneCwd?: string | null;
 }) {
-  const { selectedSessionId } = useShellSelection();
+  const { selectedSessionId, selectedPaneId: shellPaneId } = useShellSelection();
+  const shellSession = useSelectedSession();
   const sessionActions = useSessionActions();
   const railState = sessionState?.state ?? null;
   const { capabilities, source, timeline, loading, error, refresh } = useAgentSession(
@@ -91,8 +93,8 @@ export function AgentView({
     () => null,
   );
   const sessionId =
-    openCodePane
-      ? (selectedSessionId ?? ocState?.sessionOrder[0] ?? null)
+    openCodePane && shellPaneId === paneId
+      ? (selectedSessionId ?? shellSession?.sessionId ?? null)
       : null;
 
   const pendingProtocol = timeline.pendingApprovals;

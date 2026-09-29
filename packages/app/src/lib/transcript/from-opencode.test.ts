@@ -94,6 +94,64 @@ describe('fromOpenCode adapter', () => {
     expect(kinds.indexOf('tool_call')).toBeLessThan(kinds.indexOf('assistant_text'));
   });
 
+  it('renders historical session with user row and assistant reply after hydrate', () => {
+    let state = createEmptyOpenCodeStore('pane-test');
+    const sessionId = 'sess_hist';
+    state = applyOpenCodeWireEvent(state, {
+      id: 'e1',
+      type: 'message.updated',
+      properties: {
+        info: { id: 'msg_u', sessionID: sessionId, role: 'user', time: { created: 1 } },
+      },
+    } as OpenCodeWireEvent);
+    state = applyOpenCodeWireEvent(state, {
+      id: 'e2',
+      type: 'message.part.updated',
+      properties: {
+        messageID: 'msg_u',
+        part: { id: 'p_u', messageID: 'msg_u', type: 'text', text: 'hello' },
+      },
+    } as OpenCodeWireEvent);
+    state = applyOpenCodeWireEvent(state, {
+      id: 'e3',
+      type: 'message.updated',
+      properties: {
+        info: { id: 'msg_a', sessionID: sessionId, role: 'assistant', time: { created: 2 } },
+      },
+    } as OpenCodeWireEvent);
+    state = applyOpenCodeWireEvent(state, {
+      id: 'e4',
+      type: 'message.part.updated',
+      properties: {
+        messageID: 'msg_a',
+        part: { id: 'p_a', messageID: 'msg_a', type: 'text', text: 'hi' },
+      },
+    } as OpenCodeWireEvent);
+
+    const vm = fromOpenCode(state, sessionId);
+    expect(vm.turns.some((t) => t.role === 'user')).toBe(true);
+    expect(vm.turns.some((t) => t.role === 'assistant')).toBe(true);
+  });
+
+  it('builds assistant content when parts arrive before message.updated', () => {
+    let state = createEmptyOpenCodeStore('pane-test');
+    const sessionId = 'sess_parts_first';
+    const messageId = 'msg_a';
+    state = applyOpenCodeWireEvent(state, {
+      id: 'e1',
+      type: 'message.part.updated',
+      properties: {
+        sessionID: sessionId,
+        messageID: messageId,
+        part: { id: 'p1', messageID: messageId, type: 'text', text: 'early' },
+      },
+    } as OpenCodeWireEvent);
+
+    const vm = fromOpenCode(state, sessionId);
+    const assistant = vm.turns.find((t) => t.role === 'assistant');
+    expect(assistant?.items.some((i) => i.kind === 'assistant_text')).toBe(true);
+  });
+
   it('builds user turn from part deltas when prompt only streams', () => {
     let state = createEmptyOpenCodeStore('pane-test');
     const sessionId = 'sess_tui';

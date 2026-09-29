@@ -28,6 +28,33 @@ describe('OpenCode ordering', () => {
     expect(messages.map((m) => m.id)).toEqual(['msg_user', 'msg_asst_1', 'msg_asst_2']);
   });
 
+  it('does not hide messages when parentID references an unloaded parent', () => {
+    let state = createEmptyOpenCodeStore('pane-test');
+    const sessionId = 'sess_parent_missing';
+    state = applyOpenCodeWireEvent(state, {
+      id: 'e1',
+      type: 'message.updated',
+      properties: {
+        info: {
+          id: 'msg_child',
+          sessionID: sessionId,
+          role: 'assistant',
+          parentID: 'msg_missing_parent',
+        },
+      },
+    } as OpenCodeWireEvent);
+    state = applyOpenCodeWireEvent(state, {
+      id: 'e2',
+      type: 'message.updated',
+      properties: {
+        info: { id: 'msg_user', sessionID: sessionId, role: 'user', time: { created: 1 } },
+      },
+    } as OpenCodeWireEvent);
+
+    const messages = selectMessages(state, sessionId);
+    expect(messages.map((m) => m.id)).toEqual(['msg_child', 'msg_user']);
+  });
+
   it('keeps parts in event order when tool times would sort text first', () => {
     const events = JSON.parse(
       readFileSync(path.join(fixtureDir, 'out-of-order-turn.json'), 'utf8'),

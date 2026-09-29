@@ -12,12 +12,16 @@ export function messageParentId(message: Message): string | undefined {
   return typeof parent === 'string' && parent.length > 0 ? parent : undefined;
 }
 
-/** Chronological session messages; user rows precede children that reference them via parentID. */
-export function compareSessionMessages(a: Message, b: Message): number {
+/** Chronological session messages; parent/child ordering only when the parent message is loaded. */
+export function compareSessionMessages(
+  a: Message,
+  b: Message,
+  knownIds?: ReadonlySet<string>,
+): number {
   const parentA = messageParentId(a);
   const parentB = messageParentId(b);
-  if (parentA === b.id) return 1;
-  if (parentB === a.id) return -1;
+  if (parentA && (!knownIds || knownIds.has(parentA)) && parentA === b.id) return 1;
+  if (parentB && (!knownIds || knownIds.has(parentB)) && parentB === a.id) return -1;
 
   const byCreated = messageCreatedAt(a) - messageCreatedAt(b);
   if (byCreated !== 0) return byCreated;
@@ -25,11 +29,12 @@ export function compareSessionMessages(a: Message, b: Message): number {
 }
 
 export function sortMessageIds(state: OpenCodeStoreState, sessionId: string, ids: string[]): string[] {
+  const known = new Set(ids);
   return [...ids].sort((a, b) => {
     const ma = state.messages[a];
     const mb = state.messages[b];
     if (!ma || !mb) return a.localeCompare(b);
-    return compareSessionMessages(ma, mb);
+    return compareSessionMessages(ma, mb, known);
   });
 }
 

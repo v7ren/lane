@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Settings } from '@loomria/shared';
 import { findBridgeUrl } from '../lib/bridge';
-import { loadSettings, saveSettings } from '../lib/settings';
+import { loadSettings, updateSettings } from '../lib/settings';
 import { SettingsTabPanel, type SettingsTabContext } from './settings/settings-tab-panels';
 
 interface Props {
@@ -37,7 +37,7 @@ export function SettingsPanel({
   };
 
   const handleSave = async () => {
-    await saveSettings(settings);
+    await updateSettings(settings);
     if (settings.project_path && onProjectPathChange) {
       await onProjectPathChange(settings.project_path);
     }

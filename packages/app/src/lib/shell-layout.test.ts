@@ -5,17 +5,17 @@ import {
   mergeShellLayout,
 } from './shell-layout';
 
-const saveSettings = vi.fn();
+const updateSettings = vi.fn();
 
 vi.mock('./settings', () => ({
   loadSettings: vi.fn(async () => ({ shell_layout: { sidebarWidth: 280 } })),
-  saveSettings,
+  updateSettings,
 }));
 
 describe('shell layout defaults', () => {
   beforeEach(() => {
     localStorage.clear();
-    saveSettings.mockClear();
+    updateSettings.mockClear();
   });
 
   it('merges partial layout with defaults', () => {

@@ -27,6 +27,7 @@ export type OpenCodeServerInfo = {
   url_hidden: boolean;
   healthy: boolean;
   directory: string;
+  attached_session_id?: string | null;
 };
 
 async function tauriRequest<T = unknown>(args: OpenCodeRequestArgs): Promise<T> {

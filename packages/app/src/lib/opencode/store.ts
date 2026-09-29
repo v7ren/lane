@@ -237,6 +237,18 @@ export function applyOpenCodeWireEvent(
       const part = props.part as Part | undefined;
       const messageID = (props.messageID as string | undefined) ?? part?.messageID;
       if (part && messageID) {
+        if (!next.messages[messageID]) {
+          const sessionID =
+            (props.sessionID as string | undefined) ??
+            (part as Part & { sessionID?: string }).sessionID ??
+            '';
+          const stub = {
+            id: messageID,
+            sessionID,
+            role: 'assistant',
+          } as Message;
+          next = upsertMessage(next, stub);
+        }
         next = upsertPart(next, messageID, part);
       }
       break;
@@ -350,7 +362,8 @@ export function applyOpenCodeEnvelope(
 export type OpenCodeStore = {
   getState: () => OpenCodeStoreState;
   subscribe: (listener: () => void) => () => void;
-  loadInitial: (selectedSessionId?: string) => Promise<void>;
+  loadInitial: () => Promise<void>;
+  ensureSessionMessages: (sessionId: string) => Promise<void>;
   dispose: () => void;
 };
 
@@ -358,6 +371,8 @@ export function createOpenCodeStore(paneId: string): OpenCodeStore {
   let state = createEmptyOpenCodeStore(paneId);
   const listeners = new Set<() => void>();
   let unlisten: UnlistenFn | null = null;
+  let initialLoaded = false;
+  const loadedMessageSessions = new Set<string>();
 
   const notify = () => {
     for (const listener of listeners) {
@@ -370,51 +385,76 @@ export function createOpenCodeStore(paneId: string): OpenCodeStore {
     notify();
   };
 
+  const bootstrap = async () => {
+    if (initialLoaded) return;
+    initialLoaded = true;
+    const info = await getServerInfo(paneId);
+    const sessions = await opencodeClient.listSessions(paneId);
+    let attachedSession = info.attached_session_id ?? null;
+    if (attachedSession && !sessions.some((s) => s.id === attachedSession)) {
+      try {
+        const session = await opencodeClient.getSession(paneId, attachedSession);
+        sessions.unshift(session);
+      } catch {
+        attachedSession = null;
+      }
+    }
+    setState((prev) => {
+      let next: OpenCodeStoreState = {
+        ...prev,
+        directory: info.directory,
+        serverVersion: info.version ?? null,
+        healthy: info.healthy,
+        connectionStatus: info.healthy ? 'connected' : 'disconnected',
+      };
+      for (const session of sessions) {
+        next = upsertSession(next, session);
+      }
+      if (attachedSession && next.sessions[attachedSession]) {
+        next = {
+          ...next,
+          sessionOrder: [
+            attachedSession,
+            ...next.sessionOrder.filter((id) => id !== attachedSession),
+          ],
+        };
+      }
+      return next;
+    });
+    if (!unlisten) {
+      unlisten = await listen<OpenCodeEventEnvelope>('opencode://event', (ev) => {
+        setState((prev) => applyOpenCodeEnvelope(prev, ev.payload));
+      });
+    }
+  };
+
   return {
     getState: () => state,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    loadInitial: async (selectedSessionId) => {
-      const info = await getServerInfo(paneId);
-      const sessions = await opencodeClient.listSessions(paneId);
+    loadInitial: bootstrap,
+    ensureSessionMessages: async (sessionId) => {
+      if (!sessionId || loadedMessageSessions.has(sessionId)) return;
+      await bootstrap();
+      const messages = await opencodeClient.listMessages(paneId, sessionId);
       setState((prev) => {
-        let next: OpenCodeStoreState = {
-          ...prev,
-          directory: info.directory,
-          serverVersion: info.version ?? null,
-          healthy: info.healthy,
-          connectionStatus: info.healthy ? 'connected' : 'disconnected',
-        };
-        for (const session of sessions) {
-          next = upsertSession(next, session);
+        let next = prev;
+        for (const message of messages) {
+          next = upsertMessage(next, message);
+          const parts = (message as Message & { parts?: Part[] }).parts;
+          if (parts) {
+            const base = next.partOrderSeq;
+            for (let index = 0; index < parts.length; index += 1) {
+              next = upsertPart(next, message.id, parts[index]!, base + index);
+            }
+            next = { ...next, partOrderSeq: base + parts.length };
+          }
         }
         return next;
       });
-      if (selectedSessionId) {
-        const messages = await opencodeClient.listMessages(paneId, selectedSessionId);
-        setState((prev) => {
-          let next = prev;
-          for (const message of messages) {
-            next = upsertMessage(next, message);
-            const parts = (message as Message & { parts?: Part[] }).parts;
-            if (parts) {
-              const base = next.partOrderSeq;
-              for (let index = 0; index < parts.length; index += 1) {
-                next = upsertPart(next, message.id, parts[index]!, base + index);
-              }
-              next = { ...next, partOrderSeq: base + parts.length };
-            }
-          }
-          return next;
-        });
-      }
-      if (!unlisten) {
-        unlisten = await listen<OpenCodeEventEnvelope>('opencode://event', (ev) => {
-          setState((prev) => applyOpenCodeEnvelope(prev, ev.payload));
-        });
-      }
+      loadedMessageSessions.add(sessionId);
     },
     dispose: () => {
       unlisten?.();

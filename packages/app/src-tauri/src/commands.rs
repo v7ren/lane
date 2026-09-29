@@ -690,7 +690,7 @@ pub fn opencode_server_info(
     state: State<'_, AppState>,
     pane_id: String,
 ) -> Result<crate::opencode::proxy::OpenCodeServerInfo, String> {
-    let (base_url, directory) = {
+    let (base_url, directory, attached_session_id) = {
         let reg = state.registry.lock();
         let pane = reg
             .panes
@@ -700,9 +700,17 @@ pub fn opencode_server_info(
             .opencode
             .as_ref()
             .ok_or_else(|| format!("pane {pane_id} has no opencode link"))?;
-        (link.base_url.clone(), link.directory.clone())
+        (
+            link.base_url.clone(),
+            link.directory.clone(),
+            Some(link.session_id.clone()),
+        )
     };
-    Ok(crate::opencode::proxy::fetch_server_info(&base_url, &directory))
+    Ok(crate::opencode::proxy::fetch_server_info(
+        &base_url,
+        &directory,
+        attached_session_id,
+    ))
 }
 
 #[tauri::command]

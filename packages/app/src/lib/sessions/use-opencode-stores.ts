@@ -51,6 +51,14 @@ export function useEnsureOpenCodeStores(
   paneIds: string[],
   selectedSessionByPane: Record<string, string | undefined>,
 ): void {
+  const paneKey = useMemo(() => paneIds.slice().sort().join('|'), [paneIds]);
+
+  useEffect(() => {
+    for (const paneId of paneIds) {
+      void getOpenCodeStore(paneId).loadInitial();
+    }
+  }, [paneKey, paneIds]);
+
   const loadKey = useMemo(
     () =>
       paneIds
@@ -62,8 +70,9 @@ export function useEnsureOpenCodeStores(
 
   useEffect(() => {
     for (const paneId of paneIds) {
-      const store = getOpenCodeStore(paneId);
-      void store.loadInitial(selectedSessionByPane[paneId]);
+      const sessionId = selectedSessionByPane[paneId];
+      if (!sessionId) continue;
+      void getOpenCodeStore(paneId).ensureSessionMessages(sessionId);
     }
   }, [loadKey, paneIds, selectedSessionByPane]);
 }
