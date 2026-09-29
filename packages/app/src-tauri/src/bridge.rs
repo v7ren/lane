@@ -214,7 +214,7 @@ struct SessionContextPatchBody {
 
 #[derive(Debug, Deserialize)]
 struct SetPaneRoleBody {
-    role: crate::session_context::PaneRole,
+    role: crate::events::PaneRole,
 }
 
 #[derive(Debug, Deserialize)]

@@ -133,7 +133,7 @@ pub fn handle_rate_limit(
         to_profile,
         reason: REASON_RATE_LIMITED.into(),
         auto_rotated: plan.auto_rotated,
-        at_ms: crate::event_log::now_ms(),
+        at_ms: crate::events::now_ms(),
     };
 
     store_pending_key_event(registry, pane_id, event.clone())?;
@@ -161,7 +161,7 @@ pub fn handle_rate_limit(
         },
     );
 
-    crate::event_log::append_system_event(SystemEvent::OpenCodeKeySwap {
+    crate::events::emit(SystemEvent::OpenCodeKeySwap {
         pane_id: PaneId(pane_id.to_string()),
         event: event.kind.clone(),
         from_profile: event.from_profile.clone(),

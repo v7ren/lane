@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::actors::ActorId;
 use crate::events::{CommandId, EventEntry, PaneId, SystemEvent};
-use crate::opencode::status::LastEventSummary;
+use crate::events::LastEventSummary;
 
 const EVENT_LOG_FILE_NAME: &str = "events.jsonl";
 const PROJECT_STORAGE_DIR_NAME: &str = ".puppet-master";

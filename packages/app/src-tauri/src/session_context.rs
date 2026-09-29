@@ -4,39 +4,7 @@ use std::collections::BTreeMap;
 pub const DEFAULT_STANDBY_POLL_MS: u64 = 1_500;
 pub const DEFAULT_STANDBY_MAX_MS: u64 = 10 * 60_000;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PaneRole {
-    Implementer,
-    Reviewer,
-    Shell,
-    Orchestrator,
-    Observer,
-}
-
-impl PaneRole {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Implementer => "implementer",
-            Self::Reviewer => "reviewer",
-            Self::Shell => "shell",
-            Self::Orchestrator => "orchestrator",
-            Self::Observer => "observer",
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn parse(value: &str) -> Result<Self, String> {
-        match value {
-            "implementer" => Ok(Self::Implementer),
-            "reviewer" => Ok(Self::Reviewer),
-            "shell" => Ok(Self::Shell),
-            "orchestrator" => Ok(Self::Orchestrator),
-            "observer" => Ok(Self::Observer),
-            _ => Err(format!("invalid pane role: {value}")),
-        }
-    }
-}
+pub use crate::events::PaneRole;
 
 #[allow(dead_code)]
 pub fn allowed_pane_roles() -> Vec<PaneRole> {

@@ -122,7 +122,7 @@ pub fn switch_native_model(
     client::switch_session_model(&base_url, &session_id, Some(&directory), model)?;
     // attach ignores -m; footer syncs from last user message model on load
     client::stamp_last_user_model(&base_url, &session_id, Some(&directory), model)?;
-    crate::event_log::append_system_event(crate::events::SystemEvent::PaneModelSwitched {
+    crate::events::emit(crate::events::SystemEvent::PaneModelSwitched {
         pane_id: crate::events::PaneId(pane_id.to_string()),
         provider_id: model.provider_id.clone(),
         model_id: model.model_id.clone(),
@@ -153,10 +153,7 @@ pub fn switch_model_response(
     let snapshot = status::worker_status_json(registry, pane_id).unwrap_or_else(|err| {
         serde_json::json!({ "error": err })
     });
-    crate::mcp_hints::mutate_ok(
-        snapshot,
-        crate::mcp_hints::suggested_wait_after_model_switch(pane_id, model),
-    )
+    snapshot
 }
 
 pub fn write_native_input(

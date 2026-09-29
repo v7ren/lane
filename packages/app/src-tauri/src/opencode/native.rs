@@ -48,7 +48,7 @@ pub fn spawn_native_pane(
         let mut reg = registry.lock();
         if reg.panes.contains_key(&pane_id) {
             reg.kill(&pane_id);
-            crate::event_log::append_system_event(SystemEvent::PaneKilled {
+            crate::events::emit(SystemEvent::PaneKilled {
                 pane_id: PaneId(pane_id.clone()),
             });
         }
@@ -181,7 +181,7 @@ pub fn spawn_native_pane(
 
     crate::opencode::watch::ensure_watching(pane_id.clone(), app.clone(), Arc::clone(&registry));
 
-    crate::event_log::append_system_event(SystemEvent::PaneSpawned {
+    crate::events::emit(SystemEvent::PaneSpawned {
         pane_id: PaneId(pane_id.clone()),
         agent_type: "opencode_native".to_string(),
         pid,
@@ -344,7 +344,7 @@ pub fn reattach_tui(
     }
 
     reattaching.store(false, std::sync::atomic::Ordering::SeqCst);
-    crate::event_log::append_system_event(crate::events::SystemEvent::PaneTuiReattached {
+    crate::events::emit(crate::events::SystemEvent::PaneTuiReattached {
         pane_id: crate::events::PaneId(pane_id.to_string()),
         attach_generation: generation,
     });
@@ -445,7 +445,7 @@ fn spawn_reader_thread(
                     *status.lock() = PaneStatus::Running;
                     let text = String::from_utf8_lossy(chunk);
                     for event in adapter.observe(&pane_id, &text) {
-                        crate::event_log::append_system_event(event);
+                        crate::events::emit(event);
                     }
                     let payload: Vec<u8> = chunk.to_vec();
                     let _ = app.emit(

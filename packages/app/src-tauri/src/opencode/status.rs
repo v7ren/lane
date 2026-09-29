@@ -32,11 +32,7 @@ pub enum FooterModelSource {
     Unknown,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct LastEventSummary {
-    pub event_type: String,
-    pub timestamp_ms: i64,
-}
+pub use crate::events::LastEventSummary;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct OpenCodeWorkerStatus {
@@ -192,7 +188,7 @@ pub fn worker_status(
         &runtime.directory,
     );
 
-    let last_event = crate::event_log::last_pane_event_summary(pane_id);
+    let last_event = crate::events::last_pane_event_summary(pane_id);
 
     Ok(OpenCodeWorkerStatus {
         pane_id: pane_id.to_string(),
