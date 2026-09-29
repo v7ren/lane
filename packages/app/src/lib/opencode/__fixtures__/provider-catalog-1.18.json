@@ -1,0 +1,48 @@
+{
+  "providerEndpoint": {
+    "all": [
+      {
+        "id": "opencode-go",
+        "name": "OpenCode Go",
+        "models": {
+          "mimo-v2.5": {
+            "id": "mimo-v2.5",
+            "name": "Mimo v2.5"
+          },
+          "deepseek-v4-pro": {
+            "id": "deepseek-v4-pro",
+            "name": "DeepSeek v4 Pro"
+          }
+        }
+      },
+      {
+        "id": "anthropic",
+        "name": "Anthropic",
+        "models": {
+          "claude-sonnet-4": {
+            "id": "claude-sonnet-4",
+            "name": "Claude Sonnet 4"
+          }
+        }
+      }
+    ],
+    "default": {
+      "opencode-go": "mimo-v2.5"
+    },
+    "connected": ["opencode-go"]
+  },
+  "configProvidersEndpoint": {
+    "providers": [
+      {
+        "id": "opencode-go",
+        "name": "OpenCode Go",
+        "models": {
+          "mimo-v2.5": { "id": "mimo-v2.5", "name": "Mimo v2.5" }
+        }
+      }
+    ],
+    "default": {
+      "opencode-go": "mimo-v2.5"
+    }
+  }
+}

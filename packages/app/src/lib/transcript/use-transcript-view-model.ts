@@ -19,10 +19,9 @@ export function useTranscriptViewModel(
   const demo = useDemoFixtures();
   const demoVm = demo ? demoTranscriptForPane(demo.variant, paneId) : null;
 
-  const useStore =
-    !demo && isTauriRuntime() && openCodePane && source !== 'native_tui';
+  const preferOpenCodeStore = !demo && isTauriRuntime() && openCodePane;
 
-  const store = useStore ? getOpenCodeStore(paneId) : null;
+  const store = preferOpenCodeStore ? getOpenCodeStore(paneId) : null;
   const sessionId = openCodeSessionId ?? null;
 
   useEffect(() => {
@@ -38,12 +37,12 @@ export function useTranscriptViewModel(
 
   return useMemo(() => {
     if (demoVm) return demoVm;
-    if (useStore) {
+    if (preferOpenCodeStore) {
       if (!sessionId || !storeState) {
         return emptyTranscriptViewModel();
       }
       return fromOpenCode(storeState, sessionId);
     }
     return fromAgentTimeline(timeline);
-  }, [demoVm, sessionId, storeState, timeline, useStore]);
+  }, [demoVm, preferOpenCodeStore, sessionId, storeState, timeline]);
 }

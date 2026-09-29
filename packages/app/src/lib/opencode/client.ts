@@ -8,7 +8,6 @@ type Message = components['schemas']['Message'];
 type Part = components['schemas']['Part'];
 type Todo = components['schemas']['Todo'];
 type Agent = components['schemas']['Agent'];
-type Provider = components['schemas']['Provider'];
 type Command = components['schemas']['Command'];
 type FileNode = components['schemas']['FileNode'];
 type PermissionAsked = components['schemas']['PermissionAsked'];
@@ -52,6 +51,15 @@ export async function selectTuiSession(paneId: string, sessionId: string): Promi
   await invoke('opencode_select_tui_session', { paneId, sessionId });
 }
 
+/** OpenCode 1.18+ returns `{ all, default, connected }` from `/provider`. */
+export async function fetchProviderCatalog(paneId: string): Promise<unknown> {
+  try {
+    return await request<unknown>({ pane_id: paneId, method: 'GET', path: '/provider' });
+  } catch {
+    return request<unknown>({ pane_id: paneId, method: 'GET', path: '/config/providers' });
+  }
+}
+
 export const opencodeClient = {
   listSessions: (paneId: string) => request<Session[]>({ pane_id: paneId, method: 'GET', path: '/session' }),
   getSession: (paneId: string, sessionId: string) =>
@@ -89,7 +97,7 @@ export const opencodeClient = {
     request<null>({ pane_id: paneId, method: 'POST', path: `/question/${requestId}/reject`, body }),
   listAgents: (paneId: string) => request<Agent[]>({ pane_id: paneId, method: 'GET', path: '/agent' }),
   listCommands: (paneId: string) => request<Command[]>({ pane_id: paneId, method: 'GET', path: '/command' }),
-  listProviders: (paneId: string) => request<Provider[]>({ pane_id: paneId, method: 'GET', path: '/provider' }),
+  listProviders: (paneId: string) => request<unknown>({ pane_id: paneId, method: 'GET', path: '/provider' }),
   listConfigProviders: (paneId: string) =>
     request<unknown>({ pane_id: paneId, method: 'GET', path: '/config/providers' }),
   getConfig: (paneId: string) => request<Record<string, unknown>>({ pane_id: paneId, method: 'GET', path: '/config' }),

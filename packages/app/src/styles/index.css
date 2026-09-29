@@ -84,6 +84,12 @@ body,
   background: rgb(var(--pm-bg));
   cursor: text;
   position: relative;
+  box-sizing: border-box;
+  padding-right: 14px;
+}
+
+[data-terminal-fit-region] {
+  contain: layout size style;
 }
 
 .terminal-host .xterm {

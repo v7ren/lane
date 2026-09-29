@@ -64,7 +64,7 @@ export function AgentView({
   embedded?: boolean;
   paneCwd?: string | null;
 }) {
-  const { selectedSessionId, selectedPaneId: shellPaneId } = useShellSelection();
+  const { selectedSessionId } = useShellSelection();
   const shellSession = useSelectedSession();
   const sessionActions = useSessionActions();
   const railState = sessionState?.state ?? null;
@@ -77,10 +77,18 @@ export function AgentView({
 
   const resolvedAgentType = agentType ?? sessionState?.agent_type ?? null;
   const openCodePane = resolvedAgentType === 'opencode_native' && source !== 'native_tui';
-  const sessionId =
-    openCodePane && shellPaneId === paneId
-      ? (selectedSessionId ?? shellSession?.sessionId ?? null)
-      : null;
+  const store = openCodePane ? getOpenCodeStore(paneId) : null;
+  const ocState = useSyncExternalStore(
+    store?.subscribe ?? (() => () => {}),
+    () => (store ? store.getState() : null),
+    () => null,
+  );
+  const sessionId = openCodePane
+    ? (selectedSessionId ??
+        shellSession?.sessionId ??
+        ocState?.sessionOrder[0] ??
+        null)
+    : null;
 
   const transcript = useTranscriptViewModel(
     paneId,
@@ -89,12 +97,6 @@ export function AgentView({
     source,
     timeline,
     sessionId,
-  );
-  const store = openCodePane ? getOpenCodeStore(paneId) : null;
-  const ocState = useSyncExternalStore(
-    store?.subscribe ?? (() => () => {}),
-    () => (store ? store.getState() : null),
-    () => null,
   );
 
   const pendingProtocol = timeline.pendingApprovals;

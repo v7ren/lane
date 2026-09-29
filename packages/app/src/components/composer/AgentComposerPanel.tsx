@@ -30,12 +30,24 @@ import {
 } from '../../lib/demo/composer-fixtures';
 import { composerAllowlistOk } from '../../lib/opencode/composer-allowlist';
 import { createPromptMessageId } from '../../lib/opencode/prompt-send';
-import { opencodeClient } from '../../lib/opencode/client';
+import { fetchProviderCatalog, opencodeClient } from '../../lib/opencode/client';
+import {
+  buildComposerModelChoices,
+  filterComposerModelChoices,
+  pickDefaultComposerModel,
+  type ComposerModelChoice,
+} from '../../lib/opencode/provider-catalog';
+import {
+  getSessionComposerModel,
+  setSessionComposerModel,
+} from '../../lib/opencode/session-model-prefs';
 import { isTauriRuntime } from '../../lib/is-tauri';
 import { ADD_TO_COMPOSER_EVENT, type AddToComposerDetail } from '../../lib/editor/add-to-composer';
 import { useShellSelection } from '../../lib/shell-selection-context';
 
-type ModelChoice = { providerID: string; modelID: string; label: string };
+function modelChoiceId(m: ComposerModelChoice): string {
+  return `${m.providerID}:${m.modelID}`;
+}
 
 export function AgentComposerPanel({
   paneId,
@@ -71,9 +83,12 @@ export function AgentComposerPanel({
   const [mode, setMode] = useState<ComposerMode>('chat');
   const [agent, setAgent] = useState('build');
   const [permissionMode, setPermissionMode] = useState<'allow' | 'ask'>('allow');
-  const [model, setModel] = useState<ModelChoice | null>(null);
+  const [model, setModel] = useState<ComposerModelChoice | null>(null);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  const [modelSearch, setModelSearch] = useState('');
   const [agents, setAgents] = useState<{ name: string; description?: string }[]>([]);
-  const [models, setModels] = useState<ModelChoice[]>([]);
+  const [models, setModels] = useState<ComposerModelChoice[]>([]);
   const [commands, setCommands] = useState<{ name: string; description?: string }[]>([]);
   const [picker, setPicker] = useState<'agent' | 'model' | 'permission' | 'mention' | 'slash' | null>(
     null,
@@ -133,10 +148,19 @@ export function AgentComposerPanel({
   useEffect(() => {
     if (demo && openCode) {
       setAgents(demoComposerAgents.map((a) => ({ name: a.name })));
-      setModels(demoComposerModels);
+      const demoModels: ComposerModelChoice[] = demoComposerModels.map((m) => ({
+        providerID: m.providerID,
+        modelID: m.modelID,
+        label: m.label,
+        providerName: m.providerID,
+        modelName: m.modelID,
+        connected: true,
+        isCurrent: false,
+      }));
+      setModels(demoModels);
       setCommands(demoComposerCommands);
       const preferred =
-        demoComposerModels.find((m) => m.modelID.includes('deepseek')) ?? demoComposerModels[0];
+        demoModels.find((m) => m.modelID.includes('deepseek')) ?? demoModels[0];
       if (preferred) setModel(preferred);
     }
   }, [demo, openCode]);
@@ -167,33 +191,46 @@ export function AgentComposerPanel({
       .catch((err) => {
         setCatalogError(err instanceof Error ? err.message : String(err));
       });
-    void opencodeClient
-      .listProviders(paneId)
-      .then((providers) => {
-        const choices: ModelChoice[] = [];
-        const raw = providers as unknown;
-        const list = Array.isArray(raw)
-          ? (raw as { id: string; models?: { id: string }[] }[])
-          : Object.values(raw as Record<string, { id: string; models?: { id: string }[] }>);
-        for (const p of list) {
-          for (const m of p.models ?? []) {
-            choices.push({
-              providerID: p.id,
-              modelID: m.id,
-              label: `${p.id}/${m.id}`,
-            });
-          }
-        }
+    setModelsLoading(true);
+    setModelsError(null);
+    void fetchProviderCatalog(paneId)
+      .then((raw) => {
+        const stored =
+          sessionId != null ? getSessionComposerModel(paneId, sessionId) : null;
+        const hint =
+          stored ??
+          (sessionModel?.model
+            ? {
+                providerID: sessionModel.provider ?? 'opencode-go',
+                modelID: sessionModel.model,
+              }
+            : null);
+        const choices = buildComposerModelChoices(raw, { current: hint });
         setModels(choices);
-        if (choices[0]) setModel(choices[0]);
+        const picked = pickDefaultComposerModel(raw, choices, hint);
+        if (picked) setModel(picked);
       })
       .catch((err) => {
-        setCatalogError((prev) => prev ?? (err instanceof Error ? err.message : String(err)));
-      });
+        const message = err instanceof Error ? err.message : String(err);
+        setModelsError(message);
+        setCatalogError((prev) => prev ?? message);
+      })
+      .finally(() => setModelsLoading(false));
     void opencodeClient.listCommands(paneId).then((cmds) =>
       setCommands(cmds.map((c) => ({ name: c.name, description: c.description }))),
     );
-  }, [demo, openCode, paneId]);
+  }, [demo, openCode, paneId, sessionId, sessionModel?.model, sessionModel?.provider]);
+
+  useEffect(() => {
+    if (!openCode || demo || !sessionId || models.length === 0) return;
+    const stored = getSessionComposerModel(paneId, sessionId);
+    if (stored) {
+      const hit = models.find(
+        (m) => m.providerID === stored.providerID && m.modelID === stored.modelID,
+      );
+      if (hit) setModel(hit);
+    }
+  }, [demo, models, openCode, paneId, sessionId]);
 
   useEffect(() => {
     if (picker !== 'mention' || !openCode) return;
@@ -307,11 +344,22 @@ export function AgentComposerPanel({
     setFileParts((prev) => [...prev, ...next]);
   };
 
-  const filteredModels = useMemo(() => models, [models]);
+  const filteredModels = useMemo(
+    () => filterComposerModelChoices(models, modelSearch),
+    [modelSearch, models],
+  );
 
   const modelPillPrimary = model?.modelID ?? sessionModel?.model;
   const modelPillProvider = model?.providerID ?? sessionModel?.provider;
-  const modelPillLabel = modelPillPrimary ?? 'Select model';
+  const modelPillLabel = model?.modelName ?? modelPillPrimary ?? 'Select model';
+
+  const modelPickerEmptyMessage = modelsLoading
+    ? 'Loading models…'
+    : modelsError
+      ? modelsError
+      : models.length === 0
+        ? 'No models available'
+        : 'No matches';
 
   return (
     <div className="border-t border-border-subtle bg-surface shrink-0" data-testid="agent-composer">
@@ -401,19 +449,25 @@ export function AgentComposerPanel({
             {features.modelPicker && (
               <Pill
                 ref={modelPickerRef}
-                label={catalogError ? 'Model error' : modelPillLabel}
+                label={modelsError ? 'Model error' : modelPillLabel}
                 sublabel={
-                  toolbarCompact || catalogError
+                  toolbarCompact || modelsError
                     ? undefined
                     : modelPillPrimary
                       ? modelPillProvider
                       : undefined
                 }
                 open={picker === 'model'}
-                onClick={() => setPicker((p) => (p === 'model' ? null : 'model'))}
+                onClick={() => {
+                  setPicker((p) => {
+                    const next = p === 'model' ? null : 'model';
+                    if (next !== 'model') setModelSearch('');
+                    return next;
+                  });
+                }}
                 testId="picker-model"
                 wide
-                error={Boolean(catalogError)}
+                error={Boolean(modelsError)}
               />
             )}
             {showStop && features.stop ? (
@@ -467,13 +521,34 @@ export function AgentComposerPanel({
         <PickerPopover
           open={picker === 'model'}
           anchorRef={modelPickerRef}
-          onClose={() => setPicker(null)}
-          testId="model-popover"
-          items={filteredModels.map((m) => ({ id: m.label, label: m.label }))}
-          onPick={(id) => {
-            const hit = models.find((m) => m.label === id);
-            if (hit) setModel(hit);
+          onClose={() => {
             setPicker(null);
+            setModelSearch('');
+          }}
+          testId="model-popover"
+          searchQuery={modelSearch}
+          onSearchChange={setModelSearch}
+          searchPlaceholder="Search models…"
+          emptyMessage={modelPickerEmptyMessage}
+          emptyIsError={Boolean(modelsError)}
+          items={filteredModels.map((m) => ({
+            id: modelChoiceId(m),
+            label: m.modelName,
+            detail: `${m.providerName}${m.isCurrent ? ' · current' : ''}${m.connected ? '' : ' · offline'}`,
+          }))}
+          onPick={(id) => {
+            const hit = models.find((m) => modelChoiceId(m) === id);
+            if (hit) {
+              setModel(hit);
+              if (sessionId) {
+                setSessionComposerModel(paneId, sessionId, {
+                  providerID: hit.providerID,
+                  modelID: hit.modelID,
+                });
+              }
+            }
+            setPicker(null);
+            setModelSearch('');
           }}
         />
         <PickerPopover
@@ -582,6 +657,11 @@ function PickerPopover({
   items,
   onPick,
   testId,
+  searchQuery,
+  onSearchChange,
+  searchPlaceholder,
+  emptyMessage = 'No matches',
+  emptyIsError = false,
 }: {
   open: boolean;
   anchorRef: RefObject<HTMLElement | null>;
@@ -589,11 +669,34 @@ function PickerPopover({
   items: { id: string; label: string; detail?: string }[];
   onPick: (id: string) => void;
   testId?: string;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
+  searchPlaceholder?: string;
+  emptyMessage?: string;
+  emptyIsError?: boolean;
 }) {
   return (
     <AnchoredPopover open={open} anchorRef={anchorRef} onClose={onClose} testId={testId}>
+      {onSearchChange && (
+        <div className="px-2 pt-2 pb-1 border-b border-border-subtle">
+          <input
+            type="search"
+            className="w-full px-2 py-1 text-body bg-canvas border border-border-subtle rounded-md focus:outline-none focus:ring-1 focus:ring-accent/40"
+            placeholder={searchPlaceholder ?? 'Search…'}
+            value={searchQuery ?? ''}
+            onChange={(e) => onSearchChange(e.target.value)}
+            data-testid={testId ? `${testId}-search` : undefined}
+          />
+        </div>
+      )}
       <div className="max-h-40 overflow-auto">
-        {items.length === 0 && <p className="px-3 py-2 text-meta text-text-3">No matches</p>}
+        {items.length === 0 && (
+          <p
+            className={`px-3 py-2 text-meta ${emptyIsError ? 'text-status-error' : 'text-text-3'}`}
+          >
+            {emptyMessage}
+          </p>
+        )}
         {items.map((item) => (
           <button
             key={item.id}

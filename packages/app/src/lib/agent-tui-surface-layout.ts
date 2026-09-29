@@ -20,16 +20,29 @@ export function useAgentTuiSurfaceLayout(
       return;
     }
 
+    let frame = 0;
+    let lastKey = '';
     const update = () => {
-      const regionRect = region.getBoundingClientRect();
-      const hostRect = host.getBoundingClientRect();
-      setStyle({
-        left: regionRect.left - hostRect.left,
-        top: regionRect.top - hostRect.top,
-        width: regionRect.width,
-        height: regionRect.height,
-        right: 'auto',
-        bottom: 'auto',
+      if (frame !== 0) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const regionRect = region.getBoundingClientRect();
+        const hostRect = host.getBoundingClientRect();
+        const left = Math.round(regionRect.left - hostRect.left);
+        const top = Math.round(regionRect.top - hostRect.top);
+        const width = Math.round(regionRect.width);
+        const height = Math.round(regionRect.height);
+        const key = `${left},${top},${width},${height}`;
+        if (key === lastKey) return;
+        lastKey = key;
+        setStyle({
+          left,
+          top,
+          width,
+          height,
+          right: 'auto',
+          bottom: 'auto',
+        });
       });
     };
 

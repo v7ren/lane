@@ -57,31 +57,12 @@ export function TerminalPane({
 }: Props) {
   const [switching, setSwitching] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const { containerRef, nudgeReflow } = useTerminalSession({
+  const { containerRef } = useTerminalSession({
     paneId: pane.info.id,
     sessionKey: pane.info.created_at,
     subscribePaneData,
     reflowKey,
   });
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const host = container.closest('[data-pane-surface-host="1"]');
-    if (!(host instanceof HTMLElement)) return;
-    if (typeof ResizeObserver === 'undefined') return;
-    let debounce = 0;
-    const ro = new ResizeObserver(() => {
-      window.clearTimeout(debounce);
-      debounce = window.setTimeout(() => nudgeReflow(), 80);
-    });
-    ro.observe(host);
-    nudgeReflow();
-    return () => {
-      ro.disconnect();
-      window.clearTimeout(debounce);
-    };
-  }, [containerRef, nudgeReflow, reflowKey]);
 
   const agent = pane.info.agent_type;
   const presets = switchPresetsFor(agentCatalog, agent);
@@ -167,8 +148,8 @@ export function TerminalPane({
           </button>
         </div>
       )}
-      <div className="relative flex-1 min-h-0">
-        <div ref={containerRef} className="h-full overflow-hidden terminal-host" />
+      <div className="relative flex-1 min-h-0" data-terminal-fit-region>
+        <div ref={containerRef} className="absolute inset-0 overflow-hidden terminal-host" />
       </div>
     </div>
   );
