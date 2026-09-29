@@ -10,7 +10,19 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 use uuid::Uuid;
 
-use crate::actors::ActorId;
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ActorId(pub String);
+
+impl ActorId {
+    pub fn bridge() -> Self {
+        Self("bridge".to_string())
+    }
+
+    pub fn system() -> Self {
+        Self("system".to_string())
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LastEventSummary {

@@ -148,7 +148,7 @@ pub fn set_pending_model(
 pub fn switch_model_response(
     registry: &Arc<Mutex<crate::pty::PaneRegistry>>,
     pane_id: &str,
-    model: &OpenCodeModelRef,
+    _model: &OpenCodeModelRef,
 ) -> serde_json::Value {
     let snapshot = status::worker_status_json(registry, pane_id).unwrap_or_else(|err| {
         serde_json::json!({ "error": err })

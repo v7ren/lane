@@ -1,42 +1,22 @@
-mod actors;
 mod agent_adapters;
-mod agent_contexts;
 mod app_lifecycle;
 mod app_paths;
 mod bridge;
 mod commands;
-mod context_pack;
-mod event_log;
 mod events;
-mod mcp_hints;
-mod mcp_install;
-mod mcp_runtime;
-mod mcp_status;
-mod mobile_pairing;
-mod mobile_tunnel;
 mod opencode;
-mod pane_wait;
 mod pane_wait_notify;
 mod platform;
-mod project_ir;
 mod project_path;
-mod projections;
 pub mod pty;
-mod pwa_server;
-mod session_context;
 mod settings_store;
 mod shell_env;
-pub mod tool_registry;
-mod worker_launch;
 
 use commands::AppState;
-use std::path::PathBuf;
-use tauri::path::BaseDirectory;
 use tauri::{Listener, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    worker_launch::init_from_env();
     shell_env::apply_to_process();
 
     tracing_subscriber::fmt()
@@ -61,38 +41,16 @@ pub fn run() {
             commands::read_pane_buffer,
             commands::read_pane_snapshot,
             commands::read_pane_raw_buffer,
-            commands::list_agent_contexts,
-            commands::read_agent_context,
-            commands::inspect_agent_model,
             commands::switch_agent_model,
-            commands::replay_pane_timeline,
-            commands::get_workspace_state,
-            commands::list_tasks,
-            commands::list_locks,
-            commands::get_coordination_storage_info,
-            commands::read_agent_inbox,
-            commands::get_audit,
-            commands::build_context_pack,
             commands::resize_pane,
             commands::set_project_path,
             commands::get_project_path_cmd,
-            commands::ensure_orchestrator_mcp,
-            commands::install_npm_mcp_configs,
-            commands::install_global_npm_mcp_configs,
-            commands::uninstall_npm_mcp_configs,
-            commands::uninstall_global_npm_mcp_configs,
-            commands::get_mcp_status,
             commands::push_chat_event,
             commands::push_settings_event,
             commands::sync_public_settings,
-            commands::create_mobile_pairing_session,
-            commands::list_paired_mobile_devices,
-            commands::revoke_paired_mobile_device,
-            commands::get_mobile_tunnel_info,
             app_lifecycle::get_app_install_info,
             app_lifecycle::open_external_url,
             app_lifecycle::launch_uninstall,
-            commands::get_worker_launch,
             commands::exit_app,
             commands::get_opencode_key_status,
             commands::set_opencode_automation_settings,
@@ -102,94 +60,13 @@ pub fn run() {
             commands::rotate_opencode_key,
         ])
         .setup(|app| {
-            if let Ok(resource) = app
-                .path()
-                .resolve("mcp-stdio.bundle.cjs", BaseDirectory::Resource)
-            {
-                if resource.is_file() {
-                    mcp_runtime::set_bundled_mcp_script(resource);
-                }
-            }
-            let rust_mcp_name = if cfg!(windows) {
-                "bin/puppet-master-mcp.exe"
-            } else {
-                "bin/puppet-master-mcp"
-            };
-            if let Ok(resource) = app.path().resolve(rust_mcp_name, BaseDirectory::Resource) {
-                if resource.is_file() {
-                    mcp_runtime::set_bundled_mcp_binary(resource);
-                }
-            }
-            if mcp_runtime::bundled_mcp_binary().is_none() {
-                let binary_name = if cfg!(windows) {
-                    "puppet-master-mcp.exe"
-                } else {
-                    "puppet-master-mcp"
-                };
-                let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../mcp-server/dist")
-                    .join(binary_name);
-                if dev.is_file() {
-                    mcp_runtime::set_bundled_mcp_binary(dev);
-                }
-            }
-            if mcp_runtime::bundled_mcp_script().is_none() {
-                let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                    .join("../../mcp-server/dist/index.js");
-                // Prefer the non-canonical path: Windows canonicalize() adds \\?\ and breaks MCP configs.
-                if dev.is_file() {
-                    mcp_runtime::set_bundled_mcp_script(dev);
-                } else if let Ok(canon) = dev.canonicalize() {
-                    if canon.is_file() {
-                        mcp_runtime::set_bundled_mcp_script(canon);
-                    }
-                }
-            }
-            if let Some(script) = mcp_runtime::bundled_mcp_script() {
-                tracing::info!(path = %script.display(), "bundled MCP server");
-            }
-            if let Some(binary) = mcp_runtime::bundled_mcp_binary() {
-                tracing::info!(path = %binary.display(), "bundled Rust MCP server");
-            }
-
             let port_file = app_paths::bridge_port_file();
-            let pairing_file = app_paths::pairing_file();
-            if let Err(err) = event_log::init_global_event_log(event_log::event_log_path()) {
-                tracing::warn!(%err, "event log not initialized");
-            }
-            let initial_project_path = {
-                let state = app.state::<AppState>();
-                pty::registry_get_project_path(&state.registry)
-            };
-            event_log::set_active_project_path(Some(PathBuf::from(initial_project_path)));
+            let _ = app_paths::ensure_app_data_dir();
 
             let registry = app.state::<AppState>().registry.clone();
-            let bridge_url = match bridge::start_embedded_bridge(
-                registry,
-                app.handle().clone(),
-                port_file,
-                pairing_file,
-            ) {
-                Ok(handle) => {
-                    tracing::info!(url = %handle.url, "embedded bridge started");
-                    Some(handle.url)
-                }
-                Err(err) => {
-                    tracing::warn!(%err, "embedded bridge not started — external MCP unavailable");
-                    None
-                }
-            };
-
-            #[cfg(debug_assertions)]
-            let _ = &bridge_url;
-
-            #[cfg(not(debug_assertions))]
+            if let Err(err) = bridge::start_embedded_bridge(registry, app.handle().clone(), port_file)
             {
-                if let Some(url) = bridge_url {
-                    if let Err(err) = mobile_tunnel::start_mobile_tunnel(app.handle(), url) {
-                        tracing::warn!(%err, "mobile tunnel not started");
-                    }
-                }
+                tracing::warn!(%err, "embedded bridge not started");
             }
 
             app.handle().listen("terminal-data", move |event| {
@@ -224,12 +101,6 @@ pub fn run() {
                     }
                 }
             });
-
-            if worker_launch::worker_launch().is_some() {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.hide();
-                }
-            }
 
             Ok(())
         })
