@@ -5,7 +5,7 @@ use super::types::{
     ProtocolSession,
 };
 use crate::agents::ProtocolKind;
-use crate::protocol::codex_ws::CodexWsClient;
+use crate::protocol::CodexWsClient;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
@@ -17,7 +17,11 @@ impl ProtocolAdapter for CodexAppServerAdapter {
     }
 
     fn connect(&self, endpoint: Endpoint) -> Result<Box<dyn ProtocolSession>, AgentError> {
-        let client = CodexWsClient::spawn(endpoint.url)?;
+        let client = if let Some(thread_id) = endpoint.session_id.clone() {
+            CodexWsClient::spawn_with_thread(endpoint.url, thread_id)?
+        } else {
+            CodexWsClient::spawn(endpoint.url)?
+        };
         Ok(Box::new(CodexAppServerSession { client }))
     }
 }

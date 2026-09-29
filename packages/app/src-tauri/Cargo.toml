@@ -34,8 +34,7 @@ rand = "0.8"
 anyhow = "1"
 ureq = { version = "2", features = ["json"] }
 toml = "0.8"
-futures-util = "0.3"
-tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
+tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"], optional = true }
 
 [dev-dependencies]
 tempfile = "3"
@@ -54,3 +53,4 @@ libc = "0.2"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+codex-ws = ["dep:tungstenite"]

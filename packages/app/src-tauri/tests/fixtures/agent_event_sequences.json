@@ -1,0 +1,23 @@
+{
+  "codex_prompt_ok": [
+    "turn_started",
+    "message_delta",
+    "turn_completed"
+  ],
+  "codex_approval_denied": [
+    "turn_started",
+    "approval_requested",
+    "approval_resolved",
+    "turn_completed"
+  ],
+  "opencode_prompt_ok": [
+    "turn_started",
+    "message_delta",
+    "turn_completed"
+  ],
+  "claude_prompt_ok": [
+    "turn_started",
+    "message_delta",
+    "turn_completed"
+  ]
+}

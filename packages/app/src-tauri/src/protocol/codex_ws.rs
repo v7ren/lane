@@ -1,52 +1,46 @@
-//! Codex `app-server` WebSocket JSON-RPC client (v2 turn API).
+//! Codex app-server WebSocket client (blocking tungstenite, shared thread via thread/resume).
 
-use crate::protocol::{
-    AgentError, AgentEvent, ApprovalKind, ApprovalDecision, MessageRole, TurnStatus,
-};
-use futures_util::{SinkExt, StreamExt};
+use crate::protocol::codex_notifications::map_codex_notification;
+use crate::protocol::{AgentError, AgentEvent};
 use serde_json::{json, Value};
+use std::net::TcpStream;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::broadcast;
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use tungstenite::{connect, stream::MaybeTlsStream, Message, WebSocket};
 
 pub struct CodexWsClient {
     events_tx: broadcast::Sender<AgentEvent>,
     request_tx: std::sync::mpsc::Sender<Value>,
-    request_rx: Arc<parking_lot::Mutex<std::sync::mpsc::Receiver<Value>>>,
     thread_id: Arc<parking_lot::Mutex<Option<String>>>,
     turn_counter: Arc<AtomicU64>,
 }
 
 impl CodexWsClient {
     pub fn spawn(ws_url: String) -> Result<Arc<Self>, AgentError> {
+        Self::spawn_with_thread(ws_url, uuid::Uuid::new_v4().to_string())
+    }
+
+    pub fn spawn_with_thread(ws_url: String, thread_id: String) -> Result<Arc<Self>, AgentError> {
         let (events_tx, _) = broadcast::channel(256);
-        let (request_tx, request_rx) = std::sync::mpsc::channel::<Value>();
-        let thread_id = Arc::new(parking_lot::Mutex::new(None));
+        let (request_tx, request_rx) = std::sync::mpsc::channel();
+        let thread_slot = Arc::new(parking_lot::Mutex::new(Some(thread_id.clone())));
         let turn_counter = Arc::new(AtomicU64::new(1));
         let client = Arc::new(Self {
             events_tx: events_tx.clone(),
             request_tx,
-            request_rx: Arc::new(parking_lot::Mutex::new(request_rx)),
-            thread_id: Arc::clone(&thread_id),
+            thread_id: Arc::clone(&thread_slot),
             turn_counter: Arc::clone(&turn_counter),
         });
-        let client_for_err = Arc::clone(&client);
+        let events_err = events_tx.clone();
         std::thread::Builder::new()
             .name("codex-ws".into())
             .spawn(move || {
-                let rt = tokio::runtime::Builder::new_multi_thread()
-                    .enable_all()
-                    .build()
-                    .expect("codex runtime");
-                if let Err(message) = rt.block_on(run_ws_loop(
-                    ws_url,
-                    events_tx,
-                    Arc::clone(&client_for_err.request_rx),
-                    thread_id,
-                    turn_counter,
-                )) {
-                    let _ = client_for_err.events_tx.send(AgentEvent::Error { message });
+                if let Err(message) =
+                    run_ws_loop(ws_url, events_tx, request_rx, thread_slot, turn_counter, thread_id)
+                {
+                    let _ = events_err.send(AgentEvent::Error { message });
                 }
             })
             .map_err(|e| AgentError::Connect(format!("spawn codex ws: {e}")))?;
@@ -97,137 +91,87 @@ impl CodexWsClient {
             "params": { "threadId": thread_id }
         }))
     }
+
+    pub fn thread_id(&self) -> Option<String> {
+        self.thread_id.lock().clone()
+    }
 }
 
-async fn run_ws_loop(
+fn run_ws_loop(
     ws_url: String,
     events_tx: broadcast::Sender<AgentEvent>,
-    request_rx: Arc<parking_lot::Mutex<std::sync::mpsc::Receiver<Value>>>,
-    thread_id: Arc<parking_lot::Mutex<Option<String>>>,
+    request_rx: std::sync::mpsc::Receiver<Value>,
+    thread_id_slot: Arc<parking_lot::Mutex<Option<String>>>,
     turn_counter: Arc<AtomicU64>,
+    resume_thread_id: String,
 ) -> Result<(), String> {
-    let (ws, _) = connect_async(&ws_url)
-        .await
-        .map_err(|e| format!("codex ws connect: {e}"))?;
-    let (mut write, mut read) = ws.split();
+    let (mut ws, _) = connect(&ws_url).map_err(|e| format!("codex ws connect: {e}"))?;
+    set_read_timeout(&mut ws)?;
 
-    write
-        .send(Message::Text(
-            json!({
-                "jsonrpc": "2.0",
-                "id": "init",
-                "method": "initialize",
-                "params": { "clientInfo": { "name": "loomria", "version": env!("CARGO_PKG_VERSION") } }
-            })
-            .to_string(),
-        ))
-        .await
-        .map_err(|e| format!("initialize send: {e}"))?;
-
-    write
-        .send(Message::Text(
-            json!({
-                "jsonrpc": "2.0",
-                "id": "thread-start",
-                "method": "thread/start",
-                "params": { "cwd": std::env::temp_dir().to_string_lossy() }
-            })
-            .to_string(),
-        ))
-        .await
-        .map_err(|e| format!("thread/start send: {e}"))?;
+    send_json(
+        &mut ws,
+        json!({
+            "jsonrpc": "2.0",
+            "id": "init",
+            "method": "initialize",
+            "params": { "clientInfo": { "name": "loomria", "version": env!("CARGO_PKG_VERSION") } }
+        }),
+    )?;
+    send_json(
+        &mut ws,
+        json!({
+            "jsonrpc": "2.0",
+            "id": "thread-resume",
+            "method": "thread/resume",
+            "params": {
+                "threadId": resume_thread_id,
+                "cwd": std::env::temp_dir().to_string_lossy(),
+            }
+        }),
+    )?;
+    *thread_id_slot.lock() = Some(resume_thread_id);
 
     loop {
-        if let Ok(value) = request_rx.lock().try_recv() {
-            write
-                .send(Message::Text(value.to_string()))
-                .await
-                .map_err(|e| format!("send: {e}"))?;
+        while let Ok(value) = request_rx.try_recv() {
+            send_json(&mut ws, value)?;
         }
-        match tokio::time::timeout(std::time::Duration::from_millis(50), read.next()).await {
-            Ok(Some(Ok(Message::Text(text)))) => {
+        match ws.read() {
+            Ok(Message::Text(text)) => {
                 if let Ok(value) = serde_json::from_str::<Value>(&text) {
                     if let Some(id) = value
                         .pointer("/result/thread/id")
                         .and_then(|v| v.as_str())
                         .or_else(|| value.pointer("/result/threadId").and_then(|v| v.as_str()))
                     {
-                        *thread_id.lock() = Some(id.to_string());
+                        *thread_id_slot.lock() = Some(id.to_string());
                     }
                     for event in map_codex_notification(&value, &turn_counter) {
                         let _ = events_tx.send(event);
                     }
                 }
             }
-            Ok(Some(Ok(_))) => {}
-            Ok(Some(Err(e))) => return Err(format!("read: {e}")),
-            Ok(None) => break,
-            Err(_) => {}
+            Ok(Message::Close(_)) => break,
+            Ok(_) => {}
+            Err(tungstenite::Error::Io(ref e))
+                if e.kind() == std::io::ErrorKind::WouldBlock
+                    || e.kind() == std::io::ErrorKind::TimedOut =>
+            {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            Err(e) => return Err(format!("read: {e}")),
         }
     }
     Err("codex ws closed".into())
 }
 
-fn map_codex_notification(value: &Value, turn_counter: &AtomicU64) -> Vec<AgentEvent> {
-    let method = value.get("method").and_then(|m| m.as_str()).unwrap_or("");
-    let turn_id = turn_counter.load(Ordering::SeqCst).to_string();
-    let params = value.get("params").cloned().unwrap_or(Value::Null);
-    match method {
-        "turn/started" => vec![AgentEvent::TurnStarted {
-            turn_id: params
-                .get("turnId")
-                .and_then(|v| v.as_str())
-                .unwrap_or(&turn_id)
-                .to_string(),
-        }],
-        "turn/completed" => vec![AgentEvent::TurnCompleted {
-            turn_id,
-            status: TurnStatus::Ok,
-            error: None,
-        }],
-        "item/agentMessage/delta" | "thread/item/delta" => {
-            let text = params
-                .get("delta")
-                .and_then(|d| d.as_str())
-                .unwrap_or("");
-            vec![AgentEvent::MessageDelta {
-                turn_id,
-                message_id: params
-                    .get("itemId")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("assistant")
-                    .to_string(),
-                role: MessageRole::Assistant,
-                text: text.to_string(),
-            }]
-        }
-        "turn/tokenUsage/updated" => vec![AgentEvent::Usage {
-            input_tokens: params
-                .pointer("/usage/inputTokens")
-                .and_then(|v| v.as_u64()),
-            output_tokens: params
-                .pointer("/usage/outputTokens")
-                .and_then(|v| v.as_u64()),
-            cost_usd: None,
-        }],
-        "exec/command/requestApproval" | "command/requestApproval" => vec![AgentEvent::ApprovalRequested {
-            approval_id: params
-                .get("requestId")
-                .and_then(|v| v.as_str())
-                .unwrap_or("approval")
-                .to_string(),
-            title: "Command approval".into(),
-            detail: params
-                .get("command")
-                .map(|v| v.to_string())
-                .unwrap_or_default(),
-            kind: ApprovalKind::Command,
-            options: vec![
-                ApprovalDecision::AllowOnce,
-                ApprovalDecision::AllowAlways,
-                ApprovalDecision::Deny,
-            ],
-        }],
-        _ => Vec::new(),
-    }
+fn set_read_timeout(ws: &mut WebSocket<MaybeTlsStream<TcpStream>>) -> Result<(), String> {
+    ws.get_ref()
+        .get_ref()
+        .set_read_timeout(Some(Duration::from_millis(50)))
+        .map_err(|e| format!("read timeout: {e}"))
+}
+
+fn send_json(ws: &mut WebSocket<MaybeTlsStream<TcpStream>>, value: Value) -> Result<(), String> {
+    ws.send(Message::Text(value.to_string()))
+        .map_err(|e| format!("send: {e}"))
 }

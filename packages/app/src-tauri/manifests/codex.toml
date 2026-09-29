@@ -24,7 +24,7 @@ protocol = "codex-app-server"
 ready = { kind = "tcp", timeout_ms = 45000 }
 
 [launch.attach]
-args = ["--remote", "ws://127.0.0.1:{port}"]
+args = ["--remote", "ws://127.0.0.1:{port}", "resume", "{session_id}"]
 
 [[attention]]
 pattern = "(?i)allow once|allow always"
