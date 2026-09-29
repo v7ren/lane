@@ -93,8 +93,8 @@ mod tests {
         let Some(home) = home_dir() else {
             return;
         };
-        let expanded = expand_user_path(Path::new("~/work/puppet-master"));
-        assert_eq!(expanded, home.join("work/puppet-master"));
+        let expanded = expand_user_path(Path::new("~/work/loomria"));
+        assert_eq!(expanded, home.join("work/loomria"));
     }
 
     #[test]

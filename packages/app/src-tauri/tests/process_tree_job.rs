@@ -2,7 +2,6 @@
 
 #[cfg(windows)]
 #[test]
-#[ignore = "cargo test runner job nesting prevents reliable Job Object assignment; run scripts/orphan-check.ps1 after four-pane smoke"]
 fn killing_pane_job_terminates_assigned_process() {
     use loomria_app_lib::process::ProcessTree;
     use std::process::Command;
@@ -33,6 +32,7 @@ fn killing_pane_job_terminates_assigned_process() {
 
     assert!(process_exists(pid), "ping should be running");
 
+    drop(child);
     drop(tree);
 
     thread::sleep(Duration::from_millis(800));

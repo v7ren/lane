@@ -45,6 +45,7 @@ pub struct LaunchServer {
     pub args: Vec<String>,
     pub protocol: ProtocolKind,
     #[serde(default)]
+    #[allow(dead_code)]
     pub protocol_versions: Option<String>,
     pub ready: Option<ReadyProbe>,
 }
@@ -97,6 +98,7 @@ pub struct AgentManifestRaw {
     #[serde(default)]
     pub attention: Vec<AttentionRule>,
     #[serde(default)]
+    #[allow(dead_code)]
     pub env: std::collections::HashMap<String, String>,
 }
 
