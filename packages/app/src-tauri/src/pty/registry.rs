@@ -61,6 +61,7 @@ pub struct PaneState {
     pub opencode: Option<crate::opencode::OpenCodeLink>,
     /// Pending key-swap event for wait_for_panes (consumed on wake).
     pub opencode_key_event: Option<crate::opencode::quota::KeySwapEvent>,
+    pub process_tree: crate::process::ProcessTree,
 }
 
 impl PaneState {
@@ -126,8 +127,8 @@ impl PaneRegistry {
 
     pub fn kill(&mut self, id: &str) {
         if let Some(mut pane) = self.panes.remove(id) {
-            crate::opencode::kill_serve_if_present(&mut pane);
             let _ = pane.child.kill();
+            // `process_tree` drops here and reaps the tree via Job Object / tracked PIDs.
         }
     }
 
@@ -322,6 +323,9 @@ pub fn spawn_pane(
         rows,
     };
 
+    let mut process_tree = crate::process::ProcessTree::new();
+    crate::process::assign_pid_to_pane_job(&process_tree, pid);
+
     let pane = PaneState {
         info,
         scrollback: scrollback.clone(),
@@ -334,6 +338,7 @@ pub fn spawn_pane(
         exited: exited.clone(),
         opencode: None,
         opencode_key_event: None,
+        process_tree,
     };
 
     // Spawn the reader thread.
@@ -754,6 +759,7 @@ impl PaneRegistry {
             exited: Arc::new(Mutex::new(false)),
             opencode: None,
             opencode_key_event: None,
+            process_tree: crate::process::ProcessTree::new(),
         }
     }
 }

@@ -2427,6 +2427,7 @@ name = "puppet_master_app"
 version = "0.1.4"
 dependencies = [
  "anyhow",
+ "libc",
  "once_cell",
  "parking_lot",
  "portable-pty",
@@ -2445,6 +2446,7 @@ dependencies = [
  "ureq",
  "uuid",
  "vt100",
+ "windows",
 ]
 
 [[package]]

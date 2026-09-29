@@ -18053,6 +18053,10 @@ var WriteInputRequestSchema = external_exports.object({
   model_provider: external_exports.string().optional(),
   model_id: external_exports.string().optional()
 });
+var SwitchModelRequestSchema = external_exports.object({
+  model_id: external_exports.string().min(1),
+  model_provider: external_exports.string().optional()
+});
 var McpLogEntrySchema = external_exports.object({
   id: external_exports.string(),
   timestamp: external_exports.number(),
@@ -18270,6 +18274,82 @@ var log = (...args) => {
   process.stderr.write(`[puppet-master-mcp] ${args.map(String).join(" ")}
 `);
 };
+function waitTimeoutMs(args) {
+  const timeout = typeof args.timeout_ms === "number" ? args.timeout_ms : 12e4;
+  return Math.min(timeout + 15e3, 31e4);
+}
+function resolveRegistryPath(template, args) {
+  return template.replace(/\{([^}]+)\}/g, (_match, key) => {
+    const value = args[key];
+    if (typeof value !== "string" || value.length === 0) {
+      throw new Error(`missing path parameter: ${key}`);
+    }
+    return encodeURIComponent(value);
+  });
+}
+function appendQuery(path, args, keys) {
+  const params = new URLSearchParams();
+  for (const key of keys) {
+    const value = args[key];
+    if (value === void 0 || value === null) continue;
+    if (key === "types" && Array.isArray(value)) {
+      for (const item of value) params.append("types", String(item));
+      continue;
+    }
+    params.set(key, String(value));
+  }
+  const qs = params.toString();
+  return qs ? `${path}?${qs}` : path;
+}
+async function callWithTimeout(client, method, path, body, timeoutMs) {
+  const url = `${client.baseUrl}${path}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : void 0,
+      body: body ? JSON.stringify(body) : void 0,
+      signal: controller.signal
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`bridge ${method} ${path} -> ${res.status}: ${text}`);
+    }
+    return await res.json();
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(`bridge ${method} ${path} timed out after ${timeoutMs}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function invokeRegistryTool(clientRef, name, args) {
+  const tools = await callWithRefresh(clientRef, "GET", "/mcp/tools");
+  const def = tools.find((tool) => tool.name === name);
+  if (!def?.method || !def.path) {
+    throw new Error(`unknown tool: ${name}`);
+  }
+  let path = def.path;
+  if (def.method === "GET") {
+    if (name === "read_recent_events") {
+      path = appendQuery(path, args, ["limit", "pane_id", "since_id", "types"]);
+    } else if (name === "inspect_agent_model") {
+      path = appendQuery(resolveRegistryPath(path, args), args, ["lines"]);
+    } else if (name === "read_opencode_messages") {
+      path = appendQuery(resolveRegistryPath(path, args), args, ["limit", "role"]);
+    } else if (path.includes("{")) {
+      path = resolveRegistryPath(path, args);
+      path = appendQuery(path, args, ["lines"]);
+    }
+  } else {
+    path = path.includes("{") ? resolveRegistryPath(path, args) : path;
+  }
+  const timeoutMs = path.includes("/panes/wait") ? waitTimeoutMs(args) : 3e4;
+  return callWithTimeout(clientRef.current, def.method, path, def.method === "GET" ? void 0 : args, timeoutMs);
+}
 async function makeClient() {
   const { host, port } = await readBridgePort();
   return { baseUrl: `http://${host}:${port}` };
@@ -18329,8 +18409,11 @@ async function main() {
   }
   const clientRef = { current: client };
   const server = new Server(
-    { name: "puppet-master", version: "0.1.2" },
+    { name: "puppet-master", version: "0.1.3" },
     { capabilities: { tools: {} } }
+  );
+  log(
+    "wait-not-poll: after mutating tools call suggested_wait (wait_for_panes / wait_for_model). Do not loop list_panes or read_terminal_buffer for status."
   );
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: await listRegistryTools(clientRef)
@@ -18383,6 +18466,22 @@ async function main() {
           text = JSON.stringify(model, null, 2);
           break;
         }
+        case "switch_agent_model": {
+          const a = args;
+          assertWorkerPaneTarget(a.pane_id);
+          const parsed = SwitchModelRequestSchema.parse({
+            model_id: a.model_id,
+            model_provider: a.model_provider
+          });
+          const result = await callWithRefresh(
+            clientRef,
+            "POST",
+            `/panes/${encodeURIComponent(a.pane_id)}/model`,
+            parsed
+          );
+          text = JSON.stringify(result, null, 2);
+          break;
+        }
         case "spawn_agent": {
           const parsed = SpawnPaneRequestSchema.parse(args);
           if (parsed.pane_id) {
@@ -18398,7 +18497,7 @@ async function main() {
             }
           }
           const result = await callWithRefresh(clientRef, "POST", "/panes", parsed);
-          text = `spawned pane: ${result.pane_id}`;
+          text = JSON.stringify(result, null, 2);
           break;
         }
         case "read_terminal_buffer": {
@@ -18416,14 +18515,14 @@ async function main() {
           const parsed = WriteInputRequestSchema.parse({ ...args, pane_id: void 0 });
           const a = args;
           assertWorkerPaneTarget(a.pane_id);
-          await callWithRefresh(clientRef, "POST", `/panes/${encodeURIComponent(a.pane_id)}/input`, {
+          const result = await callWithRefresh(clientRef, "POST", `/panes/${encodeURIComponent(a.pane_id)}/input`, {
             text: a.text,
             append_newline: parsed.append_newline,
             via_opencode_api: parsed.via_opencode_api ?? true,
             ...parsed.model_provider ? { model_provider: parsed.model_provider } : {},
             ...parsed.model_id ? { model_id: parsed.model_id } : {}
           });
-          text = "ok";
+          text = JSON.stringify(result, null, 2);
           break;
         }
         case "kill_pane_process": {
@@ -18554,8 +18653,10 @@ async function main() {
           text = JSON.stringify(result, null, 2);
           break;
         }
-        default:
-          throw new Error(`unknown tool: ${name}`);
+        default: {
+          const result = await invokeRegistryTool(clientRef, name, args ?? {});
+          text = typeof result === "string" ? result : JSON.stringify(result, null, 2);
+        }
       }
       log("tool done", name, `${Date.now() - t0}ms`);
       return { content: [{ type: "text", text }] };

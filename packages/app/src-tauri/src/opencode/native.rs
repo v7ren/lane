@@ -74,6 +74,7 @@ pub fn spawn_native_pane(
     let mut serve_child = serve
         .spawn()
         .map_err(|err| format!("opencode serve spawn ({opencode_exe}): {err}"))?;
+    let serve_pid = serve_child.id();
 
     if let Err(err) = client::wait_for_health(&base_url, SERVE_START_TIMEOUT) {
         let _ = serve_child.kill();
@@ -147,6 +148,10 @@ pub fn spawn_native_pane(
     let keep_serve_on_attach_exit = opencode.keep_serve_on_attach_exit();
     let attach_generation = opencode.attach_generation();
 
+    let mut process_tree = crate::process::ProcessTree::new();
+    crate::process::assign_pid_to_pane_job(&process_tree, serve_pid);
+    crate::process::assign_pid_to_pane_job(&process_tree, pid);
+
     let pane = PaneState {
         info,
         scrollback: scrollback.clone(),
@@ -159,6 +164,7 @@ pub fn spawn_native_pane(
         exited: exited.clone(),
         opencode: Some(opencode),
         opencode_key_event: None,
+        process_tree,
     };
 
     spawn_reader_thread(

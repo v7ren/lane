@@ -7,6 +7,7 @@ mod events;
 mod opencode;
 mod pane_wait_notify;
 mod platform;
+mod process;
 mod project_path;
 pub mod pty;
 mod settings_store;
@@ -18,6 +19,7 @@ use tauri::{Listener, Manager};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     shell_env::apply_to_process();
+    process::init_application_job();
 
     tracing_subscriber::fmt()
         .with_env_filter(
