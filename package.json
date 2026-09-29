@@ -15,10 +15,12 @@
     "build:rust": "node scripts/with-cargo-path.mjs build",
     "test": "npm run build -w @loomria/shared && npm run test --workspaces --if-present",
     "typecheck": "npm run build -w @loomria/shared && npm run typecheck --workspaces --if-present",
-    "clean": "rimraf \"packages/*/dist\" \"packages/*/.turbo\" \"packages/app/src-tauri/target\""
+    "clean": "rimraf \"packages/*/dist\" \"packages/*/.turbo\" \"packages/app/src-tauri/target\"",
+    "gen:opencode": "node scripts/gen-opencode-schema.mjs && node scripts/gen-opencode-allowlist.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.1",
+    "openapi-typescript": "^7.8.0",
     "rimraf": "^6.0.1",
     "typescript": "^5.6.3"
   },

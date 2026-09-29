@@ -1,0 +1,390 @@
+[
+  {
+    "method": "GET",
+    "template": "/agent"
+  },
+  {
+    "method": "DELETE",
+    "template": "/auth/{providerID}"
+  },
+  {
+    "method": "PUT",
+    "template": "/auth/{providerID}"
+  },
+  {
+    "method": "GET",
+    "template": "/command"
+  },
+  {
+    "method": "GET",
+    "template": "/config"
+  },
+  {
+    "method": "PATCH",
+    "template": "/config"
+  },
+  {
+    "method": "GET",
+    "template": "/config/providers"
+  },
+  {
+    "method": "GET",
+    "template": "/file"
+  },
+  {
+    "method": "GET",
+    "template": "/file/content"
+  },
+  {
+    "method": "GET",
+    "template": "/file/status"
+  },
+  {
+    "method": "GET",
+    "template": "/find"
+  },
+  {
+    "method": "GET",
+    "template": "/find/file"
+  },
+  {
+    "method": "GET",
+    "template": "/find/symbol"
+  },
+  {
+    "method": "GET",
+    "template": "/formatter"
+  },
+  {
+    "method": "GET",
+    "template": "/global/health"
+  },
+  {
+    "method": "GET",
+    "template": "/lsp"
+  },
+  {
+    "method": "GET",
+    "template": "/mcp"
+  },
+  {
+    "method": "POST",
+    "template": "/mcp"
+  },
+  {
+    "method": "DELETE",
+    "template": "/mcp/{name}/auth"
+  },
+  {
+    "method": "POST",
+    "template": "/mcp/{name}/auth"
+  },
+  {
+    "method": "POST",
+    "template": "/mcp/{name}/auth/authenticate"
+  },
+  {
+    "method": "POST",
+    "template": "/mcp/{name}/auth/callback"
+  },
+  {
+    "method": "POST",
+    "template": "/mcp/{name}/connect"
+  },
+  {
+    "method": "POST",
+    "template": "/mcp/{name}/disconnect"
+  },
+  {
+    "method": "GET",
+    "template": "/path"
+  },
+  {
+    "method": "GET",
+    "template": "/permission"
+  },
+  {
+    "method": "POST",
+    "template": "/permission/{requestID}/reply"
+  },
+  {
+    "method": "GET",
+    "template": "/project"
+  },
+  {
+    "method": "PATCH",
+    "template": "/project/{projectID}"
+  },
+  {
+    "method": "GET",
+    "template": "/project/{projectID}/directories"
+  },
+  {
+    "method": "GET",
+    "template": "/project/current"
+  },
+  {
+    "method": "POST",
+    "template": "/project/git/init"
+  },
+  {
+    "method": "GET",
+    "template": "/provider"
+  },
+  {
+    "method": "POST",
+    "template": "/provider/{providerID}/oauth/authorize"
+  },
+  {
+    "method": "POST",
+    "template": "/provider/{providerID}/oauth/callback"
+  },
+  {
+    "method": "GET",
+    "template": "/provider/auth"
+  },
+  {
+    "method": "GET",
+    "template": "/pty"
+  },
+  {
+    "method": "POST",
+    "template": "/pty"
+  },
+  {
+    "method": "DELETE",
+    "template": "/pty/{ptyID}"
+  },
+  {
+    "method": "GET",
+    "template": "/pty/{ptyID}"
+  },
+  {
+    "method": "PUT",
+    "template": "/pty/{ptyID}"
+  },
+  {
+    "method": "GET",
+    "template": "/pty/{ptyID}/connect"
+  },
+  {
+    "method": "POST",
+    "template": "/pty/{ptyID}/connect-token"
+  },
+  {
+    "method": "GET",
+    "template": "/pty/shells"
+  },
+  {
+    "method": "GET",
+    "template": "/question"
+  },
+  {
+    "method": "POST",
+    "template": "/question/{requestID}/reject"
+  },
+  {
+    "method": "POST",
+    "template": "/question/{requestID}/reply"
+  },
+  {
+    "method": "GET",
+    "template": "/session"
+  },
+  {
+    "method": "POST",
+    "template": "/session"
+  },
+  {
+    "method": "DELETE",
+    "template": "/session/{sessionID}"
+  },
+  {
+    "method": "GET",
+    "template": "/session/{sessionID}"
+  },
+  {
+    "method": "PATCH",
+    "template": "/session/{sessionID}"
+  },
+  {
+    "method": "POST",
+    "template": "/session/{sessionID}/abort"
+  },
+  {
+    "method": "GET",
+    "template": "/session/{sessionID}/children"
+  },
+  {
+    "method": "POST",
+    "template": "/session/{sessionID}/command"
+  },
+  {
+    "method": "GET",
+    "template": "/session/{sessionID}/diff"
+  },
+  {
+    "method": "POST",
+    "template": "/session/{sessionID}/fork"
+  },
+  {
+    "method": "POST",
+    "template": "/session/{sessionID}/init"
+  },
+  {
+    "method": "GET",
+    "template": "/session/{sessionID}/message"
+  },
+  {
+    "method": "POST",
+    "template": "/session/{sessionID}/message"
+  },
+  {
+    "method": "DELETE",
+    "template": "/session/{sessionID}/message/{messageID}"
+  },
+  {
+    "method": "GET",
+    "template": "/session/{sessionID}/message/{messageID}"
+  },
+  {
+    "method": "DELETE",
+    "template": "/session/{sessionID}/message/{messageID}/part/{partID}"
+  },
+  {
+    "method": "PATCH",
+    "template": "/session/{sessionID}/message/{messageID}/part/{partID}"
+  },
+  {
+    "method": "POST",
+    "template": "/session/{sessionID}/permissions/{permissionID}"
+  },
+  {
+    "method": "POST",
+    "template": "/session/{sessionID}/prompt_async"
+  },
+  {
+    "method": "POST",
+    "template": "/session/{sessionID}/revert"
+  },
+  {
+    "method": "DELETE",
+    "template": "/session/{sessionID}/share"
+  },
+  {
+    "method": "POST",
+    "template": "/session/{sessionID}/share"
+  },
+  {
+    "method": "POST",
+    "template": "/session/{sessionID}/shell"
+  },
+  {
+    "method": "POST",
+    "template": "/session/{sessionID}/summarize"
+  },
+  {
+    "method": "GET",
+    "template": "/session/{sessionID}/todo"
+  },
+  {
+    "method": "POST",
+    "template": "/session/{sessionID}/unrevert"
+  },
+  {
+    "method": "GET",
+    "template": "/session/status"
+  },
+  {
+    "method": "GET",
+    "template": "/skill"
+  },
+  {
+    "method": "POST",
+    "template": "/sync/history"
+  },
+  {
+    "method": "POST",
+    "template": "/sync/replay"
+  },
+  {
+    "method": "POST",
+    "template": "/sync/start"
+  },
+  {
+    "method": "POST",
+    "template": "/sync/steal"
+  },
+  {
+    "method": "POST",
+    "template": "/tui/append-prompt"
+  },
+  {
+    "method": "POST",
+    "template": "/tui/clear-prompt"
+  },
+  {
+    "method": "GET",
+    "template": "/tui/control/next"
+  },
+  {
+    "method": "POST",
+    "template": "/tui/control/response"
+  },
+  {
+    "method": "POST",
+    "template": "/tui/execute-command"
+  },
+  {
+    "method": "POST",
+    "template": "/tui/open-help"
+  },
+  {
+    "method": "POST",
+    "template": "/tui/open-models"
+  },
+  {
+    "method": "POST",
+    "template": "/tui/open-sessions"
+  },
+  {
+    "method": "POST",
+    "template": "/tui/open-themes"
+  },
+  {
+    "method": "POST",
+    "template": "/tui/publish"
+  },
+  {
+    "method": "POST",
+    "template": "/tui/select-session"
+  },
+  {
+    "method": "POST",
+    "template": "/tui/show-toast"
+  },
+  {
+    "method": "POST",
+    "template": "/tui/submit-prompt"
+  },
+  {
+    "method": "GET",
+    "template": "/vcs"
+  },
+  {
+    "method": "POST",
+    "template": "/vcs/apply"
+  },
+  {
+    "method": "GET",
+    "template": "/vcs/diff"
+  },
+  {
+    "method": "GET",
+    "template": "/vcs/diff/raw"
+  },
+  {
+    "method": "GET",
+    "template": "/vcs/status"
+  }
+]
