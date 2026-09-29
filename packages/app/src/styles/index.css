@@ -4,33 +4,51 @@
 
 :root {
   color-scheme: dark;
-  --lr-bg: 11 13 16;
-  --lr-panel: 17 20 26;
-  --lr-raised: 24 28 36;
-  --lr-border: 42 48 58;
-  --lr-accent: 120 162 255;
-  --lr-text: 232 236 244;
-  --lr-muted: 130 138 152;
-  --lr-ok: 72 187 120;
-  --lr-warn: 245 158 11;
-  --lr-err: 248 113 113;
-  --lr-info: 56 189 248;
+  --color-canvas: 11 11 12;
+  --color-surface: 20 20 22;
+  --color-elevated: 28 28 31;
+  --color-hover: 37 37 40;
+  --color-border-subtle: 42 42 46;
+  --color-border: 63 63 70;
+  --color-text: 250 250 250;
+  --color-text-2: 161 161 170;
+  --color-text-3: 113 113 122;
+  --color-text-4: 82 82 91;
+  --color-accent: 59 130 246;
+  --color-link: 96 165 250;
+  --color-status-approval: 245 158 11;
+  --color-status-working: 59 130 246;
+  --color-status-rate: 34 211 238;
+  --color-status-error: 248 113 113;
+  --color-status-done: 34 197 94;
+  --color-status-idle: 113 113 122;
+  --lr-bg: var(--color-canvas);
+  --lr-panel: var(--color-surface);
+  --lr-raised: var(--color-elevated);
+  --lr-border: var(--color-border-subtle);
+  --lr-accent: var(--color-accent);
+  --lr-text: var(--color-text);
+  --lr-muted: var(--color-text-3);
+  --lr-ok: var(--color-status-done);
+  --lr-warn: var(--color-status-approval);
+  --lr-err: var(--color-status-error);
+  --lr-info: var(--color-status-rate);
   --lr-status-accent: var(--lr-accent);
   --lr-status-ok: var(--lr-ok);
   --lr-status-warn: var(--lr-warn);
   --lr-status-err: var(--lr-err);
   --lr-status-info: var(--lr-info);
   --lr-status-muted: var(--lr-muted);
-  --pm-bg: var(--lr-bg);
-  --pm-panel: var(--lr-panel);
-  --pm-raised: var(--lr-raised);
-  --pm-border: var(--lr-border);
-  --pm-accent: var(--lr-text);
-  --pm-text: var(--lr-text);
-  --pm-muted: var(--lr-muted);
-  --pm-ok: var(--lr-ok);
-  --pm-warn: var(--lr-warn);
-  --pm-err: var(--lr-err);
+  --pm-bg: var(--color-canvas);
+  --pm-panel: var(--color-surface);
+  --pm-raised: var(--color-elevated);
+  --pm-border: var(--color-border-subtle);
+  --pm-accent: var(--color-text);
+  --pm-text: var(--color-text);
+  --pm-muted: var(--color-text-3);
+  --pm-ok: var(--color-status-done);
+  --pm-warn: var(--color-status-approval);
+  --pm-err: var(--color-status-error);
 }
 
 :root[data-theme='light'] {
@@ -55,6 +73,8 @@ body,
   overflow: hidden;
   background: rgb(var(--pm-bg));
   color: rgb(var(--pm-text));
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13px;
 }
 
 .terminal-host {

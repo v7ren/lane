@@ -4,6 +4,9 @@ import App from './App';
 import TerminalApp from './TerminalApp';
 import { DemoProvider } from './lib/demo/DemoContext';
 import { parseDemoVariant } from './lib/demo-mode';
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
 import './styles/index.css';
 
 const params = new URLSearchParams(window.location.search);

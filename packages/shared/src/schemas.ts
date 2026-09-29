@@ -65,6 +65,19 @@ export const DEFAULT_LLM_MODELS: LlmModel[] = [
   { provider: 'openrouter', model_id: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B (OR)' },
 ];
 
+export const ShellLayoutSchema = z.object({
+  activityRailWidth: z.number().int().min(40).max(64).default(48),
+  sidebarWidth: z.number().int().min(160).max(400).default(220),
+  explorerWidth: z.number().int().min(160).max(400).default(240),
+  rightRailWidth: z.number().int().min(200).max(480).default(300),
+  bottomPanelPercent: z.number().min(20).max(80).default(42),
+  sidebarCollapsed: z.boolean().default(false),
+  explorerCollapsed: z.boolean().default(false),
+  rightRailCollapsed: z.boolean().default(false),
+  bottomPanelCollapsed: z.boolean().default(false),
+});
+export type ShellLayout = z.infer<typeof ShellLayoutSchema>;
+
 export const SettingsSchema = z.object({
   anthropic_api_key: z.string().optional(),
   openai_api_key: z.string().optional(),
@@ -90,5 +103,7 @@ export const SettingsSchema = z.object({
   opencode_model_provider: z.string().optional(),
   /** Default OpenCode model for opencode_native API prompts (write_terminal_input). */
   opencode_model_id: z.string().optional(),
+  /** Resizable app shell panel sizes and collapse state. */
+  shell_layout: ShellLayoutSchema.optional(),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
