@@ -70,7 +70,7 @@ export const ShellLayoutSchema = z.object({
   sidebarWidth: z.number().int().min(160).max(400).default(220),
   explorerWidth: z.number().int().min(160).max(400).default(240),
   rightRailWidth: z.number().int().min(200).max(480).default(300),
-  bottomPanelPercent: z.number().min(20).max(80).default(42),
+  bottomPanelPercent: z.number().min(20).max(80).default(70),
   sidebarCollapsed: z.boolean().default(false),
   explorerCollapsed: z.boolean().default(false),
   rightRailCollapsed: z.boolean().default(false),

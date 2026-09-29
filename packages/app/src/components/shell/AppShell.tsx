@@ -23,6 +23,10 @@ import { SessionActionsProvider, useSessionActions } from '../../lib/sessions/se
 import { ShellToastProvider } from '../../lib/sessions/shell-toast';
 import { useOpenCodeTuiSync } from '../../lib/sessions/use-tui-sync';
 import { isOpenCodePane } from '../../lib/sessions/merge-sessions';
+import {
+  defaultBottomRatio,
+  readBottomRatioUserTouched,
+} from '../../lib/shell-layout';
 import { ActivityRail } from './ActivityRail';
 import { AgentPanelEmpty } from './AgentPanelEmpty';
 import { BottomPanel } from './BottomPanel';
@@ -75,7 +79,9 @@ function AppShellInner({
   const demo = useDemoFixtures();
   const shell = useShellSelection();
   const selectedSession = useSelectedSession();
-  const { layout, patchLayout, resetPanel, resetVisibility } = useShellLayout();
+  const { layout, patchLayout, resetPanel, resetVisibility, markBottomPanelResized } =
+    useShellLayout();
+  const hasEditorTabs = false;
   const [viewportWidth, setViewportWidth] = useState(
     typeof window !== 'undefined' ? window.innerWidth : 1440,
   );
@@ -89,6 +95,11 @@ function AppShellInner({
   useEffect(() => {
     resetVisibility();
   }, [resetVisibility]);
+
+  useEffect(() => {
+    if (readBottomRatioUserTouched()) return;
+    patchLayout({ bottomPanelPercent: defaultBottomRatio({ hasEditorTabs }) });
+  }, [hasEditorTabs, patchLayout]);
 
   useEffect(() => {
     if (!demo) return;
@@ -568,6 +579,7 @@ function AppShellChrome(props: {
                   dragBase.current = layout.bottomPanelPercent;
                 }}
                 onDrag={(delta) => {
+                  markBottomPanelResized();
                   const el = document.querySelector('[data-testid="app-shell"]');
                   const h = el?.clientHeight ?? 800;
                   const next = dragBase.current - (delta / h) * 100;

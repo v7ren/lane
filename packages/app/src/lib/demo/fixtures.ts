@@ -263,6 +263,44 @@ export function buildDemoFixtures(variant: DemoVariant): DemoFixtures {
 
   const opencodeTimeline = reduceAgentTimeline([], opencodeTimelineEnvelopes(paneIds.opencode));
 
+  const codexTimeline = reduceAgentTimeline(
+    [],
+    [
+      {
+        pane_id: paneIds.codex,
+        seq: 1,
+        event: { type: 'turn_started', turn_id: 'turn-codex' },
+      },
+      {
+        pane_id: paneIds.codex,
+        seq: 2,
+        event: {
+          type: 'message_completed',
+          turn_id: 'turn-codex',
+          message_id: 'u1',
+          role: 'user',
+          text: 'Refactor auth middleware.',
+        },
+      },
+      {
+        pane_id: paneIds.codex,
+        seq: 3,
+        event: {
+          type: 'message_completed',
+          turn_id: 'turn-codex',
+          message_id: 'a1',
+          role: 'assistant',
+          text: 'Starting auth refactor…',
+        },
+      },
+      {
+        pane_id: paneIds.codex,
+        seq: 4,
+        event: { type: 'turn_completed', turn_id: 'turn-codex', status: 'ok' },
+      },
+    ],
+  );
+
   return {
     variant,
     projectPath: 'C:\\Users\\demo\\loomria',
@@ -275,6 +313,18 @@ export function buildDemoFixtures(variant: DemoVariant): DemoFixtures {
         capabilities: { ...opencodeCapabilities(), cancel: true },
         source: 'protocol',
         timeline: { ...opencodeTimeline, turnActive: true },
+      },
+      [paneIds.codex]: {
+        capabilities: {
+          chat: true,
+          send_prompt: true,
+          approvals: true,
+          cancel: true,
+          file_changes: true,
+          attach_tui: true,
+        },
+        source: 'protocol',
+        timeline: codexTimeline,
       },
     },
   };

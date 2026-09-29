@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ShellLayout } from '@loomria/shared';
-import { clampShellLayout, DEFAULT_SHELL_LAYOUT, mergeShellLayout } from '../lib/shell-layout';
+import {
+  clampShellLayout,
+  DEFAULT_SHELL_LAYOUT,
+  markBottomRatioUserTouched,
+  mergeShellLayout,
+} from '../lib/shell-layout';
 import { loadSettings, saveSettings } from '../lib/settings';
 
 const LAYOUT_STORAGE_KEY = 'loomria-shell-layout-v2';
@@ -104,5 +109,9 @@ export function useShellLayout() {
     });
   }, [patchLayout]);
 
-  return { layout, ready, patchLayout, resetPanel, resetVisibility };
+  const markBottomPanelResized = useCallback(() => {
+    markBottomRatioUserTouched();
+  }, []);
+
+  return { layout, ready, patchLayout, resetPanel, resetVisibility, markBottomPanelResized };
 }
