@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import type { AgentCatalog } from '@loomria/shared';
 import { getPreset } from '@loomria/shared';
 import type { SessionRailState } from '../../hooks/useSessionRail';
@@ -11,12 +11,21 @@ import {
   sessionRespondApproval,
   sessionSendPrompt,
 } from '../../lib/agent-session';
+import {
+  abortOpenCodeSession,
+  rejectOpenCodeQuestion,
+  replyOpenCodePermission,
+  replyOpenCodeQuestion,
+} from '../../lib/commands/agent';
+import { useTranscriptViewModel } from '../../lib/transcript/use-transcript-view-model';
+import { getOpenCodeStore } from '../../lib/opencode/store';
 import { tauri } from '../../lib/tauri';
 import { setSessionMuted } from '../../lib/session-notify-prefs';
 import { formatPaneSubtitle } from '../../lib/session-subtitle';
 import { DisplayStatusDot } from '../DisplayStatusDot';
-import { AgentComposer } from './AgentComposer';
-import { AgentTimeline } from './AgentTimeline';
+import { AgentComposerPanel } from '../composer/AgentComposerPanel';
+import { PermissionDock, QuestionDock, type PermissionDockItem, type QuestionDockItem } from '../composer/ComposerDocks';
+import { TranscriptView } from '../transcript/TranscriptView';
 import { useAgentApprovalShortcuts } from './AgentView.keyboard';
 
 export function AgentView({
@@ -50,8 +59,6 @@ export function AgentView({
   embedded?: boolean;
   paneCwd?: string | null;
 }) {
-  const [busy, setBusy] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
   const railState = sessionState?.state ?? null;
   const { capabilities, source, timeline, loading, error, refresh } = useAgentSession(
     paneId,
@@ -59,6 +66,64 @@ export function AgentView({
     sessionState?.agent_type ?? undefined,
     railState,
   );
+
+  const transcript = useTranscriptViewModel(
+    paneId,
+    true,
+    sessionState?.agent_type ?? undefined,
+    source,
+    timeline,
+  );
+
+  const openCodePane = sessionState?.agent_type === 'opencode_native' && source !== 'native_tui';
+  const store = openCodePane ? getOpenCodeStore(paneId) : null;
+  const ocState = useSyncExternalStore(
+    store?.subscribe ?? (() => () => {}),
+    () => (store ? store.getState() : null),
+    () => null,
+  );
+  const sessionId = ocState?.sessionOrder[0] ?? null;
+
+  const pendingProtocol = timeline.pendingApprovals;
+  const pendingPermissions = useMemo(() => {
+    if (ocState) return Object.values(ocState.permissions);
+    return [];
+  }, [ocState]);
+
+  const pendingQuestions = useMemo(() => {
+    if (ocState) return Object.values(ocState.questions);
+    return [];
+  }, [ocState]);
+
+  const permissionDockItems = useMemo((): PermissionDockItem[] => {
+    const fromStore = pendingPermissions.map((perm) => {
+      const raw = perm as Record<string, unknown>;
+      const data = raw.data as Record<string, unknown> | undefined;
+      return {
+        id: String(raw.id ?? ''),
+        title: String(data?.title ?? raw.title ?? 'Permission required'),
+        detail: String(data?.pattern ?? data?.command ?? raw.pattern ?? ''),
+      };
+    });
+    if (fromStore.length > 0) return fromStore;
+    return pendingProtocol.map((a) => ({
+      id: a.id,
+      title: a.title,
+      detail: a.detail,
+    }));
+  }, [pendingPermissions, pendingProtocol]);
+
+  const questionDockItems = useMemo((): QuestionDockItem[] => {
+    return pendingQuestions.map((q) => {
+      const raw = q as Record<string, unknown>;
+      const first = (raw.questions as { question?: string; options?: { label: string }[] }[] | undefined)?.[0];
+      return {
+        id: String(raw.id ?? ''),
+        prompt: first?.question ?? 'Question',
+        options: first?.options ?? [],
+      };
+    });
+  }, [pendingQuestions]);
 
   const displayStatus = mergePaneAndSessionStatus(paneStatus, railState);
   const agentLabel =
@@ -72,6 +137,9 @@ export function AgentView({
       !capabilities.send_prompt &&
       !capabilities.approvals &&
       capabilities.attach_tui);
+
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const send = useCallback(
     async (text: string) => {
@@ -100,7 +168,13 @@ export function AgentView({
       setBusy(true);
       setActionError(null);
       try {
-        if (source === 'protocol' && capabilities.approvals) {
+        if (pendingPermissions.some((p) => p.id === approvalId)) {
+          await replyOpenCodePermission(
+            paneId,
+            approvalId,
+            decision === 'deny' ? 'reject' : decision === 'allow_always' ? 'always' : 'once',
+          );
+        } else if (source === 'protocol' && capabilities.approvals) {
           await sessionRespondApproval(paneId, approvalId, decision);
         } else if (decision === 'deny') {
           await tauri.replyOpenCodePermission({ pane_id: paneId, request_id: approvalId, reply: 'deny' });
@@ -120,15 +194,19 @@ export function AgentView({
         setBusy(false);
       }
     },
-    [capabilities.approvals, paneId, refresh, source],
+    [capabilities.approvals, paneId, pendingPermissions, refresh, source],
   );
 
   const cancelTurn = useCallback(async () => {
-    if (!capabilities.cancel) return;
+    if (!capabilities.cancel && !(openCodePane && sessionId)) return;
     setBusy(true);
     setActionError(null);
     try {
-      await sessionCancelTurn(paneId);
+      if (openCodePane && sessionId) {
+        await abortOpenCodeSession(paneId, sessionId);
+      } else {
+        await sessionCancelTurn(paneId);
+      }
       await refresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -137,7 +215,7 @@ export function AgentView({
     } finally {
       setBusy(false);
     }
-  }, [capabilities.cancel, paneId, refresh]);
+  }, [capabilities.cancel, openCodePane, paneId, refresh, sessionId]);
 
   const toggleMute = useCallback(async () => {
     const next = !muted;
@@ -145,7 +223,7 @@ export function AgentView({
     onMutedChange(next);
   }, [muted, onMutedChange, paneId]);
 
-  const topApprovalId = timeline.pendingApprovals[0]?.id ?? null;
+  const topApprovalId = permissionDockItems[0]?.id ?? null;
   useAgentApprovalShortcuts(
     Boolean(topApprovalId),
     topApprovalId,
@@ -157,7 +235,7 @@ export function AgentView({
     },
   );
 
-  const composerDisabled = !capabilities.send_prompt && source !== 'opencode_fallback';
+  const composerDisabled = !capabilities.send_prompt && !openCodePane;
   const composerReason = nativeTuiOnly
     ? undefined
     : composerDisabled
@@ -166,7 +244,7 @@ export function AgentView({
 
   return (
     <div
-      className={`flex flex-col min-h-0 bg-lr-panel border-lr-border lr-agent-panel ${
+      className={`flex flex-col min-h-0 bg-surface border-border-subtle lr-agent-panel ${
         showTui ? 'shrink-0 border-r' : 'flex-1 min-w-0 w-full z-[1]'
       }`}
       style={
@@ -177,18 +255,18 @@ export function AgentView({
             : undefined
       }
     >
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-lr-border shrink-0 w-full">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border-subtle shrink-0 w-full">
         <DisplayStatusDot status={displayStatus} pulse={displayStatus === 'needs_approval'} />
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium truncate">{agentLabel}</div>
-          <div className="text-[10px] text-lr-muted truncate">
+          <div className="text-body font-medium truncate">{agentLabel}</div>
+          <div className="text-meta text-text-3 truncate">
             {formatPaneSubtitle(paneId, agentLabel, paneCwd)}
           </div>
         </div>
         {headlessClaude && (
           <button
             type="button"
-            className="px-2 py-1 text-xs rounded-md border border-lr-border hover:bg-lr-raised"
+            className="px-2 py-1 text-meta rounded-md border border-border-subtle hover:bg-hover"
             onClick={() => void sessionOpenInTui(paneId)}
           >
             Open in TUI
@@ -197,26 +275,24 @@ export function AgentView({
         {capabilities.attach_tui && !showTui && !headlessClaude && (
           <button
             type="button"
-            className="px-2 py-1 text-xs rounded-md border border-lr-border hover:bg-lr-raised"
+            className="px-2 py-1 text-meta rounded-md border border-border-subtle hover:bg-hover"
             onClick={onToggleTui}
-            aria-pressed={false}
           >
             Show TUI
           </button>
         )}
         <button
           type="button"
-          className="px-2 py-1 text-xs rounded-md border border-lr-border hover:bg-lr-raised"
+          className="px-2 py-1 text-meta rounded-md border border-border-subtle hover:bg-hover"
           onClick={() => void toggleMute()}
           aria-label={muted ? 'Unmute notifications' : 'Mute notifications'}
-          title={muted ? 'Notifications muted' : 'Mute notifications'}
         >
           {muted ? '🔕' : '🔔'}
         </button>
         {!embedded && (
           <button
             type="button"
-            className="px-2 py-1 text-xs rounded-md border border-lr-border hover:bg-lr-raised"
+            className="px-2 py-1 text-meta rounded-md border border-border-subtle hover:bg-hover"
             onClick={onExitWorkspace}
           >
             Workspace
@@ -227,29 +303,46 @@ export function AgentView({
       <div
         className={`flex flex-1 flex-col min-h-0 w-full mx-auto ${showTui ? '' : 'max-w-[52rem]'}`}
       >
-        {loading && <p className="text-xs text-lr-muted px-3 py-2">Loading session…</p>}
+        {loading && <p className="text-meta text-text-3 px-3 py-2">Loading session…</p>}
         {(error || actionError) && (
-          <p className="text-xs text-lr-err px-3 py-2 border-b border-lr-err/30">
+          <p className="text-meta text-status-error px-3 py-2 border-b border-status-error/30">
             {actionError ?? error}
           </p>
         )}
 
-        <AgentTimeline
-          vm={timeline}
-          nativeTuiOnly={nativeTuiOnly}
-          busy={busy}
-          onRespondApproval={(id, d) => void respondApproval(id, d)}
-        />
+        <TranscriptView vm={transcript} nativeTuiOnly={nativeTuiOnly} />
 
         {!nativeTuiOnly && (
-          <AgentComposer
-            disabled={composerDisabled}
-            disabledReason={composerReason}
-            busy={busy}
-            showCancel={capabilities.cancel && timeline.turnActive}
-            onSend={send}
-            onCancel={cancelTurn}
-          />
+          <>
+            <PermissionDock
+              permissions={permissionDockItems}
+              busy={busy}
+              onReply={(id, d) => void respondApproval(id, d)}
+            />
+            <QuestionDock
+              questions={questionDockItems}
+              busy={busy}
+              onReply={(id, answer) => {
+                void replyOpenCodeQuestion(paneId, id, answer).then(() => refresh());
+              }}
+              onReject={(id) => {
+                void rejectOpenCodeQuestion(paneId, id).then(() => refresh());
+              }}
+            />
+            <AgentComposerPanel
+              paneId={paneId}
+              sessionId={sessionId}
+              openCode={Boolean(openCodePane)}
+              capabilities={capabilities}
+              disabled={composerDisabled}
+              disabledReason={composerReason}
+              busy={busy}
+              showStop={Boolean((capabilities.cancel && transcript.turnActive) || transcript.sessionBusy)}
+              onSendProtocol={send}
+              onCancelProtocol={cancelTurn}
+              onError={setActionError}
+            />
+          </>
         )}
       </div>
     </div>

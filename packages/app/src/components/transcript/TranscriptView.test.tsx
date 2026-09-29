@@ -1,26 +1,29 @@
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { AgentTimelineViewModel } from '../../lib/agent-timeline-reducer';
-import { AgentTimeline } from './AgentTimeline';
+import type { TranscriptViewModel } from '../../lib/transcript';
+import { TranscriptView } from '../transcript/TranscriptView';
 
 const payload = "I'll & <b>x</b>";
 
-const vm: AgentTimelineViewModel = {
-  messages: [
+const vm: TranscriptViewModel = {
+  turns: [
     {
-      id: 'm1',
+      id: 'a1',
       role: 'assistant',
-      text: payload,
-      streaming: false,
+      items: [
+        {
+          kind: 'assistant_text',
+          id: 't1',
+          markdown: payload,
+        },
+      ],
     },
   ],
-  tools: [],
-  approvals: [],
-  pendingApprovals: [],
-  filePaths: [],
+  flatItems: [],
+  sessionBusy: false,
   turnActive: false,
-  maxSeq: 1,
+  globalFilePaths: [],
 };
 
 let container: HTMLDivElement;
@@ -37,12 +40,10 @@ afterEach(() => {
   container.remove();
 });
 
-describe('AgentTimeline', () => {
-  it('renders agent message text literally without HTML entities or elements', () => {
+describe('TranscriptView', () => {
+  it('renders assistant markdown literally without HTML injection', () => {
     act(() => {
-      root.render(
-        <AgentTimeline vm={vm} nativeTuiOnly={false} busy={false} onRespondApproval={() => {}} />,
-      );
+      root.render(<TranscriptView vm={vm} nativeTuiOnly={false} />);
     });
 
     expect(container.textContent).toContain(payload);
