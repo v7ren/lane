@@ -37,10 +37,12 @@ pub fn bridge_session() -> Option<(String, String)> {
     Some((url, token))
 }
 
+#[allow(dead_code)]
 pub fn app_handle() -> Option<AppHandle> {
     BRIDGE_APP.get().cloned()
 }
 
+#[allow(dead_code)]
 pub fn registry() -> Option<Arc<Mutex<PaneRegistry>>> {
     BRIDGE_REGISTRY.get().cloned()
 }
@@ -127,6 +129,7 @@ struct OpenCodeKeyRotateBody {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct ResizeBody {
     cols: u16,
     rows: u16,
@@ -148,7 +151,8 @@ fn default_true() -> bool {
 }
 
 pub struct BridgeHandle {
-    pub url: String,
+    #[allow(dead_code)]
+    url: String,
 }
 
 impl BridgeHandle {
@@ -187,6 +191,16 @@ pub fn start_embedded_bridge(
     let _ = BRIDGE_BASE_URL.set(url.clone());
     fs::write(&port_file, format!("{HOST}:{port}\n"))
         .map_err(|err| format!("write bridge port file {}: {err}", port_file.display()))?;
+    if cfg!(debug_assertions) {
+        std::env::set_var(
+            crate::app_paths::BRIDGE_PORT_FILE_ENV,
+            crate::app_paths::bridge_port_file_env_value(),
+        );
+        let _ = fs::write(
+            crate::app_paths::legacy_bridge_port_file(),
+            format!("{HOST}:{port}\n"),
+        );
+    }
 
     thread::Builder::new()
         .name("loomria-http-bridge".into())

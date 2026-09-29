@@ -152,6 +152,7 @@ impl ProtocolSession for ClaudeStreamJsonSession {
 
 impl Drop for ClaudeStreamJsonSession {
     fn drop(&mut self) {
+        tracing::debug!(session_id = %self.session_id, "claude stream-json session ending");
         let _ = self.child.lock().kill();
     }
 }

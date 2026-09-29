@@ -19,8 +19,6 @@ use uuid::Uuid;
 const SCROLLBACK_CAP: usize = 10_000;
 const PORT_MIN: u16 = 4096;
 const PORT_MAX: u16 = 4199;
-const SERVE_START_TIMEOUT: Duration = Duration::from_secs(45);
-
 pub fn spawn_native_pane(
     registry: Arc<Mutex<PaneRegistry>>,
     app: &AppHandle,
@@ -74,7 +72,7 @@ pub fn spawn_native_pane(
     let mut serve_child = spawned.child;
     let serve_pid = serve_child.id();
 
-    let session = match client::create_session(&base_url, &format!("puppet-master {pane_id}")) {
+    let session = match client::create_session(&base_url, &format!("loomria {pane_id}")) {
         Ok(session) => session,
         Err(err) => {
             let _ = serve_child.kill();

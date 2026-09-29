@@ -7,7 +7,6 @@ use super::types::{
 use crate::agents::ProtocolKind as ManifestProtocol;
 use crate::opencode::event_map::next_turn;
 use crate::opencode::event_stream::spawn_event_reader;
-use parking_lot::Mutex;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -38,7 +37,6 @@ impl ProtocolAdapter for OpenCodeHttpAdapter {
             directory: endpoint.cwd,
             events_tx: tx,
             turn_counter,
-            pending_approval: Mutex::new(None),
         }))
     }
 }
@@ -49,7 +47,6 @@ struct OpenCodeHttpSession {
     directory: Option<String>,
     events_tx: broadcast::Sender<AgentEvent>,
     turn_counter: Arc<AtomicU64>,
-    pending_approval: Mutex<Option<String>>,
 }
 
 impl OpenCodeHttpSession {

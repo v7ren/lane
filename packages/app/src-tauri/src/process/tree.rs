@@ -55,8 +55,8 @@ impl ProcessTree {
             use windows::core::PCWSTR;
             use windows::Win32::System::JobObjects::{
                 CreateJobObjectW, JobObjectExtendedLimitInformation,
-                JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-                SetInformationJobObject,
+                JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_BREAKAWAY_OK,
+                JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, SetInformationJobObject,
             };
 
             let job = unsafe {
@@ -66,7 +66,8 @@ impl ProcessTree {
             };
 
             let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
-            info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            info.BasicLimitInformation.LimitFlags =
+                JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_BREAKAWAY_OK;
             unsafe {
                 SetInformationJobObject(
                     job,
@@ -134,9 +135,24 @@ impl ProcessTree {
     fn terminate_assigned(&self) {
         #[cfg(windows)]
         {
+            use windows::Win32::Foundation::CloseHandle;
             use windows::Win32::System::JobObjects::TerminateJobObject;
+            use windows::Win32::System::Threading::{
+                OpenProcess, PROCESS_TERMINATE, TerminateProcess,
+            };
+
+            let pids: Vec<u32> = self.assigned.lock().iter().copied().collect();
             unsafe {
                 let _ = TerminateJobObject(self.job(), 1);
+            }
+            for pid in pids {
+                let Ok(process) = (unsafe { OpenProcess(PROCESS_TERMINATE, false, pid) }) else {
+                    continue;
+                };
+                unsafe {
+                    let _ = TerminateProcess(process, 1);
+                    let _ = CloseHandle(process);
+                }
             }
         }
         #[cfg(unix)]

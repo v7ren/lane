@@ -18,10 +18,6 @@ impl CodexWsClient {
         Self::spawn(String::new())
     }
 
-    pub fn thread_id(&self) -> Option<String> {
-        None
-    }
-
     pub fn subscribe(&self) -> broadcast::Receiver<crate::protocol::AgentEvent> {
         let (tx, rx) = broadcast::channel(1);
         drop(tx);

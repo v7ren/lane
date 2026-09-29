@@ -3,7 +3,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -32,19 +32,6 @@ pub fn with_directory_query(url: &str, directory: Option<&str>) -> String {
 
 pub fn normalize_base_url(base_url: &str) -> String {
     base_url.trim_end_matches('/').to_string()
-}
-
-pub fn wait_for_health(base_url: &str, timeout: Duration) -> Result<(), String> {
-    let base = normalize_base_url(base_url);
-    let url = format!("{base}/global/health");
-    let deadline = Instant::now() + timeout;
-    while Instant::now() < deadline {
-        match ureq::get(&url).timeout(DEFAULT_TIMEOUT).call() {
-            Ok(response) if response.status() == 200 => return Ok(()),
-            _ => std::thread::sleep(Duration::from_millis(250)),
-        }
-    }
-    Err(format!("OpenCode server not healthy at {base} within {timeout:?}"))
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -217,8 +204,6 @@ pub struct OpenCodeSessionModel {
     pub provider_id: Option<String>,
     #[serde(default)]
     pub id: Option<String>,
-    #[serde(default)]
-    pub variant: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -246,13 +231,20 @@ pub fn get_session(
             response.into_string().unwrap_or_default()
         ));
     }
-    response
+    let info = response
         .into_json::<OpenCodeSessionInfo>()
-        .map_err(|err| format!("opencode get session parse: {err}"))
+        .map_err(|err| format!("opencode get session parse: {err}"))?;
+    if info.id != session_id {
+        return Err(format!(
+            "opencode get session: id mismatch (expected {session_id}, got {})",
+            info.id
+        ));
+    }
+    Ok(info)
 }
 
 #[derive(Debug, Clone, Deserialize)]
-struct OpenCodeMessageUserModel {
+pub(crate) struct OpenCodeMessageUserModel {
     #[serde(rename = "modelID", default)]
     model_id: Option<String>,
     #[serde(rename = "providerID", default)]
@@ -372,29 +364,6 @@ pub fn last_user_message_model(
         .rev()
         .find(|message| message.info.role == "user")
         .and_then(|message| message_model(&message.info)))
-}
-
-pub fn models_match(a: &OpenCodeModelRef, b: &OpenCodeModelRef) -> bool {
-    a.provider_id.eq_ignore_ascii_case(&b.provider_id)
-        && a.model_id.eq_ignore_ascii_case(&b.model_id)
-}
-
-pub fn model_matches_filter(
-    model: &OpenCodeModelRef,
-    provider_id: Option<&str>,
-    model_id: Option<&str>,
-) -> bool {
-    if let Some(expected) = provider_id.map(str::trim).filter(|value| !value.is_empty()) {
-        if !model.provider_id.eq_ignore_ascii_case(expected) {
-            return false;
-        }
-    }
-    if let Some(expected) = model_id.map(str::trim).filter(|value| !value.is_empty()) {
-        if !model.model_id.eq_ignore_ascii_case(expected) {
-            return false;
-        }
-    }
-    true
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -586,6 +555,24 @@ mod tests {
     fn prompt_async_body_omits_model_when_none() {
         let body = prompt_async_body("hello", None);
         assert!(body.get("model").is_none());
+    }
+
+    fn model_matches_filter(
+        model: &OpenCodeModelRef,
+        provider_id: Option<&str>,
+        model_id: Option<&str>,
+    ) -> bool {
+        if let Some(expected) = provider_id.map(str::trim).filter(|value| !value.is_empty()) {
+            if !model.provider_id.eq_ignore_ascii_case(expected) {
+                return false;
+            }
+        }
+        if let Some(expected) = model_id.map(str::trim).filter(|value| !value.is_empty()) {
+            if !model.model_id.eq_ignore_ascii_case(expected) {
+                return false;
+            }
+        }
+        true
     }
 
     #[test]

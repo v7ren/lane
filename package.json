@@ -13,8 +13,8 @@
     "tauri": "node scripts/with-cargo-path.mjs",
     "build": "npm run build --workspaces --if-present",
     "build:rust": "node scripts/with-cargo-path.mjs build",
-    "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run build -w @loomria/shared && npm run test --workspaces --if-present",
+    "typecheck": "npm run build -w @loomria/shared && npm run typecheck --workspaces --if-present",
     "clean": "rimraf \"packages/*/dist\" \"packages/*/.turbo\" \"packages/app/src-tauri/target\""
   },
   "devDependencies": {

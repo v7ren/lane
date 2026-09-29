@@ -171,14 +171,14 @@ export function AgentView({
             Open in TUI
           </button>
         )}
-        {capabilities.attach_tui && !headlessClaude && (
+        {capabilities.attach_tui && !showTui && !headlessClaude && (
           <button
             type="button"
             className="px-2 py-1 text-xs rounded-md border border-lr-border hover:bg-lr-raised"
             onClick={onToggleTui}
-            aria-pressed={showTui}
+            aria-pressed={false}
           >
-            {showTui ? 'Hide TUI' : 'Show TUI'}
+            Show TUI
           </button>
         )}
         <button

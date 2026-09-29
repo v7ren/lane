@@ -7,7 +7,7 @@ use std::process::Command;
 use std::path::PathBuf;
 
 const PRODUCT_NAME: &str = "Loomria";
-const BUNDLE_ID: &str = "com.puppetmaster.app";
+const BUNDLE_ID: &str = "com.loomria.app";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -31,23 +31,6 @@ pub fn scrollback_indicates_rate_limit(text: &str) -> bool {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PendingKeySwapInfo {
-    pub kind: String,
-    pub from_profile: String,
-    pub to_profile: Option<String>,
-}
-
-impl From<&KeySwapEvent> for PendingKeySwapInfo {
-    fn from(event: &KeySwapEvent) -> Self {
-        Self {
-            kind: event.kind.clone(),
-            from_profile: event.from_profile.clone(),
-            to_profile: event.to_profile.clone(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct KeySwapEvent {
     pub kind: String,
     pub pane_id: String,
@@ -185,7 +168,8 @@ pub fn store_pending_key_event(
     Ok(())
 }
 
-pub fn take_pending_key_event(registry: &Arc<Mutex<PaneRegistry>>, pane_id: &str) -> Option<KeySwapEvent> {
+#[cfg(test)]
+pub(crate) fn take_pending_key_event(registry: &Arc<Mutex<PaneRegistry>>, pane_id: &str) -> Option<KeySwapEvent> {
     registry
         .lock()
         .panes
@@ -226,14 +210,14 @@ mod tests {
         let store_file = dir.join("opencode-key-profiles.json");
         let auth_file = dir.join("auth.json");
         fs::create_dir_all(&dir).expect("tempdir");
-        std::env::set_var("PUPPET_MASTER_TEST_OPENCODE_KEYS_STORE", &store_file);
-        std::env::set_var("PUPPET_MASTER_TEST_OPENCODE_AUTH", &auth_file);
+        std::env::set_var("LOOMRIA_TEST_OPENCODE_KEYS_STORE", &store_file);
+        std::env::set_var("LOOMRIA_TEST_OPENCODE_AUTH", &auth_file);
 
         f();
 
         let _ = fs::remove_dir_all(&dir);
-        std::env::remove_var("PUPPET_MASTER_TEST_OPENCODE_KEYS_STORE");
-        std::env::remove_var("PUPPET_MASTER_TEST_OPENCODE_AUTH");
+        std::env::remove_var("LOOMRIA_TEST_OPENCODE_KEYS_STORE");
+        std::env::remove_var("LOOMRIA_TEST_OPENCODE_AUTH");
     }
 
     #[test]

@@ -255,7 +255,7 @@ export interface ProjectIrStatus {
  */
 export async function discoverBridge(): Promise<string | null> {
   try {
-    const res = await fetch('/__puppet_master_bridge__.json', { cache: 'no-store' });
+    const res = await fetch('/__loomria_bridge__.json', { cache: 'no-store' });
     if (res.ok) {
       const j = (await res.json()) as { url?: string };
       if (j.url) return j.url;

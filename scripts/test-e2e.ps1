@@ -1,4 +1,4 @@
-# scripts/test-e2e.ps1 — full smoke test of the Puppet Master pipeline.
+# scripts/test-e2e.ps1 — full smoke test of the Loomria pipeline.
 #
 # 1. Build all packages
 # 2. Build the Rust binary

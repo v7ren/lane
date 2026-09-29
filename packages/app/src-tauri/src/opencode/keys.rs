@@ -206,7 +206,7 @@ pub fn rotate(target: RotateTarget) -> Result<OpenCodeKeyStatus, String> {
     };
     if !profile_configured(&store, &next) {
         return Err(format!(
-            "OpenCode key profile '{next}' is not configured — set it in Puppet Master settings (desktop only)"
+            "OpenCode key profile '{next}' is not configured — set it in Loomria settings (desktop only)"
         ));
     }
     store.active = next;
@@ -382,11 +382,11 @@ mod test_paths {
     use std::path::PathBuf;
 
     pub fn store_path_override() -> Option<PathBuf> {
-        std::env::var_os("PUPPET_MASTER_TEST_OPENCODE_KEYS_STORE").map(PathBuf::from)
+        std::env::var_os("LOOMRIA_TEST_OPENCODE_KEYS_STORE").map(PathBuf::from)
     }
 
     pub fn auth_json_path_override() -> Option<PathBuf> {
-        std::env::var_os("PUPPET_MASTER_TEST_OPENCODE_AUTH").map(PathBuf::from)
+        std::env::var_os("LOOMRIA_TEST_OPENCODE_AUTH").map(PathBuf::from)
     }
 }
 
@@ -434,8 +434,8 @@ mod tests {
         let auth_file = dir.join("auth.json");
         fs::create_dir_all(&dir).expect("tempdir");
 
-        std::env::set_var("PUPPET_MASTER_TEST_OPENCODE_KEYS_STORE", &store_file);
-        std::env::set_var("PUPPET_MASTER_TEST_OPENCODE_AUTH", &auth_file);
+        std::env::set_var("LOOMRIA_TEST_OPENCODE_KEYS_STORE", &store_file);
+        std::env::set_var("LOOMRIA_TEST_OPENCODE_AUTH", &auth_file);
 
         let mut store = default_store();
         store.profiles.get_mut(PROFILE_A).unwrap().auth = auth_json_for_key("key-a");
@@ -451,8 +451,8 @@ mod tests {
         );
 
         let _ = fs::remove_dir_all(&dir);
-        std::env::remove_var("PUPPET_MASTER_TEST_OPENCODE_KEYS_STORE");
-        std::env::remove_var("PUPPET_MASTER_TEST_OPENCODE_AUTH");
+        std::env::remove_var("LOOMRIA_TEST_OPENCODE_KEYS_STORE");
+        std::env::remove_var("LOOMRIA_TEST_OPENCODE_AUTH");
     }
 
     #[test]

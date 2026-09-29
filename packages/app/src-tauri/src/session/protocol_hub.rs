@@ -1,8 +1,8 @@
 //! Per-pane protocol sessions, history ring buffer, and throttled `agent://event` emit.
 
 use crate::protocol::{
-    AgentError, AgentEvent, AgentEventEnvelope, Capabilities, Endpoint, ProtocolAdapter,
-    ProtocolSession, HISTORY_CAP, AGENT_EVENT_CHANNEL,
+    AgentEvent, AgentEventEnvelope, Capabilities, Endpoint, ProtocolAdapter, ProtocolSession,
+    HISTORY_CAP, AGENT_EVENT_CHANNEL,
 };
 use crate::session::SessionStateStore;
 use parking_lot::Mutex;
@@ -257,14 +257,11 @@ impl ProtocolHub {
     }
 }
 
-pub fn agent_error_message(err: AgentError) -> String {
-    err.to_string()
-}
-
 #[cfg(all(test, not(target_os = "windows")))]
 mod tests {
     use super::*;
     use crate::agents::ProtocolKind;
+    use crate::protocol::AgentError;
 
     struct FakeSession {
         tx: tokio::sync::broadcast::Sender<AgentEvent>,

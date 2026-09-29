@@ -104,14 +104,6 @@ pub fn read_pane_messages(
     ))
 }
 
-pub fn pending_question_for_pane(
-    registry: &Mutex<crate::pty::PaneRegistry>,
-    pane_id: &str,
-) -> Option<PendingQuestion> {
-    let view = read_pane_messages(registry, pane_id, 8, Some("assistant")).ok()?;
-    view.pending_question
-}
-
 pub fn build_view(
     pane_id: &str,
     session_id: &str,

@@ -223,15 +223,6 @@ impl ProtocolHub {
 }
 
 
-
-pub fn agent_error_message(err: crate::protocol::AgentError) -> String {
-
-    err.to_string()
-
-}
-
-
-
 #[allow(dead_code)]
 
 pub const AGENT_EVENT_CHANNEL_TEST: &str = AGENT_EVENT_CHANNEL;

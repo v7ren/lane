@@ -55,8 +55,11 @@ export const McpLogEntrySchema = z.object({
 });
 export type McpLogEntry = z.infer<typeof McpLogEntrySchema>;
 
-export const BRIDGE_PORT_FILE_ENV = 'PUPPET_MASTER_BRIDGE_PORT_FILE';
-export const DEFAULT_BRIDGE_PORT_FILE = 'puppet-master.bridge.port';
+export const BRIDGE_PORT_FILE_ENV = 'LOOMRIA_BRIDGE_PORT_FILE';
+/** @deprecated Read fallback only — use {@link BRIDGE_PORT_FILE_ENV}. */
+export const LEGACY_BRIDGE_PORT_FILE_ENV = 'PUPPET_MASTER_BRIDGE_PORT_FILE';
+export const DEFAULT_BRIDGE_PORT_FILE = 'loomria.bridge.port';
+export const LEGACY_DEFAULT_BRIDGE_PORT_FILE = 'puppet-master.bridge.port';
 export const DEFAULT_BRIDGE_HOST = '127.0.0.1';
 export const BRIDGE_HTTP_PORT_RANGE = { min: 17321, max: 17399 };
 

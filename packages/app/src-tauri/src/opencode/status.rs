@@ -1,9 +1,7 @@
 //! Compact OpenCode native worker status for MCP (low token footprint).
-#![allow(dead_code)]
 
 use crate::opencode::client::{self, OpenCodeModelRef};
-use crate::opencode::quota::PendingKeySwapInfo;
-use crate::pty::registry::{PaneInfo, PaneRegistry};
+use crate::pty::registry::PaneRegistry;
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::sync::Arc;
@@ -35,6 +33,14 @@ pub enum FooterModelSource {
 
 pub use crate::events::LastEventSummary;
 
+struct WorkerRuntime {
+    base_url: String,
+    session_id: String,
+    directory: String,
+    reattaching: bool,
+    tui_attached: bool,
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct OpenCodeWorkerStatus {
     pub pane_id: String,
@@ -61,53 +67,6 @@ pub struct OpenCodeWorkerStatus {
     pub reattaching: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_event: Option<LastEventSummary>,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct OpenCodeWaitSnapshot {
-    pub serve_healthy: bool,
-    pub pending_permission_count: usize,
-    pub pending_permission_ids: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pending_key_swap: Option<PendingKeySwapInfo>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub session_model: Option<ModelSnapshot>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_user_model: Option<ModelSnapshot>,
-    pub tui_attached: bool,
-    pub reattaching: bool,
-}
-
-struct LinkRuntime {
-    base_url: String,
-    session_id: String,
-    directory: String,
-    reattaching: bool,
-    tui_attached: bool,
-}
-
-fn link_runtime(registry: &Arc<Mutex<PaneRegistry>>, pane_id: &str) -> Result<LinkRuntime, String> {
-    let reg = registry.lock();
-    let pane = reg
-        .panes
-        .get(pane_id)
-        .ok_or_else(|| format!("unknown pane: {pane_id}"))?;
-    if pane.info.agent_type != "opencode_native" {
-        return Err(format!("pane {pane_id} is not opencode_native"));
-    }
-    let link = pane
-        .opencode
-        .as_ref()
-        .ok_or_else(|| format!("pane {pane_id} has no opencode native session"))?;
-    let reattaching = link.reattaching().load(std::sync::atomic::Ordering::SeqCst);
-    let exited = *pane.exited.lock();
-    Ok(LinkRuntime {
-        base_url: link.base_url.clone(),
-        session_id: link.session_id.clone(),
-        directory: link.directory.clone(),
-        reattaching,
-        tui_attached: !exited && !reattaching,
-    })
 }
 
 fn model_snapshots(
@@ -150,13 +109,13 @@ pub fn worker_status(
             .opencode
             .as_ref()
             .ok_or_else(|| format!("pane {pane_id} has no opencode native session"))?;
-        let runtime = LinkRuntime {
+        let reattaching = link.reattaching().load(std::sync::atomic::Ordering::SeqCst);
+        let runtime = WorkerRuntime {
             base_url: link.base_url.clone(),
             session_id: link.session_id.clone(),
             directory: link.directory.clone(),
-            reattaching: link.reattaching().load(std::sync::atomic::Ordering::SeqCst),
-            tui_attached: !*pane.exited.lock()
-                && !link.reattaching().load(std::sync::atomic::Ordering::SeqCst),
+            reattaching,
+            tui_attached: !*pane.exited.lock() && !reattaching,
         };
         (
             pane.info.clone(),
@@ -210,69 +169,6 @@ pub fn worker_status(
         reattaching: runtime.reattaching,
         last_event,
     })
-}
-
-pub fn wait_snapshot(
-    registry: &Arc<Mutex<PaneRegistry>>,
-    pane_id: &str,
-) -> Result<Option<OpenCodeWaitSnapshot>, String> {
-    match worker_status(registry, pane_id) {
-        Ok(status) => {
-            let pending_key_swap = status
-                .key_swap_kind
-                .as_ref()
-                .map(|kind| PendingKeySwapInfo {
-                    kind: kind.clone(),
-                    from_profile: status.from_profile.clone().unwrap_or_default(),
-                    to_profile: status.to_profile.clone(),
-                });
-            Ok(Some(OpenCodeWaitSnapshot {
-                serve_healthy: status.serve_healthy,
-                pending_permission_count: status.pending_permission_count,
-                pending_permission_ids: status.pending_permission_ids,
-                pending_key_swap,
-                session_model: status.session_model,
-                last_user_model: status.last_user_model,
-                tui_attached: status.tui_attached,
-                reattaching: status.reattaching,
-            }))
-        }
-        Err(err) if err.contains("unknown pane") || err.contains("not opencode_native") => {
-            Ok(None)
-        }
-        Err(err) => Err(err),
-    }
-}
-
-pub fn pane_info(registry: &Arc<Mutex<PaneRegistry>>, pane_id: &str) -> Option<PaneInfo> {
-    registry
-        .lock()
-        .panes
-        .get(pane_id)
-        .map(|pane| pane.info.clone())
-}
-
-pub fn is_model_ready(
-    registry: &Arc<Mutex<PaneRegistry>>,
-    pane_id: &str,
-    provider_id: Option<&str>,
-    model_id: Option<&str>,
-) -> Result<bool, String> {
-    let runtime = link_runtime(registry, pane_id)?;
-    let last_user = client::last_user_message_model(
-        &runtime.base_url,
-        &runtime.session_id,
-        Some(&runtime.directory),
-    )?;
-    let Some(last_user) = last_user else {
-        return Ok(false);
-    };
-    Ok(client::model_matches_filter(&last_user, provider_id, model_id))
-}
-
-pub fn is_tui_ready(registry: &Arc<Mutex<PaneRegistry>>, pane_id: &str) -> Result<bool, String> {
-    let runtime = link_runtime(registry, pane_id)?;
-    Ok(runtime.tui_attached && !runtime.reattaching && client::health_ok(&runtime.base_url))
 }
 
 pub fn worker_status_json(

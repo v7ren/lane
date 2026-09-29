@@ -20,11 +20,11 @@
     <!-- Horizontal Split -->
     <line x1="136" y1="304" x2="376" y2="304" stroke="#A1A1AA" stroke-width="2" />
 
-    <!-- Puppet Master Controller Node (The Origin) -->
+    <!-- Loomria hub node (the origin) -->
     <circle cx="256" cy="112" r="7" fill="none" stroke="#18181B" stroke-width="3" />
     <circle cx="256" cy="112" r="2.5" fill="#18181B" />
 
-    <!-- Control Lines (Puppet Strings) -->
+    <!-- Control lines to panes -->
     <!-- Path to Pane 1 (Top Left) -->
     <path d="M 256,119 L 196,196 L 196,228" fill="none" stroke="#A1A1AA" stroke-width="2" stroke-dasharray="4,4" />
     

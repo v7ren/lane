@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 const APP_ID: &str = "com.loomria.app";
 pub const BRIDGE_PORT_FILE_NAME: &str = "loomria.bridge.port";
+pub const LEGACY_BRIDGE_PORT_FILE_NAME: &str = "puppet-master.bridge.port";
 pub const BRIDGE_TOKEN_FILE_NAME: &str = "loomria.bridge.token";
 pub const BRIDGE_PORT_FILE_ENV: &str = "LOOMRIA_BRIDGE_PORT_FILE";
 
@@ -38,7 +39,14 @@ pub fn ensure_app_data_dir() -> Result<PathBuf, String> {
 }
 
 pub fn bridge_port_file() -> PathBuf {
+    if let Ok(custom) = std::env::var(BRIDGE_PORT_FILE_ENV) {
+        return PathBuf::from(custom);
+    }
     app_data_dir().join(BRIDGE_PORT_FILE_NAME)
+}
+
+pub fn legacy_bridge_port_file() -> PathBuf {
+    app_data_dir().join(LEGACY_BRIDGE_PORT_FILE_NAME)
 }
 
 /// Debug-only: written at bridge start so local scripts can call the token-protected API.
@@ -79,8 +87,8 @@ mod tests {
 
     #[test]
     fn path_for_host_config_strips_windows_extended_prefix() {
-        let path = path_for_host_config(r"\\?\C:\Users\dev\puppet-master\mcp\index.js");
-        assert_eq!(path, "C:/Users/dev/puppet-master/mcp/index.js");
+        let path = path_for_host_config(r"\\?\C:\Users\dev\loomria\mcp\index.js");
+        assert_eq!(path, "C:/Users/dev/loomria/mcp/index.js");
         assert!(!path.contains("?/"));
     }
 }

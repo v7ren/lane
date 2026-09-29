@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Spawn or reuse a Puppet Master worker pane in a standalone terminal window.
+"""Spawn or reuse a Loomria worker pane in a standalone terminal window.
 
 If the HTTP bridge is already running (desktop app or another worker host),
 this reuses it and opens a detached pane window in that host.
 
 If no bridge is found, it starts a standalone worker host via the CLI
-(`puppet-master worker`) — no full desktop grid UI required.
+(`loomria worker`) — no full desktop grid UI required.
 """
 
 from __future__ import annotations
@@ -97,7 +97,7 @@ def launch_standalone_worker(args: argparse.Namespace) -> int:
     root = repo_root()
     cli_entry = root / "packages" / "cli" / "src" / "index.ts"
     if not cli_entry.is_file():
-        print("launch-terminal-app: CLI entry not found; run from the puppet-master repo.", file=sys.stderr)
+        print("launch-terminal-app: CLI entry not found; run from the Loomria repo.", file=sys.stderr)
         return 1
 
     cmd = ["npm", "run", "worker", "--"]
@@ -121,7 +121,7 @@ def launch_standalone_worker(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Launch a standalone Puppet Master worker terminal.")
+    parser = argparse.ArgumentParser(description="Launch a standalone Loomria worker terminal.")
     parser.add_argument("--bridge-url", help="Bridge URL, e.g. http://127.0.0.1:17321")
     parser.add_argument("--pane-id", help="Open an existing pane id instead of spawning/reusing one")
     parser.add_argument(

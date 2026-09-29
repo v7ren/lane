@@ -107,9 +107,6 @@ impl CodexWsClient {
         }))
     }
 
-    pub fn thread_id(&self) -> Option<String> {
-        self.thread_id.lock().clone()
-    }
 }
 
 fn run_ws_loop(
