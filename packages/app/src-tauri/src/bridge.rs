@@ -68,7 +68,6 @@ pub fn push_pane_status_sse(pane_id: &str, status: &str) {
     let payload = json!({ "pane_id": pane_id, "status": status });
     if let Ok(json) = serde_json::to_string(&payload) {
         push_sse(format!("event: pane-status\ndata: {json}\n\n"));
-        crate::pane_wait_notify::bump_waiters();
     }
 }
 

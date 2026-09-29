@@ -15,11 +15,15 @@ import { useProjectPath } from './hooks/useProjectPath';
 import { useSessionNotifications } from './hooks/useSessionNotifications';
 import { useSessionRail } from './hooks/useSessionRail';
 import { useWorkspaceMode } from './hooks/useWorkspaceMode';
+import { useDemoFixtures } from './lib/demo/DemoContext';
+import { readDemoUrlFlags } from './lib/demo-mode';
+import { isTauriRuntime } from './lib/is-tauri';
 import { isSessionMuted } from './lib/session-notify-prefs';
 import { loadSettings, saveSettings, syncPublicSettingsToBridge } from './lib/settings';
 import { tauri } from './lib/tauri';
 
 export default function App() {
+  const demo = useDemoFixtures();
   const registry = usePaneRegistry();
   const agentCatalog = useAgentCatalog();
   const sessionStates = useSessionRail();
@@ -41,12 +45,17 @@ export default function App() {
 
   const panes = registry.paneList.filter((p) => !p.info.id.startsWith('loomria-orchestrator-'));
   useEffect(() => {
+    if (demo) {
+      setRailConnecting(false);
+      return;
+    }
     const t = window.setTimeout(() => setRailConnecting(false), 2500);
     if (sessionStates.size > 0) setRailConnecting(false);
     return () => window.clearTimeout(t);
-  }, [sessionStates.size]);
+  }, [demo, sessionStates.size]);
 
   useEffect(() => {
+    if (!isTauriRuntime()) return;
     void syncPublicSettingsToBridge();
     let unlistenApply: (() => void) | null = null;
     void tauri.onSettingsApply(async () => {
@@ -58,6 +67,14 @@ export default function App() {
       unlistenApply?.();
     };
   }, []);
+
+  useEffect(() => {
+    if (!demo) return;
+    const { view, paneId } = readDemoUrlFlags();
+    if (view === 'agent') {
+      enterAgentMode(paneId ?? demo.defaultAgentPaneId);
+    }
+  }, [demo, enterAgentMode]);
 
   useEffect(() => {
     if (!agentPaneId) return;

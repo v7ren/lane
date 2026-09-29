@@ -6,13 +6,15 @@ use rand::Rng;
 static TOKEN: OnceCell<String> = OnceCell::new();
 
 pub fn init_token() -> String {
-    let token: String = rand::thread_rng()
-        .sample_iter(&rand::distributions::Alphanumeric)
-        .take(48)
-        .map(char::from)
-        .collect();
-    let _ = TOKEN.set(token.clone());
-    token
+    TOKEN
+        .get_or_init(|| {
+            rand::thread_rng()
+                .sample_iter(&rand::distributions::Alphanumeric)
+                .take(48)
+                .map(char::from)
+                .collect()
+        })
+        .clone()
 }
 
 pub fn token() -> Option<&'static str> {

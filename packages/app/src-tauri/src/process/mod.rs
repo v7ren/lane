@@ -2,4 +2,6 @@
 
 mod tree;
 
-pub use tree::{assign_pid_to_pane_job, init_application_job, ProcessTree};
+pub use tree::{
+    assign_pid_to_pane_job, configure_unix_session, init_application_job, ProcessTree,
+};

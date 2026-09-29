@@ -1,4 +1,5 @@
 import { LazyStore } from '@tauri-apps/plugin-store';
+import { isTauriRuntime } from './is-tauri';
 
 const STORE_FILENAME = 'loomria-session-notify.json';
 const KEY = 'muted_pane_ids';
@@ -13,6 +14,7 @@ function getStore(): LazyStore {
 }
 
 export async function loadMutedSessionIds(): Promise<Set<string>> {
+  if (!isTauriRuntime()) return new Set();
   const raw = await getStore().get<string[]>(KEY);
   return new Set(raw ?? []);
 }
@@ -23,6 +25,7 @@ export async function isSessionMuted(paneId: string): Promise<boolean> {
 }
 
 export async function setSessionMuted(paneId: string, muted: boolean): Promise<void> {
+  if (!isTauriRuntime()) return;
   const ids = await loadMutedSessionIds();
   if (muted) ids.add(paneId);
   else ids.delete(paneId);

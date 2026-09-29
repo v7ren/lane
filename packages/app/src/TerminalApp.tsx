@@ -47,7 +47,6 @@ function TerminalViewport({
     paneId: pane.info.id,
     sessionKey: pane.info.created_at,
     subscribePaneData: registry.subscribePaneData,
-    syncPTYResize: true,
   });
 
   return (

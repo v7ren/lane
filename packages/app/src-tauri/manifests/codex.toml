@@ -21,3 +21,15 @@ args = ["--sandbox", "workspace-write", "--ask-for-approval", "never"]
 [[attention]]
 pattern = "(?i)allow once|allow always"
 means = "needs_approval"
+
+[[attention]]
+pattern = "(?i)don't allow|do not allow"
+means = "needs_approval"
+
+[[attention]]
+pattern = "(?i)\\bdeny\\b"
+means = "needs_approval"
+
+[[attention]]
+pattern = "(?i)\\bapprove\\b"
+means = "needs_approval"

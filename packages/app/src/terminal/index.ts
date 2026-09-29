@@ -1,6 +1,5 @@
 export { CanvasTerminal, DEFAULT_THEME } from './canvas-terminal';
 export type { CanvasTerminalOptions, TerminalTheme } from './canvas-terminal';
-export { mirrorLayoutSessionKey } from './mirror-layout-session';
 export { InputBatcher } from './input-batcher';
 export { PaneStreamManager, MAX_BACKLOG_CHUNKS, RAW_REPLAY_LINES } from './pane-stream';
 export type { PaneStream, PaneStreamMode, ReadRawBufferFn } from './pane-stream';
@@ -25,7 +24,6 @@ export type {
   Disposable,
   PaneDataListener,
   PaneSnapshotListener,
-  TerminalRenderMode,
   TerminalResizeHandler,
   TerminalSessionOptions,
 } from './types';

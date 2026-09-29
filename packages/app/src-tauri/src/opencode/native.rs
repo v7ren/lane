@@ -354,7 +354,6 @@ pub fn reattach_tui(
         pane_id: crate::events::PaneId(pane_id.to_string()),
         attach_generation: generation,
     });
-    crate::pane_wait_notify::bump_waiters();
     spawn_reader_thread(
         pane_id.to_string(),
         app.clone(),

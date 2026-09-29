@@ -77,15 +77,7 @@ export const SettingsSchema = z.object({
   orchestrator_backend: OrchestratorBackendSchema.default('api'),
   /** Stable pane id for the dedicated orchestrator CLI pane (CLI backends). */
   orchestrator_pane_id: z.string().optional(),
-  /** Mobile terminal text buffer delay before committing to the PTY (autocorrect settling). */
-  mobile_input_delay_ms: z.number().int().min(0).max(1000).default(250),
-  /** Show the mobile terminal command input bar. When false, the tap target remains invisible. */
-  mobile_input_visible: z.boolean().default(true),
   project_path: z.string().optional(),
-  /** Public HTTPS origin for mobile PWA (reverse proxy target). Used in pairing QR. */
-  public_pwa_url: z.string().optional(),
-  /** Local Vite dev server port the public URL should proxy to (default 1420). */
-  dev_server_port: z.number().int().min(1024).max(65535).default(1420),
   /** Orchestrator sidebar width in the workspace (px). */
   sidebar_width: z.number().int().min(300).max(800).default(360),
   /** Desktop UI chrome theme. */

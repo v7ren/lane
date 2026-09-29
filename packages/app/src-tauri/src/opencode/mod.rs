@@ -128,7 +128,6 @@ pub fn switch_native_model(
         model_id: model.model_id.clone(),
     });
     native::reattach_tui(Arc::clone(registry), app, pane_id)?;
-    crate::pane_wait_notify::bump_waiters();
     Ok(())
 }
 
@@ -227,12 +226,6 @@ fn spawn_reattach_tui(
     });
 }
 
-pub fn kill_serve_if_present(pane: &mut crate::pty::registry::PaneState) {
-    if let Some(link) = pane.opencode.take() {
-        link.kill_serve();
-    }
-}
-
 fn permission_matches_session(permission: &OpenCodePermission, session_id: &str) -> bool {
     permission.session_id.as_deref() == Some(session_id)
         || permission.session_id_camel.as_deref() == Some(session_id)
@@ -316,7 +309,6 @@ pub fn reply_pane_question(
         Some(&directory),
         &[label.to_string()],
     )?;
-    crate::pane_wait_notify::bump_waiters();
     Ok(serde_json::json!({
         "ok": true,
         "pane_id": pane_id,

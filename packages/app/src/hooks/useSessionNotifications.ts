@@ -3,8 +3,8 @@ import { isPermissionGranted, requestPermission, sendNotification } from '@tauri
 import type { SessionRailState } from './useSessionRail';
 import { isSessionMuted } from '../lib/session-notify-prefs';
 import type { AppMode } from './useWorkspaceMode';
-
-const NOTIFY_STATES = new Set(['needs_approval', 'done']);
+import { decideSessionNotification } from '../lib/session-notify-decision';
+import { isTauriRuntime } from '../lib/is-tauri';
 
 export function useSessionNotifications(
   states: Map<string, SessionRailState>,
@@ -14,8 +14,9 @@ export function useSessionNotifications(
   const prevRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
+    if (!isTauriRuntime()) return;
     let cancelled = false;
+
     void (async () => {
       let granted = await isPermissionGranted();
       if (!granted) {
@@ -27,17 +28,24 @@ export function useSessionNotifications(
       const windowFocused = document.hasFocus();
 
       for (const [paneId, row] of states) {
-        const prev = prevRef.current.get(paneId);
-        if (prev === row.state) continue;
+        const previousState = prevRef.current.get(paneId);
+        if (previousState === row.state) continue;
         prevRef.current.set(paneId, row.state);
-        if (!NOTIFY_STATES.has(row.state)) continue;
-        if (await isSessionMuted(paneId)) continue;
-        if (mode === 'agent' && focusedPaneId === paneId && windowFocused) continue;
 
-        const title =
-          row.state === 'needs_approval' ? 'Approval needed' : 'Session finished';
-        const body = row.detail ?? paneId.slice(0, 8);
-        sendNotification({ title, body });
+        const muted = await isSessionMuted(paneId);
+        const decision = decideSessionNotification({
+          paneId,
+          previousState,
+          nextState: row.state,
+          muted,
+          mode,
+          focusedPaneId,
+          windowFocused,
+          bodyDetail: row.detail ?? null,
+        });
+
+        if (!decision.notify) continue;
+        sendNotification({ title: decision.title, body: decision.body });
       }
     })();
 

@@ -67,6 +67,43 @@ Fresh `git clone` + `npm install` alone is **not** sufficient for green verifica
 
 **Phase 8:** Session rail UI, chat drawer + `send_session_prompt` for OpenCode API, `safe-agent-text` XSS tests. Full Codex WS + Claude headless/resume + driving-token TUI toggle remain follow-ups.
 
+## Stream A gate cleanup (2026-09-29, branch `loomria/stream-a`)
+
+### Deletions
+
+- Rust orphans: `event_log.rs`, `session_context.rs`, `pane_wait_notify.rs` (long-poll waiters were unused after strip).
+- Frontend mobile/mirror stubs: `mobile-input-guard.ts`, `mirror-*.ts`, `bridge-ngrok.ts`, `mobile-pairing-auth.ts`; desktop-only `terminal-session.ts`.
+- Obsolete docs: `MCP_HOSTS.md`, `ROUTING.md`, `ROADMAP.md`, `docs/orchestrator/**`.
+- Dead scripts: `bundle-mcp.mjs`, `bundle-cloudflared.mjs`, `stage-pwa-dist.mjs`, `dev-tunnel.mjs`, `test-bridge.ps1`, `ensure-tauri-resources.mjs`, `librarian-prompt.md`, `project-indexer.py`, `publish-github-release-assets.mjs`.
+
+### Gate 1 grep (`rg -n "mcp_|mobile_|pwa_server|context_pack|projections|pane_wait" packages/app/src-tauri/src`)
+
+- Only hit: `lib.rs:21` — `#[cfg_attr(mobile, tauri::mobile_entry_point)]` (allowed Tauri attribute).
+
+### Gate 3 branding (`rg -i puppet` excluding STRIP/node_modules/target/package-lock)
+
+- **PARTIAL:** ~30 paths remain (legacy strings in bridge/settings, SVG metadata, scripts, CHANGELOG). README + LICENSE attribution updated; `puppet-master.dev.json` → `loomria.dev.json`; branding SVGs renamed to `loomria-*.svg`.
+
+### Verification (Stream A final)
+
+| Command | Result |
+|---------|--------|
+| `npm run typecheck` | exit 0 |
+| `npm run test` | exit 0 — app 58 tests, shared 4 tests |
+| `cargo check` | exit 0 (24 warnings) |
+| `cargo test` | 58 lib + 3 integration passed; 1 ignored (`process_tree_job` — nested job under `cargo test`) |
+| `npm run build` | not run (Gate 3) |
+
+### Manual gates
+
+- **Four-pane smoke:** needs manual run — launch Claude, Codex, OpenCode, PowerShell; type, resize, kill each.
+- **Orphan check:** `powershell -File scripts/orphan-check.ps1 before` → smoke → `after` (expect zero new node/codex/claude/opencode PIDs).
+
+### New-agent proof
+
+- Automated: `cargo test --test gate5_user_manifests` (temp dir + `echo-agent` PTY marker).
+- Sample manifest: `docs/example-agent.toml`.
+
 ## Frontend minimal shell (pre–Phase 5)
 
 - Boot splash, home dashboard, update banner, and full-screen settings removed.

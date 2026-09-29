@@ -99,7 +99,6 @@ pub fn emit(payload: SystemEvent) {
         );
     }
     let _ = event_bus().send(entry);
-    crate::pane_wait_notify::bump_waiters();
 }
 
 pub fn subscribe() -> broadcast::Receiver<EventEntry> {

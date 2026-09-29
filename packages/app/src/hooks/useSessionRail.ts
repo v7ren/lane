@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useDemoFixtures } from '../lib/demo/DemoContext';
 import { loadBridgeSession } from '../lib/bridge-auth';
 import { findBridgeUrl, subscribeBridgeEvents } from '../lib/bridge';
 
@@ -11,9 +12,13 @@ export type SessionRailState = {
 };
 
 export function useSessionRail(): Map<string, SessionRailState> {
-  const [states, setStates] = useState<Map<string, SessionRailState>>(new Map());
+  const demo = useDemoFixtures();
+  const [states, setStates] = useState<Map<string, SessionRailState>>(
+    () => demo?.sessionStates ?? new Map(),
+  );
 
   useEffect(() => {
+    if (demo) return;
     let unsub: (() => void) | null = null;
     let cancelled = false;
 
@@ -37,7 +42,7 @@ export function useSessionRail(): Map<string, SessionRailState> {
       cancelled = true;
       unsub?.();
     };
-  }, []);
+  }, [demo]);
 
-  return states;
+  return demo?.sessionStates ?? states;
 }

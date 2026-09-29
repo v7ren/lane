@@ -1,18 +1,23 @@
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { AgentEventEnvelope, ApprovalDecision, Capabilities } from './agent-events';
+import { isTauriRuntime } from './is-tauri';
 
 const AGENT_EVENT_CHANNEL = 'agent://event';
+const noopUnlisten: UnlistenFn = () => {};
 
 export async function sessionCapabilities(paneId: string): Promise<Capabilities> {
+  if (!isTauriRuntime()) throw new Error('session_capabilities unavailable outside Tauri');
   return invoke<Capabilities>('session_capabilities', { paneId });
 }
 
 export async function sessionHistory(paneId: string): Promise<AgentEventEnvelope[]> {
+  if (!isTauriRuntime()) return [];
   return invoke<AgentEventEnvelope[]>('session_history', { paneId });
 }
 
 export async function sessionSendPrompt(paneId: string, text: string): Promise<void> {
+  if (!isTauriRuntime()) return;
   await invoke('session_send_prompt', { paneId, text });
 }
 
@@ -21,16 +26,19 @@ export async function sessionRespondApproval(
   approvalId: string,
   decision: ApprovalDecision,
 ): Promise<void> {
+  if (!isTauriRuntime()) return;
   await invoke('session_respond_approval', { paneId, approvalId, decision });
 }
 
 export async function sessionCancelTurn(paneId: string): Promise<void> {
+  if (!isTauriRuntime()) return;
   await invoke('session_cancel_turn', { paneId });
 }
 
 export function subscribeAgentEvents(
   onEnvelope: (envelope: AgentEventEnvelope) => void,
 ): Promise<() => void> {
+  if (!isTauriRuntime()) return Promise.resolve(noopUnlisten);
   return listen<AgentEventEnvelope>(AGENT_EVENT_CHANNEL, (ev) => {
     onEnvelope(ev.payload);
   });

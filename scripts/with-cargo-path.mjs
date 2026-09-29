@@ -9,7 +9,6 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureWorkspaceBuilt } from './ensure-workspace-built.mjs';
-import { ensureTauriResources } from './ensure-tauri-resources.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const cargoBin = join(homedir(), '.cargo', 'bin');
@@ -39,8 +38,7 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
 if (args[0] === 'dev') {
   ensureWorkspaceBuilt(repoRoot);
-  ensureTauriResources();
-  console.error('[puppet-master] starting dev stack (vite + tauri + embedded bridge)…');
+  console.error('[loomria] starting dev stack (vite + tauri + embedded bridge)…');
 }
 
 const result = spawnSync(npm, ['run', 'tauri', '--workspace=@loomria/app', ...args], {
@@ -51,16 +49,4 @@ const result = spawnSync(npm, ['run', 'tauri', '--workspace=@loomria/app', ...ar
 });
 
 const exitCode = result.status === null ? 1 : result.status;
-
-if (args[0] === 'build' && exitCode === 0) {
-  const upload = spawnSync(process.execPath, [join(repoRoot, 'scripts', 'publish-github-release-assets.mjs')], {
-    stdio: 'inherit',
-    env,
-    cwd: repoRoot,
-    shell: false,
-  });
-  const uploadCode = upload.status === null ? 1 : upload.status;
-  process.exit(uploadCode);
-}
-
 process.exit(exitCode);

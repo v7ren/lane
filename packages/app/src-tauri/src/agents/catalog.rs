@@ -4,6 +4,7 @@ use super::manifest::AgentManifest;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::fs;
+use std::path::Path;
 
 const BUILTIN: &[(&str, &str)] = &[
     ("claude.toml", include_str!("../../manifests/claude.toml")),
@@ -52,6 +53,11 @@ pub struct AgentCatalog {
 
 impl AgentCatalog {
     pub fn load() -> Self {
+        Self::load_with_user_agents_dir(Some(crate::app_paths::user_agents_dir().as_path()))
+    }
+
+    /// Built-ins plus optional user manifest directory (for tests and overrides).
+    pub fn load_with_user_agents_dir(user_dir: Option<&Path>) -> Self {
         let mut manifests = BTreeMap::new();
         let mut errors = Vec::new();
 
@@ -69,41 +75,8 @@ impl AgentCatalog {
             }
         }
 
-        let user_dir = crate::app_paths::user_agents_dir();
-        if user_dir.is_dir() {
-            if let Ok(entries) = fs::read_dir(&user_dir) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.extension().and_then(|e| e.to_str()) != Some("toml") {
-                        continue;
-                    }
-                    let file_name = path
-                        .file_name()
-                        .map(|n| n.to_string_lossy().to_string())
-                        .unwrap_or_else(|| path.display().to_string());
-                    let source = match fs::read_to_string(&path) {
-                        Ok(s) => s,
-                        Err(err) => {
-                            errors.push(ManifestFileError {
-                                file: file_name,
-                                message: err.to_string(),
-                            });
-                            continue;
-                        }
-                    };
-                    match AgentManifest::from_toml(&source) {
-                        Ok(m) => {
-                            manifests.insert(m.id.clone(), m);
-                        }
-                        Err(err) => {
-                            errors.push(ManifestFileError {
-                                file: file_name,
-                                message: err.to_string(),
-                            });
-                        }
-                    }
-                }
-            }
+        if let Some(user_dir) = user_dir {
+            merge_user_manifest_dir(&mut manifests, &mut errors, user_dir);
         }
 
         Self {
@@ -161,6 +134,49 @@ impl AgentCatalog {
 pub struct AgentsListResponse {
     pub agents: Vec<AgentManifestSummary>,
     pub report: ManifestLoadReport,
+}
+
+fn merge_user_manifest_dir(
+    manifests: &mut BTreeMap<String, AgentManifest>,
+    errors: &mut Vec<ManifestFileError>,
+    user_dir: &Path,
+) {
+    if !user_dir.is_dir() {
+        return;
+    }
+    if let Ok(entries) = fs::read_dir(user_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("toml") {
+                continue;
+            }
+            let file_name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| path.display().to_string());
+            let source = match fs::read_to_string(&path) {
+                Ok(s) => s,
+                Err(err) => {
+                    errors.push(ManifestFileError {
+                        file: file_name,
+                        message: err.to_string(),
+                    });
+                    continue;
+                }
+            };
+            match AgentManifest::from_toml(&source) {
+                Ok(m) => {
+                    manifests.insert(m.id.clone(), m);
+                }
+                Err(err) => {
+                    errors.push(ManifestFileError {
+                        file: file_name,
+                        message: err.to_string(),
+                    });
+                }
+            }
+        }
+    }
 }
 
 pub fn resolve_tui_for_id(catalog: &AgentCatalog, id: &str) -> Result<(String, Vec<String>), String> {

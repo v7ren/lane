@@ -218,6 +218,7 @@ fn apply_common_pty_env(cmd_builder: &mut CommandBuilder) {
     cmd_builder.env("Path", crate::shell_env::path_for_spawn());
     cmd_builder.env("TERM", "xterm-256color");
     cmd_builder.env("COLORTERM", "truecolor");
+    crate::process::configure_unix_session(cmd_builder);
 }
 
 #[cfg(windows)]
@@ -338,7 +339,7 @@ pub fn spawn_pane(
         rows,
     };
 
-    let mut process_tree = crate::process::ProcessTree::new();
+    let process_tree = crate::process::ProcessTree::new();
     crate::process::assign_pid_to_pane_job(&process_tree, pid);
 
     let pane = PaneState {

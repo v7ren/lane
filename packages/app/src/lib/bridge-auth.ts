@@ -24,3 +24,20 @@ export function eventsUrlWithToken(baseUrl: string): string {
   if (!token) return `${baseUrl}/events`;
   return `${baseUrl}/events?token=${encodeURIComponent(token)}`;
 }
+
+export function isNgrokHost(baseUrl: string): boolean {
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase();
+    return host.includes('ngrok');
+  } catch {
+    return false;
+  }
+}
+
+export function ngrokRequestHeaders(_baseUrl: string): Record<string, string> {
+  return {};
+}
+
+export function mergeBridgeHeaders(headers: Record<string, string>): Record<string, string> {
+  return { ...headers };
+}

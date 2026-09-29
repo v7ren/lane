@@ -1,5 +1,5 @@
 pub mod persist;
-mod notify;
+pub mod notify;
 mod state;
 mod supervisor;
 

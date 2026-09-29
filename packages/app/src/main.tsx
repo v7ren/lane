@@ -2,16 +2,22 @@ import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import TerminalApp from './TerminalApp';
+import { DemoProvider } from './lib/demo/DemoContext';
+import { parseDemoVariant } from './lib/demo-mode';
 import './styles/index.css';
 
 const params = new URLSearchParams(window.location.search);
 const isTerminalApp = params.has('terminal') || params.has('cmd') || window.location.hash === '#terminal';
+const demoVariant = parseDemoVariant();
 
 void (async () => {
   const Root = isTerminalApp ? TerminalApp : App;
-  ReactDOM.createRoot(document.getElementById('root')!).render(
-    <StrictMode>
+  const app = demoVariant ? (
+    <DemoProvider variant={demoVariant}>
       <Root />
-    </StrictMode>,
+    </DemoProvider>
+  ) : (
+    <Root />
   );
+  ReactDOM.createRoot(document.getElementById('root')!).render(<StrictMode>{app}</StrictMode>);
 })();

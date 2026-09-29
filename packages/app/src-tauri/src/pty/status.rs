@@ -26,8 +26,8 @@ impl PaneStatus {
     }
 }
 
-/// Patterns that look like an interactive prompt asking the user something.
-static PROMPT_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
+/// Generic interactive prompts when a manifest declares no `[[attention]]` rules.
+static DEFAULT_PROMPT_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
     [
         r"(?i)\b(y/n)\b",
         r"(?i)\b(yes/no)\b",
@@ -35,34 +35,18 @@ static PROMPT_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
         r"\(y/N\)",
         r"(?i)press enter",
         r"(?i)continue\?",
-        r"(?i)are you sure",
-        r"(?i)\bproceed\?\s*$",
-        r"(?i)what would you like",
-        r"(?i)how can i help",
-        r"(?i)allow once",
-        r"(?i)allow always",
-        r"(?i)don't allow",
-        r"(?i)do not allow",
-        r"(?i)\bdeny\b",
-        r"(?i)\bapprove\b",
-        r"(?i)enter submit",
-        r"(?i)esc dismiss",
-        r"(?i)↑↓ select",
-        r"(?i)\d+\.\s*yes\b",
-        r"(?i)\d+\.\s*no\b",
-        r"(?i)type your own answer",
         r"[>?›»]\s*$",
         r":\s*$",
     ]
     .into_iter()
-    .map(|p| Regex::new(p).expect("valid prompt regex"))
+    .map(|p| Regex::new(p).expect("valid default prompt regex"))
     .collect()
 });
 
 /// Returns true if the recent scrollback (typically last 1–3 lines) looks
 /// like the agent is waiting on user input.
 pub fn looks_like_prompt(text: &str) -> bool {
-    looks_like_prompt_with_patterns(text, &PROMPT_PATTERNS)
+    looks_like_prompt_with_patterns(text, &DEFAULT_PROMPT_PATTERNS)
 }
 
 pub fn looks_like_prompt_for_agent(
@@ -84,7 +68,7 @@ fn prompt_patterns_for(
             patterns.extend(manifest.attention_regexes.iter().cloned());
             patterns
         }
-        _ => PROMPT_PATTERNS.clone(),
+        _ => DEFAULT_PROMPT_PATTERNS.clone(),
     }
 }
 
@@ -103,62 +87,23 @@ fn looks_like_prompt_with_patterns(text: &str, patterns: &[Regex]) -> bool {
     patterns.iter().any(|re| re.is_match(&tail))
 }
 
-/// Smaller default set merged with per-manifest `[[attention]]` rules.
-static DEFAULT_PROMPT_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
-    [
-        r"(?i)\b(y/n)\b",
-        r"(?i)\b(yes/no)\b",
-        r"\(Y/n\)",
-        r"\(y/N\)",
-        r"(?i)press enter",
-        r"[>?›»]\s*$",
-        r":\s*$",
-    ]
-    .into_iter()
-    .map(|p| Regex::new(p).expect("valid default prompt regex"))
-    .collect()
-});
-
-/// OpenCode TUI menus (numbered yes/no, submit hints) — used by wait `settled`.
-static OPENCODE_TUI_MENU_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
-    [
-        r"(?i)enter submit",
-        r"(?i)esc dismiss",
-        r"(?i)↑↓ select",
-        r"(?i)\d+\.\s*yes\b",
-        r"(?i)\d+\.\s*no\b",
-        r"(?i)type your own answer",
-    ]
-    .into_iter()
-    .map(|p| Regex::new(p).expect("valid opencode tui regex"))
-    .collect()
-});
-
-/// OpenCode TUI menus (numbered yes/no, submit hints) — used by wait `settled`.
-pub fn looks_like_opencode_tui_menu(text: &str) -> bool {
-    let clean = strip_ansi(text);
-    let tail: String = clean
-        .lines()
-        .filter(|l| !l.trim().is_empty())
-        .rev()
-        .take(12)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect::<Vec<_>>()
-        .join("\n");
-    OPENCODE_TUI_MENU_PATTERNS
-        .iter()
-        .any(|re| re.is_match(&tail))
+/// OpenCode-style TUI menus — driven from manifest `[[attention]]` regexes.
+pub fn looks_like_opencode_tui_menu(
+    catalog: &crate::agents::AgentCatalog,
+    text: &str,
+) -> bool {
+    looks_like_prompt_for_agent(catalog, "opencode", text)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agents::AgentCatalog;
 
     #[test]
     fn detects_opencode_numbered_yes_no_menu() {
+        let catalog = AgentCatalog::load();
         let text = "1. Yes\n2. No\n3. Type your own answer\n↑↓ select  enter submit  esc dismiss";
-        assert!(looks_like_opencode_tui_menu(text));
+        assert!(looks_like_opencode_tui_menu(&catalog, text));
     }
 }

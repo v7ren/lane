@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
 import { tauri } from '../lib/tauri';
 import { TerminalSession } from '../terminal';
-import type { PaneSnapshotListener, TerminalRenderMode } from '../terminal';
+import type { PaneSnapshotListener } from '../terminal';
 
 export interface TerminalTransport {
   resize: (cols: number, rows: number) => void | Promise<void>;
@@ -14,13 +14,8 @@ interface UseTerminalSessionOptions {
   sessionKey: number;
   subscribePaneData: (paneId: string, cb: PaneSnapshotListener) => () => void;
   transport?: TerminalTransport;
-  syncPTYResize?: boolean;
-  renderMode?: TerminalRenderMode;
   ptyCols?: number;
   ptyRows?: number;
-  mobileInputDelayMs?: number;
-  mobileInputVisible?: boolean;
-  disableMobileInput?: boolean;
   /** Bump to force a tiny resize/repaint (e.g. when re-entering the grid). */
   reflowKey?: number | string;
 }
@@ -33,13 +28,8 @@ export function useTerminalSession({
   sessionKey,
   subscribePaneData,
   transport,
-  syncPTYResize = true,
-  renderMode,
   ptyCols,
   ptyRows,
-  mobileInputDelayMs,
-  mobileInputVisible,
-  disableMobileInput,
   reflowKey,
 }: UseTerminalSessionOptions): {
   containerRef: RefObject<HTMLDivElement>;
@@ -67,13 +57,8 @@ export function useTerminalSession({
 
     const session = new TerminalSession({
       paneId,
-      syncPTYResize,
-      renderMode,
       ptyCols,
       ptyRows,
-      mobileInputDelayMs,
-      mobileInputVisible,
-      disableMobileInput,
       onResize: (cols, rows) => {
         void activeTransport.resize(cols, rows);
       },
@@ -88,18 +73,15 @@ export function useTerminalSession({
       session.dispose();
       sessionRef.current = null;
     };
-  }, [paneId, sessionKey, subscribePaneData, transport, syncPTYResize, renderMode, mobileInputDelayMs, mobileInputVisible, disableMobileInput]);
+  }, [paneId, sessionKey, subscribePaneData, transport]);
 
   useEffect(() => {
-    if (syncPTYResize) return;
     if (ptyCols === undefined || ptyRows === undefined) return;
     sessionRef.current?.setPtyDimensions(ptyCols, ptyRows);
-  }, [syncPTYResize, ptyCols, ptyRows]);
+  }, [ptyCols, ptyRows]);
 
   useEffect(() => {
     if (reflowKey === undefined) return;
-    // Defer until xterm is open — a pane returning from a detached window remounts
-    // the session in the same tick as this effect, so a single rAF is often too early.
     let cancelled = false;
     let frame = 0;
     let attempts = 0;

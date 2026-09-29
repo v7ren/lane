@@ -1,8 +1,6 @@
 import type { McpLogEntry, OrchestratorChatEvent, PaneInfo } from '@loomria/shared';
 import type { PublicSettings } from './bridge-settings';
-import { bridgeAuthHeaders } from './bridge-auth';
-import { ngrokRequestHeaders } from './bridge-ngrok';
-import { mergeBridgeHeaders } from './mobile-pairing-auth';
+import { bridgeAuthHeaders, mergeBridgeHeaders, ngrokRequestHeaders } from './bridge-auth';
 import type { BridgeEvent } from './bridge';
 
 function dispatchBridgeEvent(eventName: string, data: string, onEvent: (e: BridgeEvent) => void): void {

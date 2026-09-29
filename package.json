@@ -3,14 +3,6 @@
   "version": "0.1.4",
   "private": true,
   "description": "Loomria — universal agent surface (Tauri + React)",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Potato-dev-inc/puppet-master.git"
-  },
-  "bugs": {
-    "url": "https://github.com/Potato-dev-inc/puppet-master/issues"
-  },
-  "homepage": "https://github.com/Potato-dev-inc/puppet-master#readme",
   "license": "MIT",
   "type": "module",
   "workspaces": [
@@ -21,7 +13,6 @@
     "tauri": "node scripts/with-cargo-path.mjs",
     "build": "npm run build --workspaces --if-present",
     "build:rust": "node scripts/with-cargo-path.mjs build",
-    "publish:release-assets": "node scripts/publish-github-release-assets.mjs",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "clean": "rimraf \"packages/*/dist\" \"packages/*/.turbo\" \"packages/app/src-tauri/target\""

@@ -7,12 +7,7 @@ import {
   type LlmProvider,
   type Settings,
 } from '@loomria/shared';
-import { clampMobileInputDelayMs, toPublicSettings } from './bridge-settings';
-import {
-  parseDevServerPort,
-  publicOriginFromBridgeUrl,
-  readStoredPublicBridgeUrl,
-} from './public-bridge-url';
+import { toPublicSettings } from './bridge-settings';
 import { tauri } from './tauri';
 
 /** Canonical on-disk settings file (app config dir). */
@@ -71,9 +66,6 @@ const DEFAULT_SETTINGS: Settings = {
   default_model: 'claude-sonnet-4-6',
   custom_models: [],
   orchestrator_backend: 'api',
-  mobile_input_delay_ms: 250,
-  mobile_input_visible: true,
-  dev_server_port: 1420,
   sidebar_width: 360,
   theme: 'dark',
   developer_use_rust_mcp: false,
@@ -89,19 +81,12 @@ function readLegacySidebarWidth(): number | undefined {
 
 function mergeLoadedSettings(raw: Settings | null | undefined): Settings {
   const merged = { ...DEFAULT_SETTINGS, ...(raw ?? {}) };
-  const legacyPublic = readStoredPublicBridgeUrl();
   const legacySidebar = readLegacySidebarWidth();
   return {
     ...merged,
-    mobile_input_delay_ms: clampMobileInputDelayMs(merged.mobile_input_delay_ms),
-    mobile_input_visible: merged.mobile_input_visible ?? true,
-    dev_server_port: parseDevServerPort(merged.dev_server_port),
     sidebar_width: clampSidebarWidth(merged.sidebar_width ?? legacySidebar ?? 360),
     theme: merged.theme ?? 'dark',
     developer_use_rust_mcp: merged.developer_use_rust_mcp ?? false,
-    public_pwa_url:
-      merged.public_pwa_url?.trim() ||
-      (legacyPublic ? publicOriginFromBridgeUrl(legacyPublic) : undefined),
   };
 }
 
@@ -153,8 +138,6 @@ export async function saveSettings(s: Settings): Promise<void> {
     ...s,
     sidebar_width: clampSidebarWidth(s.sidebar_width ?? 360),
     theme: s.theme ?? 'dark',
-    mobile_input_delay_ms: clampMobileInputDelayMs(s.mobile_input_delay_ms),
-    dev_server_port: parseDevServerPort(s.dev_server_port),
     developer_use_rust_mcp: s.developer_use_rust_mcp ?? false,
   };
   applyTheme(normalized.theme ?? 'dark');

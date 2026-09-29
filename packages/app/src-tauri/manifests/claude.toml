@@ -17,3 +17,15 @@ args = []
 [launch.tui.linux]
 command = "claude"
 args = []
+
+[[attention]]
+pattern = "(?i)what would you like"
+means = "needs_approval"
+
+[[attention]]
+pattern = "(?i)how can i help"
+means = "needs_approval"
+
+[[attention]]
+pattern = "(?i)are you sure"
+means = "needs_approval"

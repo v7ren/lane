@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PaneStreamManager } from '../terminal';
+import { useDemoFixtures } from '../lib/demo/DemoContext';
 import {
   tauri,
   type PaneInfo,
@@ -30,9 +31,18 @@ export interface PaneRegistryApi {
 
 const EMPTY: Map<string, PaneData> = new Map();
 
+function demoPanesMap(demo: NonNullable<ReturnType<typeof useDemoFixtures>>): Map<string, PaneData> {
+  const next = new Map<string, PaneData>();
+  for (const row of demo.paneList) next.set(row.info.id, row);
+  return next;
+}
+
 export function usePaneRegistry(): PaneRegistryApi {
-  const [panes, setPanes] = useState<Map<string, PaneData>>(EMPTY);
-  const [initialReady, setInitialReady] = useState(false);
+  const demo = useDemoFixtures();
+  const [panes, setPanes] = useState<Map<string, PaneData>>(() =>
+    demo ? demoPanesMap(demo) : EMPTY,
+  );
+  const [initialReady, setInitialReady] = useState(Boolean(demo));
   const panesRef = useRef(panes);
   panesRef.current = panes;
 
@@ -56,10 +66,12 @@ export function usePaneRegistry(): PaneRegistryApi {
   }, []);
 
   useEffect(() => {
+    if (demo) return;
     refresh();
-  }, [refresh]);
+  }, [demo, refresh]);
 
   useEffect(() => {
+    if (demo) return;
     let disposed = false;
     let unsubSnapshot: (() => void) | undefined;
     let unsubData: (() => void) | undefined;
@@ -129,22 +141,62 @@ export function usePaneRegistry(): PaneRegistryApi {
       unsubExit?.();
       unsubPanesChanged?.();
     };
-  }, [refresh]);
+  }, [demo, refresh]);
 
   const spawnPane = useCallback(async (args: Parameters<typeof tauri.spawnPane>[0]) => {
+    if (demo) {
+      const id = `demo-${args.agent_type}-${Date.now()}`;
+      const now = Date.now();
+      const info: PaneInfo = {
+        id,
+        agent_type: args.agent_type,
+        pid: 4242,
+        status: 'running',
+        created_at: now,
+        last_output_at: now,
+        cwd: args.cwd ?? demo.projectPath,
+        cols: args.cols ?? 120,
+        rows: args.rows ?? 32,
+      };
+      setPanes((prev) => {
+        const next = new Map(prev);
+        next.set(id, { info, status: info.status });
+        return next;
+      });
+      return id;
+    }
     const id = await tauri.spawnPane(args);
     await refresh();
     return id;
-  }, [refresh]);
+  }, [demo, refresh]);
 
   const killPane = useCallback(async (paneId: string) => {
+    if (demo) {
+      setPanes((prev) => {
+        const next = new Map(prev);
+        next.delete(paneId);
+        return next;
+      });
+      return;
+    }
     await tauri.killPane(paneId);
     streamsRef.current.delete(paneId);
     await refresh();
-  }, [refresh]);
+  }, [demo, refresh]);
 
   const replacePaneAgent = useCallback(
     async (paneId: string, agentType: string, cwd?: string) => {
+      if (demo) {
+        setPanes((prev) => {
+          const existing = prev.get(paneId);
+          if (!existing) throw new Error(`unknown pane: ${paneId}`);
+          const info = { ...existing.info, agent_type: agentType, created_at: Date.now() };
+          const next = new Map(prev);
+          next.set(paneId, { info, status: existing.status });
+          return next;
+        });
+        return paneId;
+      }
       const existing = panesRef.current.get(paneId);
       if (!existing) {
         throw new Error(`unknown pane: ${paneId}`);
@@ -181,13 +233,17 @@ export function usePaneRegistry(): PaneRegistryApi {
         }, 800);
       }
     },
-    [refresh],
+    [demo, refresh],
   );
 
   const killAll = useCallback(async () => {
+    if (demo) {
+      setPanes(new Map());
+      return;
+    }
     await tauri.killAllPanes();
     await refresh();
-  }, [refresh]);
+  }, [demo, refresh]);
 
   const writeInput = useCallback(async (paneId: string, text: string, appendNewline = true) => {
     await tauri.writeInput(paneId, text, appendNewline);

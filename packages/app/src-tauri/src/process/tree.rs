@@ -23,6 +23,21 @@ pub fn assign_pid_to_pane_job(tree: &ProcessTree, pid: u32) {
     let _ = tree.assign_pid(pid);
 }
 
+/// On Unix, put the PTY child in its own session so `killpg` tears down the tree.
+#[cfg(unix)]
+pub fn configure_unix_session(cmd: &mut portable_pty::CommandBuilder) {
+    use std::os::unix::process::CommandExt;
+    unsafe {
+        cmd.as_mut().pre_exec(|| {
+            libc::setsid();
+            Ok(())
+        });
+    }
+}
+
+#[cfg(not(unix))]
+pub fn configure_unix_session(_cmd: &mut portable_pty::CommandBuilder) {}
+
 /// Per-pane process group. `Send` via raw handle storage on Windows.
 pub struct ProcessTree {
     assigned: Mutex<HashSet<u32>>,
@@ -30,7 +45,6 @@ pub struct ProcessTree {
     job_handle: isize,
 }
 
-// HANDLE is not `Send`; we only touch it on the owning thread during assign/drop.
 unsafe impl Send for ProcessTree {}
 unsafe impl Sync for ProcessTree {}
 
@@ -39,7 +53,6 @@ impl ProcessTree {
         #[cfg(windows)]
         {
             use windows::core::PCWSTR;
-            use windows::Win32::Foundation::CloseHandle;
             use windows::Win32::System::JobObjects::{
                 CreateJobObjectW, JobObjectExtendedLimitInformation,
                 JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
@@ -119,25 +132,19 @@ impl ProcessTree {
     }
 
     fn terminate_assigned(&self) {
-        let pids: Vec<u32> = self.assigned.lock().iter().copied().collect();
-        for pid in pids {
-            #[cfg(windows)]
-            {
-                use windows::Win32::Foundation::CloseHandle;
-                use windows::Win32::System::Threading::{
-                    OpenProcess, PROCESS_TERMINATE, TerminateProcess,
-                };
-                if let Ok(process) = unsafe { OpenProcess(PROCESS_TERMINATE, false, pid) } {
-                    unsafe {
-                        let _ = TerminateProcess(process, 1);
-                        let _ = CloseHandle(process);
-                    }
-                }
+        #[cfg(windows)]
+        {
+            use windows::Win32::System::JobObjects::TerminateJobObject;
+            unsafe {
+                let _ = TerminateJobObject(self.job(), 1);
             }
-            #[cfg(unix)]
-            {
+        }
+        #[cfg(unix)]
+        {
+            let pids: Vec<u32> = self.assigned.lock().iter().copied().collect();
+            for pid in pids {
                 unsafe {
-                    libc::kill(pid as i32, libc::SIGKILL);
+                    let _ = libc::killpg(pid as i32, libc::SIGKILL);
                 }
             }
         }

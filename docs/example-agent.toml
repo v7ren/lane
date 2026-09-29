@@ -1,0 +1,28 @@
+# Drop this file into your Loomria user agents directory to add a custom agent
+# without rebuilding the app.
+#
+# Windows: %APPDATA%\com.loomria.app\agents\
+# macOS:   ~/Library/Application Support/com.loomria.app/agents/
+# Linux:   ~/.local/share/com.loomria.app/agents/
+#
+# Restart the app (or reload the catalog) after adding or editing manifests.
+# Invalid files appear in `list_agents` / GET /agents under `report.errors`.
+
+schema_version = 1
+id = "echo-agent"
+label = "Echo example"
+description = "Prints a marker and waits — useful to verify manifest loading"
+icon = "EA"
+is_tui = true
+
+[launch.tui.windows]
+command = "cmd.exe"
+args = ["/C", "echo loomria-new-agent-ok & pause"]
+
+[launch.tui.macos]
+command = "sh"
+args = ["-c", "echo loomria-new-agent-ok; read"]
+
+[launch.tui.linux]
+command = "sh"
+args = ["-c", "echo loomria-new-agent-ok; read"]
