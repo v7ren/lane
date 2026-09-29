@@ -20,8 +20,12 @@ export function AgentComposer({
   const send = useCallback(async () => {
     const text = draft.trim();
     if (!text || disabled || busy) return;
-    setDraft('');
-    await onSend(text);
+    try {
+      await onSend(text);
+      setDraft('');
+    } catch {
+      /* parent surfaces the error; keep draft */
+    }
   }, [busy, disabled, draft, onSend]);
 
   return (

@@ -125,7 +125,7 @@ export function PersistentPaneSurfaces({
                 displayStatus={displayStatus}
                 chromeTitle={agentPaneTitle ?? undefined}
                 compactChrome={agentTuiVisible}
-                reflowKey={`${layoutEpoch}-${mode}-${showTui ? 'tui' : 'chat'}`}
+                reflowKey={`${layoutEpoch}-${mode}-${agentTuiVisible ? 'tui-open' : hiddenInAgent ? 'parked' : 'workspace'}`}
               />
             </div>
           </div>

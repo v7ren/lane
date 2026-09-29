@@ -15,6 +15,7 @@ use crate::pty::{
     registry_spawn_pane, registry_write_input, PaneInfo, PaneRegistry, SpawnPaneArgs,
 };
 use crate::settings_store;
+use tracing::{error, info};
 
 pub struct AppState {
     pub registry: Arc<Mutex<PaneRegistry>>,
@@ -185,7 +186,18 @@ pub async fn session_send_prompt(
     state: State<'_, AppState>,
     args: SessionSendPromptArgs,
 ) -> Result<(), String> {
-    state.protocol_hub.send_prompt(&args.pane_id, args.text)
+    info!(
+        pane_id = %args.pane_id,
+        text_len = args.text.len(),
+        "session_send_prompt"
+    );
+    match state.protocol_hub.send_prompt(&args.pane_id, args.text) {
+        Ok(()) => Ok(()),
+        Err(err) => {
+            error!(pane_id = %args.pane_id, error = %err, "session_send_prompt failed");
+            Err(err)
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -200,9 +212,27 @@ pub async fn session_respond_approval(
     state: State<'_, AppState>,
     args: SessionRespondApprovalArgs,
 ) -> Result<(), String> {
-    state
+    info!(
+        pane_id = %args.pane_id,
+        approval_id = %args.approval_id,
+        decision = %args.decision,
+        "session_respond_approval"
+    );
+    match state
         .protocol_hub
         .respond_approval(&args.pane_id, &args.approval_id, &args.decision)
+    {
+        Ok(()) => Ok(()),
+        Err(err) => {
+            error!(
+                pane_id = %args.pane_id,
+                approval_id = %args.approval_id,
+                error = %err,
+                "session_respond_approval failed"
+            );
+            Err(err)
+        }
+    }
 }
 
 #[tauri::command]
@@ -210,7 +240,14 @@ pub async fn session_cancel_turn(
     state: State<'_, AppState>,
     pane_id: String,
 ) -> Result<(), String> {
-    state.protocol_hub.cancel_turn(&pane_id)
+    info!(pane_id = %pane_id, "session_cancel_turn");
+    match state.protocol_hub.cancel_turn(&pane_id) {
+        Ok(()) => Ok(()),
+        Err(err) => {
+            error!(pane_id = %pane_id, error = %err, "session_cancel_turn failed");
+            Err(err)
+        }
+    }
 }
 
 impl Default for AppState {
@@ -606,4 +643,46 @@ pub fn get_bridge_session() -> Result<BridgeSessionInfo, String> {
     let (base_url, token) = crate::bridge::bridge_session()
         .ok_or_else(|| "bridge not started".to_string())?;
     Ok(BridgeSessionInfo { base_url, token })
+}
+
+#[cfg(test)]
+mod command_invoke_contract_tests {
+    use super::*;
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    struct SessionSendPromptInvoke {
+        args: SessionSendPromptArgs,
+    }
+
+    #[derive(Deserialize)]
+    struct SessionRespondApprovalInvoke {
+        args: SessionRespondApprovalArgs,
+    }
+
+    #[test]
+    fn session_send_prompt_deserializes_frontend_invoke_payload() {
+        let raw = r#"{"args":{"pane_id":"pane-1","text":"hello"}}"#;
+        let payload: SessionSendPromptInvoke = serde_json::from_str(raw).expect("valid payload");
+        assert_eq!(payload.args.pane_id, "pane-1");
+        assert_eq!(payload.args.text, "hello");
+    }
+
+    #[test]
+    fn session_send_prompt_rejects_camel_case_pane_id_in_args() {
+        let raw = r#"{"args":{"paneId":"pane-1","text":"hello"}}"#;
+        let err = serde_json::from_str::<SessionSendPromptInvoke>(raw);
+        assert!(err.is_err(), "nested camelCase paneId must not deserialize as pane_id");
+    }
+
+    #[test]
+    fn session_respond_approval_deserializes_frontend_invoke_payload() {
+        let raw =
+            r#"{"args":{"pane_id":"p","approval_id":"a1","decision":"allow_once"}}"#;
+        let payload: SessionRespondApprovalInvoke =
+            serde_json::from_str(raw).expect("valid payload");
+        assert_eq!(payload.args.pane_id, "p");
+        assert_eq!(payload.args.approval_id, "a1");
+        assert_eq!(payload.args.decision, "allow_once");
+    }
 }

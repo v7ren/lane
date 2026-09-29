@@ -6,6 +6,30 @@ import { isTauriRuntime } from './is-tauri';
 const AGENT_EVENT_CHANNEL = 'agent://event';
 const noopUnlisten: UnlistenFn = () => {};
 
+/** Invoke payloads for Tauri commands that take a single `args` struct (snake_case fields). */
+export function sessionSendPromptInvokePayload(paneId: string, text: string) {
+  return {
+    args: {
+      pane_id: paneId,
+      text,
+    },
+  };
+}
+
+export function sessionRespondApprovalInvokePayload(
+  paneId: string,
+  approvalId: string,
+  decision: ApprovalDecision,
+) {
+  return {
+    args: {
+      pane_id: paneId,
+      approval_id: approvalId,
+      decision,
+    },
+  };
+}
+
 export async function sessionCapabilities(paneId: string): Promise<Capabilities> {
   if (!isTauriRuntime()) throw new Error('session_capabilities unavailable outside Tauri');
   return invoke<Capabilities>('session_capabilities', { paneId });
@@ -18,7 +42,7 @@ export async function sessionHistory(paneId: string): Promise<AgentEventEnvelope
 
 export async function sessionSendPrompt(paneId: string, text: string): Promise<void> {
   if (!isTauriRuntime()) return;
-  await invoke('session_send_prompt', { args: { paneId, text } });
+  await invoke('session_send_prompt', sessionSendPromptInvokePayload(paneId, text));
 }
 
 export async function sessionRespondApproval(
@@ -27,7 +51,10 @@ export async function sessionRespondApproval(
   decision: ApprovalDecision,
 ): Promise<void> {
   if (!isTauriRuntime()) return;
-  await invoke('session_respond_approval', { args: { paneId, approvalId, decision } });
+  await invoke(
+    'session_respond_approval',
+    sessionRespondApprovalInvokePayload(paneId, approvalId, decision),
+  );
 }
 
 export async function sessionCancelTurn(paneId: string): Promise<void> {

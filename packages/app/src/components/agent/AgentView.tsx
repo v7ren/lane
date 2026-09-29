@@ -46,6 +46,7 @@ export function AgentView({
   onMutedChange: (muted: boolean) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const railState = sessionState?.state ?? null;
   const { capabilities, source, timeline, loading, error, refresh } = useAgentSession(
     paneId,
@@ -70,6 +71,7 @@ export function AgentView({
   const send = useCallback(
     async (text: string) => {
       setBusy(true);
+      setActionError(null);
       try {
         if (source === 'protocol' && capabilities.send_prompt) {
           await sessionSendPrompt(paneId, text);
@@ -77,6 +79,10 @@ export function AgentView({
           await tauri.sendSessionPrompt({ pane_id: paneId, text });
         }
         await refresh();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setActionError(message);
+        throw err;
       } finally {
         setBusy(false);
       }
@@ -87,6 +93,7 @@ export function AgentView({
   const respondApproval = useCallback(
     async (approvalId: string, decision: ApprovalDecision) => {
       setBusy(true);
+      setActionError(null);
       try {
         if (source === 'protocol' && capabilities.approvals) {
           await sessionRespondApproval(paneId, approvalId, decision);
@@ -100,6 +107,10 @@ export function AgentView({
           });
         }
         await refresh();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setActionError(message);
+        throw err;
       } finally {
         setBusy(false);
       }
@@ -110,9 +121,14 @@ export function AgentView({
   const cancelTurn = useCallback(async () => {
     if (!capabilities.cancel) return;
     setBusy(true);
+    setActionError(null);
     try {
       await sessionCancelTurn(paneId);
       await refresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setActionError(message);
+      throw err;
     } finally {
       setBusy(false);
     }
@@ -203,8 +219,10 @@ export function AgentView({
         className={`flex flex-1 flex-col min-h-0 w-full mx-auto ${showTui ? '' : 'max-w-[52rem]'}`}
       >
         {loading && <p className="text-xs text-lr-muted px-3 py-2">Loading session…</p>}
-        {error && (
-          <p className="text-xs text-lr-err px-3 py-2 border-b border-lr-err/30">{error}</p>
+        {(error || actionError) && (
+          <p className="text-xs text-lr-err px-3 py-2 border-b border-lr-err/30">
+            {actionError ?? error}
+          </p>
         )}
 
         <AgentTimeline

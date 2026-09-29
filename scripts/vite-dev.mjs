@@ -1,19 +1,12 @@
 #!/usr/bin/env node
 /**
- * Tauri beforeDevCommand entry: build workspace deps, start Vite, public dev tunnel.
+ * Tauri beforeDevCommand entry: build workspace deps and start Vite.
  */
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureWorkspaceBuilt } from './ensure-workspace-built.mjs';
-import {
-  clearDevInfo,
-  isTunnelEnabled,
-  startDevTunnel,
-  tunnelDisabledHint,
-  writeDevInfo,
-} from './dev-tunnel.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const appDir = join(repoRoot, 'packages', 'app');
@@ -34,88 +27,29 @@ const vite = spawn(npm, ['exec', 'vite'], {
   shell: true,
 });
 
-/** @type {{ close: () => Promise<void> } | null} */
-let devTunnel = null;
-
-async function shutdown(signal) {
-  if (devTunnel) {
-    try {
-      await devTunnel.close();
-    } catch {
-      /* ignore */
-    }
-    devTunnel = null;
-  }
-  await clearDevInfo();
+function shutdown(signal) {
   vite.kill(signal);
 }
 
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.on(signal, () => {
-    void shutdown(signal);
+    shutdown(signal);
   });
 }
 
 vite.on('exit', (code, signal) => {
-  void (async () => {
-    if (devTunnel) {
-      try {
-        await devTunnel.close();
-      } catch {
-        /* ignore */
-      }
-    }
-    await clearDevInfo();
-    if (signal) process.kill(process.pid, signal);
-    else process.exit(code ?? 0);
-  })();
+  if (signal) process.kill(process.pid, signal);
+  else process.exit(code ?? 0);
 });
 
-void waitForVite().then(async () => {
+void waitForVite().then(() => {
   const bridge = readBridgeUrl();
-  let tunnelUrl = null;
-  let tunnelProvider = null;
-
-  if (isTunnelEnabled()) {
-    try {
-      devTunnel = await startDevTunnel(VITE_PORT);
-      tunnelUrl = devTunnel?.url ?? null;
-      tunnelProvider = devTunnel?.provider ?? null;
-    } catch (err) {
-      console.error('[loomria] tunnel failed:', err instanceof Error ? err.message : err);
-    }
-  }
-
-  const devInfo = await writeDevInfo({
-    localUrl: VITE_URL,
-    tunnelUrl,
-    tunnelProvider,
-    bridgeUrl: bridge,
-  });
-
   console.error('');
   console.error('[loomria] dev stack ready');
   console.error(`  vite / PWA:     ${VITE_URL}`);
   console.error(`  bridge proxy:   ${VITE_URL}/bridge  (→ desktop bridge when app is up)`);
   if (bridge) console.error(`  bridge direct:  ${bridge}`);
   else console.error('  bridge direct:  starts with the Tauri window (embedded HTTP bridge)');
-
-  if (devInfo.tunnelUrl) {
-    console.error('');
-    console.error('  📱 mobile PWA (any network):');
-    console.error(`     ${devInfo.tunnelUrl}`);
-    console.error(`     bridge: ${devInfo.bridgeProxyUrl}/health`);
-    console.error('     open on your phone → Pair (QR) then Connect');
-    if (devInfo.tunnelProvider) {
-      console.error(`     via ${devInfo.tunnelProvider}`);
-    }
-  } else if (!isTunnelEnabled()) {
-    console.error('');
-    console.error(`  tunnel:         ${tunnelDisabledHint()}`);
-  } else {
-    console.error('');
-    console.error('  tunnel:         failed to start — mobile access unavailable this session');
-  }
   console.error('');
 });
 

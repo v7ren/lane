@@ -50,6 +50,7 @@ export class TerminalSession {
   private ptyRows: number;
   private generation = 0;
   private themeObserver: MutationObserver | null = null;
+  private agentTuiLayoutObserver: MutationObserver | null = null;
   private mountContainer: HTMLElement | null = null;
   private disposed = false;
 
@@ -139,6 +140,7 @@ export class TerminalSession {
       this.installFileLinkProvider(terminal);
       this.installTextareaGuards(container, terminal, this.inputBatcher);
       this.installResizeObservers(container);
+      this.installAgentTuiLayoutObserver(container);
       this.installFocusHandlers(container);
       this.installThemeObserver(terminal);
       this.fitAndNotify();
@@ -184,6 +186,9 @@ export class TerminalSession {
     this.themeObserver?.disconnect();
     this.themeObserver = null;
 
+    this.agentTuiLayoutObserver?.disconnect();
+    this.agentTuiLayoutObserver = null;
+
     this.focusCleanup?.();
     this.focusCleanup = null;
 
@@ -219,6 +224,28 @@ export class TerminalSession {
       { threshold: 0.1 },
     );
     this.intersectionObserver.observe(container);
+  }
+
+  /** Refit when Agent Mode moves the pane surface out of the parked off-screen slot. */
+  private installAgentTuiLayoutObserver(container: HTMLElement): void {
+    const layoutRoot = container.closest('[data-agent-tui-layout]');
+    if (!layoutRoot) return;
+
+    const refitIfOpen = () => {
+      if (layoutRoot.getAttribute('data-agent-tui-layout') !== 'open') return;
+      requestAnimationFrame(() => {
+        if (this.disposed) return;
+        this.fitAndNotify();
+        this.refreshAndNudgeAltBuffer();
+      });
+    };
+
+    this.agentTuiLayoutObserver = new MutationObserver(refitIfOpen);
+    this.agentTuiLayoutObserver.observe(layoutRoot, {
+      attributes: true,
+      attributeFilter: ['data-agent-tui-layout'],
+    });
+    refitIfOpen();
   }
 
   private installThemeObserver(terminal: Terminal): void {
