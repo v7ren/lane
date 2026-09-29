@@ -8,9 +8,8 @@ mod bridge_auth;
 mod commands;
 mod events;
 mod opencode;
-mod pane_wait_notify;
 mod platform;
-mod process;
+pub mod process;
 mod project_path;
 pub mod pty;
 mod settings_store;
@@ -35,6 +34,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
@@ -85,6 +85,7 @@ pub fn run() {
                 tracing::warn!(%err, "embedded bridge not started");
             }
 
+            session::notify::set_app_handle(app.handle().clone());
             let session_store = app.state::<AppState>().session_states.clone();
             session::spawn_state_monitor(session_store);
 
