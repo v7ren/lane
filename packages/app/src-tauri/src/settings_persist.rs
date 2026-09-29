@@ -29,6 +29,18 @@ fn merge_settings_object(raw: Value) -> Map<String, Value> {
     }
 }
 
+pub fn read_persisted_project_path(app: &AppHandle) -> Option<String> {
+    let store = app.store(STORE_FILE).ok()?;
+    let raw = store
+        .get(SETTINGS_KEY)
+        .unwrap_or_else(|| Value::Object(Map::new()));
+    let settings = merge_settings_object(raw);
+    settings
+        .get("project_path")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+}
+
 pub fn persist_project_path(app: &AppHandle, path: &str) -> Result<(), String> {
     let store = app.store(STORE_FILE).map_err(|e| e.to_string())?;
     let raw = store

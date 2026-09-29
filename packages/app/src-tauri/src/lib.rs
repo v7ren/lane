@@ -53,6 +53,7 @@ pub fn run() {
             commands::resize_pane,
             commands::set_project_path,
             commands::get_project_path_cmd,
+            commands::get_persisted_project_path_cmd,
             commands::push_chat_event,
             commands::push_settings_event,
             commands::sync_public_settings,

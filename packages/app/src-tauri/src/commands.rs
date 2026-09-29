@@ -543,6 +543,11 @@ pub async fn get_project_path_cmd(state: State<'_, AppState>) -> Result<String, 
 }
 
 #[tauri::command]
+pub async fn get_persisted_project_path_cmd(app: tauri::AppHandle) -> Result<String, String> {
+    Ok(crate::settings_persist::read_persisted_project_path(&app).unwrap_or_default())
+}
+
+#[tauri::command]
 pub async fn push_chat_event(event_json: String) -> Result<(), String> {
     let payload = format!("event: chat\ndata: {event_json}\n\n");
     crate::bridge::push_sse(payload);

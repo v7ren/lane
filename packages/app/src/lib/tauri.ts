@@ -243,6 +243,8 @@ export const tauri = {
     safeInvoke<void>('resize_pane', { paneId, cols, rows }, undefined, true),
   setProjectPath: (path: string) => safeInvoke<void>('set_project_path', { path }, undefined, true),
   getProjectPath: () => safeInvoke<string>('get_project_path_cmd', undefined, '', true),
+  getPersistedProjectPath: () =>
+    safeInvoke<string>('get_persisted_project_path_cmd', undefined, '', true),
   getCoordinationStorageInfo: () =>
     safeInvoke<CoordinationStorageInfo>(
       'get_coordination_storage_info',

@@ -341,6 +341,8 @@ export async function loadSettings(): Promise<Settings> {
 
     try {
 
+      await store().reload();
+
       const raw = await store().get<Settings>(SETTINGS_KEY);
 
       const merged = mergeLoadedSettings(raw);
