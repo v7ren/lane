@@ -32,7 +32,8 @@ import { setSessionMuted } from '../../lib/session-notify-prefs';
 import { formatPaneSubtitle } from '../../lib/session-subtitle';
 import { DisplayStatusDot } from '../DisplayStatusDot';
 import { AgentComposerPanel } from '../composer/AgentComposerPanel';
-import { PermissionDock, QuestionDock, type PermissionDockItem, type QuestionDockItem } from '../composer/ComposerDocks';
+import { PermissionDock, type PermissionDockItem } from '../composer/ComposerDocks';
+import { QuestionDock, type QuestionDockItem } from '../opencode/QuestionDock';
 import { TranscriptView } from '../transcript/TranscriptView';
 import { useAgentApprovalShortcuts } from './AgentView.keyboard';
 
@@ -112,11 +113,6 @@ export function AgentView({
     return [];
   }, [ocState]);
 
-  const pendingQuestions = useMemo(() => {
-    if (ocState) return Object.values(ocState.questions);
-    return [];
-  }, [ocState]);
-
   const permissionDockItems = useMemo((): PermissionDockItem[] => {
     const fromStore = pendingPermissions.map((perm) => {
       const raw = perm as Record<string, unknown>;
@@ -137,17 +133,15 @@ export function AgentView({
   }, [pendingPermissions, pendingProtocol]);
 
   const questionDockItems = useMemo((): QuestionDockItem[] => {
-    return pendingQuestions.map((q) => {
-      const raw = q as Record<string, unknown>;
-      const first = (raw.questions as { question?: string; options?: { label: string }[] }[] | undefined)?.[0];
-      return {
-        id: String(raw.id ?? ''),
-        prompt: first?.question ?? 'Question',
-        options: first?.options ?? [],
-        submitting: Boolean(q.submitting),
-      };
-    });
-  }, [pendingQuestions]);
+    if (!ocState || !sessionId) return [];
+    return Object.values(ocState.questions)
+      .filter((entry) => entry.sessionID === sessionId)
+      .map((entry) => ({
+        id: entry.id,
+        questions: entry.questions,
+        submitting: Boolean(entry.submitting),
+      }));
+  }, [ocState, sessionId]);
 
   const displayStatus = useMemo(() => {
     if (openCodePane && sessionId && ocState) {
@@ -404,8 +398,9 @@ export function AgentView({
             <QuestionDock
               questions={questionDockItems}
               busy={questionDockBusy}
-              onReply={(id, answer) => {
-                void replyOpenCodeQuestion(paneId, id, [[answer]]).then(() => refresh());
+              lastRequestError={ocLastRequestError}
+              onReply={(id, answers) => {
+                void replyOpenCodeQuestion(paneId, id, answers).then(() => refresh());
               }}
               onReject={(id) => {
                 void rejectOpenCodeQuestion(paneId, id).then(() => refresh());
