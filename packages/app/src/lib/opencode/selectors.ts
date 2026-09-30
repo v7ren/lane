@@ -1,6 +1,11 @@
-import type { Message, Session, Todo } from '@loomria/shared/opencode';
+import type { Message, PermissionAsked, QuestionRequest, Session, Todo } from '@loomria/shared/opencode';
 
 import { sortMessageIds } from './ordering.js';
+import {
+  pendingPermissionPayload,
+  pendingPermissionSessionId,
+  pendingQuestionPayload,
+} from './pending-requests.js';
 import type { ConnectionStatus, OpenCodeStoreState, SessionStatus } from './store.js';
 
 export type SessionSummary = {
@@ -66,8 +71,25 @@ export function selectSessionStatus(state: OpenCodeStoreState, sessionId: string
   return wire ?? 'unknown';
 }
 
-export function selectPermissions(state: OpenCodeStoreState) {
-  return Object.values(state.permissions);
+export function selectPermissions(state: OpenCodeStoreState): PermissionAsked[] {
+  return Object.values(state.permissions).map(pendingPermissionPayload);
+}
+
+export function selectQuestions(state: OpenCodeStoreState): QuestionRequest[] {
+  return Object.values(state.questions).map(pendingQuestionPayload);
+}
+
+export function getPendingForSession(
+  state: OpenCodeStoreState,
+  sessionID: string,
+): { questions: QuestionRequest[]; permissions: PermissionAsked[] } {
+  const questions = Object.values(state.questions)
+    .filter((entry) => entry.sessionID === sessionID)
+    .map(pendingQuestionPayload);
+  const permissions = Object.values(state.permissions)
+    .filter((entry) => pendingPermissionSessionId(entry) === sessionID)
+    .map(pendingPermissionPayload);
+  return { questions, permissions };
 }
 
 export function selectTodos(state: OpenCodeStoreState, sessionId: string): Todo[] {

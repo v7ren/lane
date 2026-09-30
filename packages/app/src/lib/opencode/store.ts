@@ -12,6 +12,14 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getServerInfo, opencodeClient } from './client.js';
 import { sortMessageIds, sortPartIdsForMessage } from './ordering.js';
 import {
+  applyPendingWireEvent,
+  clearPendingForSession,
+  hydratePending,
+  isPendingWireEventType,
+  type PendingPermission,
+  type PendingQuestion,
+} from './pending-requests.js';
+import {
   applyParsedSessionStatus,
   applySessionStatusSnapshot,
   clearOptimisticBusy,
@@ -55,8 +63,8 @@ export type OpenCodeStoreState = {
   /** Prompt sent locally; cleared when server reports idle. */
   optimisticBusy: Record<string, true>;
   sessionIssues: Record<string, SessionIssue>;
-  permissions: Record<string, PermissionAsked>;
-  questions: Record<string, QuestionRequest>;
+  permissions: Record<string, PendingPermission>;
+  questions: Record<string, PendingQuestion>;
   todosBySession: Record<string, Todo[]>;
   lastFileEdits: string[];
   vcsBranch: string | null;
@@ -277,10 +285,16 @@ export function applyOpenCodeWireEvent(
       const sessionID = props.sessionID as string | undefined;
       if (sessionID) {
         const { [sessionID]: _removed, ...sessions } = next.sessions;
+        const pending = clearPendingForSession(
+          { questions: next.questions, permissions: next.permissions },
+          sessionID,
+        );
         next = {
           ...next,
           sessions,
           sessionOrder: next.sessionOrder.filter((id) => id !== sessionID),
+          questions: pending.questions,
+          permissions: pending.permissions,
         };
       }
       break;
@@ -383,38 +397,22 @@ export function applyOpenCodeWireEvent(
       break;
     }
     case 'permission.asked':
-    case 'permission.v2.asked': {
-      const permission = props.permission as PermissionAsked | undefined;
-      if (permission?.id) {
-        next = { ...next, permissions: { ...next.permissions, [permission.id]: permission } };
-      }
-      break;
-    }
+    case 'permission.v2.asked':
     case 'permission.replied':
-    case 'permission.v2.replied': {
-      const requestID = props.requestID as string | undefined;
-      if (requestID) {
-        const { [requestID]: _p, ...permissions } = next.permissions;
-        next = { ...next, permissions };
-      }
-      break;
-    }
+    case 'permission.v2.replied':
     case 'question.asked':
-    case 'question.v2.asked': {
-      const question = props.question as QuestionRequest | undefined;
-      if (question?.id) {
-        next = { ...next, questions: { ...next.questions, [question.id]: question } };
-      }
-      break;
-    }
+    case 'question.v2.asked':
     case 'question.replied':
     case 'question.rejected':
     case 'question.v2.replied':
     case 'question.v2.rejected': {
-      const requestID = props.requestID as string | undefined;
-      if (requestID) {
-        const { [requestID]: _q, ...questions } = next.questions;
-        next = { ...next, questions };
+      if (isPendingWireEventType(type)) {
+        const pending = applyPendingWireEvent(
+          { questions: next.questions, permissions: next.permissions },
+          type,
+          props,
+        );
+        next = { ...next, questions: pending.questions, permissions: pending.permissions };
       }
       break;
     }
@@ -445,6 +443,17 @@ export function applyOpenCodeWireEvent(
   }
 
   return next;
+}
+
+function hydratePendingOnState(
+  state: OpenCodeStoreState,
+  lists: { questions: QuestionRequest[]; permissions: PermissionAsked[] },
+): OpenCodeStoreState {
+  const pending = hydratePending(
+    { questions: state.questions, permissions: state.permissions },
+    lists,
+  );
+  return { ...state, questions: pending.questions, permissions: pending.permissions };
 }
 
 export function applyOpenCodeEnvelope(
@@ -487,6 +496,22 @@ export function createOpenCodeStore(paneId: string): OpenCodeStore {
   const setState = (updater: (prev: OpenCodeStoreState) => OpenCodeStoreState) => {
     state = updater(state);
     notify();
+  };
+
+  const hydratePendingFromServer = async () => {
+    let questions: QuestionRequest[] = [];
+    let permissions: PermissionAsked[] = [];
+    try {
+      questions = await opencodeClient.listQuestions(paneId);
+    } catch {
+      /* ignore */
+    }
+    try {
+      permissions = await opencodeClient.listPermissions(paneId);
+    } catch {
+      /* ignore */
+    }
+    setState((prev) => hydratePendingOnState(prev, { questions, permissions }));
   };
 
   const bootstrap = async () => {
@@ -532,9 +557,13 @@ export function createOpenCodeStore(paneId: string): OpenCodeStore {
       next = applySessionStatusSnapshot(next, statusSnapshot);
       return next;
     });
+    await hydratePendingFromServer();
     if (!unlisten) {
       unlisten = await listen<OpenCodeEventEnvelope>('opencode://event', (ev) => {
         setState((prev) => applyOpenCodeEnvelope(prev, ev.payload));
+        if (ev.payload.event.type === 'loomria.opencode.connected') {
+          void hydratePendingFromServer();
+        }
       });
     }
   };
@@ -551,6 +580,7 @@ export function createOpenCodeStore(paneId: string): OpenCodeStore {
       try {
         const snapshot = await opencodeClient.getSessionStatus(paneId);
         setState((prev) => applySessionStatusSnapshot(prev, snapshot));
+        await hydratePendingFromServer();
       } catch {
         /* ignore */
       }
