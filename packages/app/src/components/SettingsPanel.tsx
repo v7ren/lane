@@ -5,6 +5,7 @@ import { loadSettings, updateSettings } from '../lib/settings';
 import { SettingsTabPanel, type SettingsTabContext } from './settings/settings-tab-panels';
 import { AgentsSection } from './settings/AgentsSection';
 import { ComingSoonPanel } from './settings/ComingSoonPanel';
+import { ConfigSection } from './settings/ConfigSection';
 import { McpSection } from './settings/McpSection';
 import { ProvidersSection } from './settings/ProvidersSection';
 import { SETTINGS_SECTIONS, type SettingsSectionId } from './settings/settings-sections';
@@ -102,6 +103,7 @@ export function SettingsPanel({
       case 'mcp':
         return <McpSection paneId={opencodePaneId} />;
       case 'config':
+        return <ConfigSection paneId={opencodePaneId} />;
       case 'theme':
       case 'keybinds':
         return (
