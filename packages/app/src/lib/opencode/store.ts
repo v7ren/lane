@@ -78,6 +78,8 @@ export type OpenCodeStoreState = {
   vcsBranch: string | null;
   seenEventIds: Set<string>;
   lastRequestError: string | null;
+  /** Session whose message history is being fetched via listMessages. */
+  loadingMessagesSessionId: string | null;
 };
 
 export function createEmptyOpenCodeStore(paneId: string): OpenCodeStoreState {
@@ -106,6 +108,7 @@ export function createEmptyOpenCodeStore(paneId: string): OpenCodeStoreState {
     vcsBranch: null,
     seenEventIds: new Set(),
     lastRequestError: null,
+    loadingMessagesSessionId: null,
   };
 }
 
@@ -493,7 +496,10 @@ export type OpenCodeStore = {
   loadInitial: () => Promise<void>;
   refreshSessionStatus: () => Promise<void>;
   markSessionOptimisticBusy: (sessionId: string) => void;
-  ensureSessionMessages: (sessionId: string) => Promise<void>;
+  ensureSessionMessages: (
+    sessionId: string,
+    options?: { force?: boolean },
+  ) => Promise<void>;
   replyQuestion: (requestId: string, answers: string[][]) => Promise<void>;
   rejectQuestion: (requestId: string) => Promise<void>;
   replyPermission: (requestId: string, reply: OpenCodePermissionReply) => Promise<void>;
@@ -683,26 +689,47 @@ export function createOpenCodeStore(paneId: string): OpenCodeStore {
       if (!sessionId) return;
       setState((prev) => markOptimisticBusy(prev, sessionId));
     },
-    ensureSessionMessages: async (sessionId) => {
-      if (!sessionId || loadedMessageSessions.has(sessionId)) return;
-      await bootstrap();
-      const messages = await opencodeClient.listMessages(paneId, sessionId);
-      setState((prev) => {
-        let next = prev;
-        for (const message of messages) {
-          next = upsertMessage(next, message);
-          const parts = (message as Message & { parts?: Part[] }).parts;
-          if (parts) {
-            const base = next.partOrderSeq;
-            for (let index = 0; index < parts.length; index += 1) {
-              next = upsertPart(next, message.id, parts[index]!, base + index);
+    ensureSessionMessages: async (sessionId, options) => {
+      if (!sessionId) return;
+      if (options?.force) {
+        loadedMessageSessions.delete(sessionId);
+      }
+      if (loadedMessageSessions.has(sessionId)) return;
+      setState((prev) => ({
+        ...prev,
+        loadingMessagesSessionId: sessionId,
+        lastRequestError: null,
+      }));
+      try {
+        await bootstrap();
+        const messages = await opencodeClient.listMessages(paneId, sessionId);
+        setState((prev) => {
+          let next: OpenCodeStoreState = {
+            ...prev,
+            loadingMessagesSessionId: null,
+            lastRequestError: null,
+          };
+          for (const message of messages) {
+            next = upsertMessage(next, message);
+            const parts = (message as Message & { parts?: Part[] }).parts;
+            if (parts) {
+              const base = next.partOrderSeq;
+              for (let index = 0; index < parts.length; index += 1) {
+                next = upsertPart(next, message.id, parts[index]!, base + index);
+              }
+              next = { ...next, partOrderSeq: base + parts.length };
             }
-            next = { ...next, partOrderSeq: base + parts.length };
           }
-        }
-        return next;
-      });
-      loadedMessageSessions.add(sessionId);
+          return next;
+        });
+        loadedMessageSessions.add(sessionId);
+      } catch (err) {
+        setState((prev) => ({
+          ...prev,
+          loadingMessagesSessionId: null,
+          lastRequestError: formatOpenCodeRequestError(err),
+        }));
+      }
     },
     replyQuestion: pendingActions.replyQuestion,
     rejectQuestion: pendingActions.rejectQuestion,

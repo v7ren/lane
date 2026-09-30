@@ -114,6 +114,11 @@ export function AgentView({
     timeline,
     sessionId,
   );
+  const messagesLoading =
+    openCodePane &&
+    Boolean(sessionId) &&
+    ocState?.loadingMessagesSessionId === sessionId &&
+    transcript.turns.length === 0;
 
   const pendingProtocol = timeline.pendingApprovals;
   const pendingPermissions = useMemo(() => {
@@ -377,13 +382,28 @@ export function AgentView({
       <div
         className={`flex flex-1 flex-col min-h-0 overflow-hidden w-full mx-auto ${showTui ? '' : 'max-w-[52rem]'}`}
       >
-        {(loading || error || actionError || ocLastRequestError) && (
+        {(loading || messagesLoading || error || actionError || ocLastRequestError) && (
           <div className="shrink-0">
-            {loading && <p className="text-meta text-text-3 px-3 py-2">Loading session…</p>}
-            {(error || actionError || ocLastRequestError) && (
-              <p className="text-meta text-status-error px-3 py-2 border-b border-status-error/30">
-                {actionError ?? ocLastRequestError ?? error}
+            {(loading || messagesLoading) && (
+              <p className="text-meta text-text-3 px-3 py-2">
+                {messagesLoading ? 'Loading messages…' : 'Loading session…'}
               </p>
+            )}
+            {(error || actionError || ocLastRequestError) && (
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-status-error/30">
+                <p className="text-meta text-status-error flex-1 min-w-0">
+                  {actionError ?? ocLastRequestError ?? error}
+                </p>
+                {openCodePane && sessionId && ocLastRequestError && store && (
+                  <button
+                    type="button"
+                    className="shrink-0 text-meta px-2 py-0.5 rounded border border-border-subtle hover:bg-hover"
+                    onClick={() => void store.ensureSessionMessages(sessionId, { force: true })}
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}

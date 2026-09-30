@@ -7,17 +7,20 @@ import {
   type AgentTimelineViewModel,
 } from '../lib/agent-timeline-reducer';
 import {
-  isSessionCommandMissing,
   sessionCapabilities,
   sessionHistory,
   subscribeAgentEvents,
 } from '../lib/agent-session';
 import { useDemoFixtures } from '../lib/demo/DemoContext';
-import { opencodeCapabilities, opencodeViewToEnvelopes } from '../lib/opencode-agent-adapter';
+import { opencodeViewToEnvelopes } from '../lib/opencode-agent-adapter';
 import { useOpenCodeChat } from './useOpenCodeChat';
 import { isTauriRuntime } from '../lib/is-tauri';
+import {
+  resolveAgentSessionOnCapabilitiesError,
+  type AgentSessionSource,
+} from '../lib/agent-session-capabilities';
 
-export type AgentSessionSource = 'protocol' | 'opencode_fallback' | 'native_tui';
+export type { AgentSessionSource };
 
 export function useAgentSession(
   paneId: string | null,
@@ -75,17 +78,10 @@ export function useAgentSession(
       applyVm(vm);
       setError(null);
     } catch (err) {
-      if (isSessionCommandMissing(err) && agentType === 'opencode_native') {
-        setCapabilities(opencodeCapabilities());
-        setSource('opencode_fallback');
-        setError(null);
-      } else if (isSessionCommandMissing(err)) {
-        setCapabilities(capabilitiesNativeTuiOnly());
-        setSource('native_tui');
-        setError(null);
-      } else {
-        setError(String(err));
-      }
+      const resolved = resolveAgentSessionOnCapabilitiesError(err, agentType);
+      setCapabilities(resolved.capabilities);
+      setSource(resolved.source);
+      setError(resolved.error);
     } finally {
       setLoading(false);
     }
@@ -94,8 +90,13 @@ export function useAgentSession(
   useEffect(() => {
     if (!paneId || !active) {
       applyVm(reduceAgentTimeline([], []));
+      setSource('native_tui');
+      setError(null);
       return;
     }
+    setSource('native_tui');
+    setError(null);
+    applyVm(reduceAgentTimeline([], []));
     void refreshCapabilities();
   }, [active, applyVm, paneId, refreshCapabilities]);
 
