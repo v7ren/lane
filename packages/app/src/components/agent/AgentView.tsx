@@ -37,8 +37,8 @@ import { formatPaneSubtitle } from '../../lib/session-subtitle';
 import { DisplayStatusDot } from '../DisplayStatusDot';
 import { AgentComposerPanel } from '../composer/AgentComposerPanel';
 import {
+  buildPermissionDockItems,
   PermissionDock,
-  pendingPermissionToDockItem,
   type PermissionDockItem,
 } from '../opencode/PermissionDock';
 import { QuestionDock, type QuestionDockItem } from '../opencode/QuestionDock';
@@ -121,19 +121,16 @@ export function AgentView({
     return [];
   }, [ocState]);
 
-  const permissionDockItems = useMemo((): PermissionDockItem[] => {
-    const fromStore = pendingPermissions
-      .filter((entry) => !sessionId || pendingPermissionSessionId(entry) === sessionId)
-      .map((entry) => pendingPermissionToDockItem(entry));
-    if (fromStore.length > 0) return fromStore;
-    return pendingProtocol.map((a, index) => ({
-      id: a.id,
-      permissionName: a.title,
-      patterns: a.detail ? [a.detail] : [],
-      always: [],
-      receivedAt: index,
-    }));
-  }, [pendingPermissions, pendingProtocol, sessionId]);
+  const permissionDockItems = useMemo(
+    (): PermissionDockItem[] =>
+      buildPermissionDockItems({
+        isOpenCodePane: openCodePane,
+        sessionId,
+        pendingPermissions,
+        pendingProtocolApprovals: pendingProtocol,
+      }),
+    [openCodePane, pendingPermissions, pendingProtocol, sessionId],
+  );
 
   const questionDockItems = useMemo((): QuestionDockItem[] => {
     if (!ocState || !sessionId) return [];

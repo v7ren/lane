@@ -1,5 +1,10 @@
 import { useMemo, useState } from 'react';
-import type { OpenCodePermissionReply, PendingPermission } from '../../lib/opencode/pending-requests';
+import type { TimelineApproval } from '../../lib/agent-timeline-reducer';
+import {
+  pendingPermissionSessionId,
+  type OpenCodePermissionReply,
+  type PendingPermission,
+} from '../../lib/opencode/pending-requests';
 
 const METADATA_PREVIEW_LINES = 8;
 
@@ -29,6 +34,35 @@ function formatMetadataBlock(metadata: unknown): string | undefined {
   } catch {
     return String(metadata);
   }
+}
+
+export function buildPermissionDockItems(args: {
+  isOpenCodePane: boolean;
+  sessionId: string | null;
+  pendingPermissions: PendingPermission[];
+  pendingProtocolApprovals: TimelineApproval[];
+}): PermissionDockItem[] {
+  const { isOpenCodePane, sessionId, pendingPermissions, pendingProtocolApprovals } = args;
+
+  const fromStore = pendingPermissions
+    .filter((entry) => !sessionId || pendingPermissionSessionId(entry) === sessionId)
+    .map((entry) => pendingPermissionToDockItem(entry));
+
+  if (isOpenCodePane) {
+    return fromStore;
+  }
+
+  if (fromStore.length > 0) {
+    return fromStore;
+  }
+
+  return pendingProtocolApprovals.map((a, index) => ({
+    id: a.id,
+    permissionName: a.title,
+    patterns: a.detail ? [a.detail] : [],
+    always: [],
+    receivedAt: index,
+  }));
 }
 
 export function pendingPermissionToDockItem(entry: PendingPermission): PermissionDockItem {

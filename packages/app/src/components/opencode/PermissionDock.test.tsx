@@ -2,7 +2,13 @@ import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import permissionAskedFixture from '../../lib/opencode/__fixtures__/permission-asked.json';
-import { PermissionDock, type PermissionDockItem } from './PermissionDock';
+import { buildPermissionDockItems, PermissionDock, type PermissionDockItem } from './PermissionDock';
+import type { ApprovalDecision } from '../../lib/agent-events';
+import {
+  parsePermissionFromProperties,
+  pendingPermissionSessionId,
+  type PendingPermission,
+} from '../../lib/opencode/pending-requests';
 
 let container: HTMLDivElement;
 
@@ -53,6 +59,69 @@ function clickTestId(id: string) {
   const btn = container.querySelector(`[data-testid="${id}"]`) as HTMLButtonElement;
   act(() => btn.click());
 }
+
+function pendingFromFixture(): PendingPermission {
+  const parsed = parsePermissionFromProperties(
+    permissionAskedFixture.properties as Record<string, unknown>,
+  );
+  if (!parsed) throw new Error('permission-asked fixture did not parse');
+  return { ...parsed, receivedAt: 1 };
+}
+
+const protocolOptions: ApprovalDecision[] = ['allow_once', 'allow_always', 'deny'];
+
+describe('buildPermissionDockItems', () => {
+  it('maps OpenCode store pending permission to dock item', () => {
+    const pending = pendingFromFixture();
+    const items = buildPermissionDockItems({
+      isOpenCodePane: true,
+      sessionId: pendingPermissionSessionId(pending) ?? null,
+      pendingPermissions: [pending],
+      pendingProtocolApprovals: [],
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0].permissionName).toBe('bash');
+    expect(items[0].patterns).toEqual(['echo hello']);
+  });
+
+  it('returns no items for OpenCode when store empty but protocol has leftover approval', () => {
+    const items = buildPermissionDockItems({
+      isOpenCodePane: true,
+      sessionId: 'sess_demo_001',
+      pendingPermissions: [],
+      pendingProtocolApprovals: [
+        {
+          id: 'per_0f096faad0016VkxpDfFib9njK',
+          title: 'Permission required',
+          detail: 'per_0f096faad0016VkxpDfFib9njK',
+          kind: 'other',
+          options: protocolOptions,
+        },
+      ],
+    });
+    expect(items).toHaveLength(0);
+  });
+
+  it('maps protocol pending approvals when not OpenCode pane', () => {
+    const items = buildPermissionDockItems({
+      isOpenCodePane: false,
+      sessionId: null,
+      pendingPermissions: [],
+      pendingProtocolApprovals: [
+        {
+          id: 'approval-1',
+          title: 'Run command',
+          detail: 'npm test',
+          kind: 'command',
+          options: protocolOptions,
+        },
+      ],
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0].permissionName).toBe('Run command');
+    expect(items[0].patterns).toEqual(['npm test']);
+  });
+});
 
 describe('PermissionDock', () => {
   it('renders permission-asked fixture with tool name and pattern', () => {
