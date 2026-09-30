@@ -36,6 +36,7 @@ import { setSessionMuted } from '../../lib/session-notify-prefs';
 import { formatPaneSubtitle } from '../../lib/session-subtitle';
 import { DisplayStatusDot } from '../DisplayStatusDot';
 import { AgentComposerPanel } from '../composer/AgentComposerPanel';
+import { capabilitiesForAgentType } from '../../lib/agent-capabilities';
 import {
   buildPermissionDockItems,
   PermissionDock,
@@ -447,6 +448,7 @@ export function AgentView({
               sessionId={sessionId}
               openCode={Boolean(openCodePane)}
               capabilities={capabilities}
+              agentCapabilities={capabilitiesForAgentType(resolvedAgentType)}
               disabled={composerDisabled}
               disabledReason={composerReason}
               busy={busy}
