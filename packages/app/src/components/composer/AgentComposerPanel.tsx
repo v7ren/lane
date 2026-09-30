@@ -35,7 +35,7 @@ import {
   buildComposerModelChoices,
   filterComposerModelChoices,
   pickDefaultComposerModel,
-  resolveConfiguredDefaultModel,
+  resolveConfigModelPillLabel,
   type ComposerModelChoice,
 } from '../../lib/opencode/provider-catalog';
 import {
@@ -110,6 +110,7 @@ export function AgentComposerPanel({
   const [focused, setFocused] = useState(false);
   const [allowlistBlocked, setAllowlistBlocked] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [configPillLabel, setConfigPillLabel] = useState<string | null>(null);
   const sendInFlightRef = useRef(false);
 
   useEffect(() => {
@@ -194,11 +195,11 @@ export function AgentComposerPanel({
       });
     setModelsLoading(true);
     setModelsError(null);
-    void fetchProviderCatalog(paneId)
-      .then((raw) => {
+    void Promise.all([fetchProviderCatalog(paneId), opencodeClient.getConfig(paneId)])
+      .then(([raw, config]) => {
+        setConfigPillLabel(resolveConfigModelPillLabel(config));
         const userPicked =
           sessionId != null ? getUserPickedSessionModel(paneId, sessionId) : null;
-        const configuredDefault = resolveConfiguredDefaultModel(raw);
         const hint =
           userPicked ??
           (sessionModel?.model
@@ -206,11 +207,15 @@ export function AgentComposerPanel({
                 providerID: sessionModel.provider ?? 'opencode-go',
                 modelID: sessionModel.model,
               }
-            : configuredDefault);
+            : null);
         const choices = buildComposerModelChoices(raw, { current: hint });
         setModels(choices);
-        const picked = pickDefaultComposerModel(raw, choices, hint);
-        if (picked) setModel(picked);
+        if (hint) {
+          const picked = pickDefaultComposerModel(raw, choices, hint);
+          if (picked) setModel(picked);
+        } else {
+          setModel(null);
+        }
       })
       .catch((err) => {
         const message = err instanceof Error ? err.message : String(err);
@@ -355,9 +360,18 @@ export function AgentComposerPanel({
     [modelSearch, models],
   );
 
-  const modelPillPrimary = model?.modelID ?? sessionModel?.model;
-  const modelPillProvider = model?.providerID ?? sessionModel?.provider;
-  const modelPillLabel = model?.modelName ?? modelPillPrimary ?? 'Select model';
+  const userPickedModel =
+    sessionId != null ? getUserPickedSessionModel(paneId, sessionId) : null;
+  const hasExplicitModel = Boolean(userPickedModel || sessionModel?.model || model);
+  const modelPillPrimary = userPickedModel?.modelID ?? model?.modelID ?? sessionModel?.model;
+  const modelPillProvider = hasExplicitModel
+    ? userPickedModel?.providerID ?? model?.providerID ?? sessionModel?.provider
+    : undefined;
+  const modelPillLabel = modelsError
+    ? 'Model error'
+    : hasExplicitModel
+      ? (model?.modelName ?? modelPillPrimary ?? 'Select model')
+      : (configPillLabel ?? 'Default');
 
   const modelPickerEmptyMessage = modelsLoading
     ? 'Loading models…'
@@ -457,7 +471,7 @@ export function AgentComposerPanel({
                 ref={modelPickerRef}
                 label={modelsError ? 'Model error' : modelPillLabel}
                 sublabel={
-                  toolbarCompact || modelsError
+                  toolbarCompact || modelsError || !hasExplicitModel
                     ? undefined
                     : modelPillPrimary
                       ? modelPillProvider

@@ -239,4 +239,34 @@ describe('fromOpenCode adapter', () => {
     }
     expect(vm.rateLimit?.message).toContain('Rate limit');
   });
+
+  it('dedupes assistant preview text after delta + updated', () => {
+    let state = createEmptyOpenCodeStore('pane-test');
+    const sessionId = 'sess_preview';
+    const messageId = 'msg_a';
+    const partId = 'part_t';
+    state = applyOpenCodeWireEvent(state, {
+      id: 'm1',
+      type: 'message.updated',
+      properties: { info: { id: messageId, sessionID: sessionId, role: 'assistant' } },
+    } as OpenCodeWireEvent);
+    state = applyOpenCodeWireEvent(state, {
+      id: 'd1',
+      type: 'message.part.delta',
+      properties: { messageID: messageId, partID: partId, field: 'text', delta: 'ok' },
+    } as OpenCodeWireEvent);
+    state = applyOpenCodeWireEvent(state, {
+      id: 'u1',
+      type: 'message.part.updated',
+      properties: {
+        messageID: messageId,
+        part: { id: partId, messageID: messageId, type: 'text', text: 'ok' },
+      },
+    } as OpenCodeWireEvent);
+
+    const vm = fromOpenCode(state, sessionId);
+    const assistant = vm.turns.find((t) => t.role === 'assistant');
+    const textItem = assistant?.items.find((i) => i.kind === 'assistant_text');
+    expect(textItem?.kind === 'assistant_text' ? textItem.markdown : '').toBe('ok');
+  });
 });

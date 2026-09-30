@@ -13,7 +13,11 @@ import {
   selectSessionSummary,
   selectSessionStatus,
 } from './selectors.js';
-import { applyOpenCodeWireEvent, createEmptyOpenCodeStore } from './store.js';
+import {
+  applyOpenCodeWireEvent,
+  createEmptyOpenCodeStore,
+} from './store.js';
+import { markOptimisticBusy, applySessionStatusSnapshot } from './session-status.js';
 
 const fixtureDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '__fixtures__');
 
@@ -93,6 +97,161 @@ describe('OpenCode store replay', () => {
     }
     expect(twice.seenEventIds.size).toBe(events.length);
     expect(twice.parts.part_text).toEqual(once.parts.part_text);
+  });
+});
+
+describe('OpenCode part text streaming', () => {
+  const base = createEmptyOpenCodeStore('pane-test');
+  const sessionId = 'sess_ok';
+  const messageId = 'msg_ok';
+  const partId = 'part_ok';
+
+  function wire(id: string, type: string, properties: Record<string, unknown>) {
+    return { id, type, properties } as OpenCodeWireEvent;
+  }
+
+  it('delta then authoritative updated yields single text', () => {
+    let state = applyOpenCodeWireEvent(
+      base,
+      wire('m1', 'message.updated', {
+        info: { id: messageId, sessionID: sessionId, role: 'assistant' },
+      }),
+    );
+    state = applyOpenCodeWireEvent(
+      state,
+      wire('d1', 'message.part.delta', {
+        messageID: messageId,
+        partID: partId,
+        field: 'text',
+        delta: 'ok',
+      }),
+    );
+    state = applyOpenCodeWireEvent(
+      state,
+      wire('u1', 'message.part.updated', {
+        messageID: messageId,
+        part: { id: partId, messageID: messageId, type: 'text', text: 'ok' },
+      }),
+    );
+    expect(assembleMessageText(state, messageId)).toBe('ok');
+  });
+
+  it('updated empty, delta, then updated full yields single text', () => {
+    let state = applyOpenCodeWireEvent(
+      base,
+      wire('m1', 'message.updated', {
+        info: { id: messageId, sessionID: sessionId, role: 'assistant' },
+      }),
+    );
+    state = applyOpenCodeWireEvent(
+      state,
+      wire('u0', 'message.part.updated', {
+        messageID: messageId,
+        part: { id: partId, messageID: messageId, type: 'text', text: '' },
+      }),
+    );
+    state = applyOpenCodeWireEvent(
+      state,
+      wire('d1', 'message.part.delta', {
+        messageID: messageId,
+        partID: partId,
+        field: 'text',
+        delta: 'ok',
+      }),
+    );
+    state = applyOpenCodeWireEvent(
+      state,
+      wire('u1', 'message.part.updated', {
+        messageID: messageId,
+        part: { id: partId, messageID: messageId, type: 'text', text: 'ok' },
+      }),
+    );
+    expect(assembleMessageText(state, messageId)).toBe('ok');
+  });
+
+  it('applies reasoning deltas then authoritative updated', () => {
+    const reasoningId = 'part_r';
+    let state = applyOpenCodeWireEvent(
+      base,
+      wire('m1', 'message.updated', {
+        info: { id: messageId, sessionID: sessionId, role: 'assistant' },
+      }),
+    );
+    state = applyOpenCodeWireEvent(
+      state,
+      wire('d1', 'message.part.delta', {
+        messageID: messageId,
+        partID: reasoningId,
+        field: 'text',
+        delta: 'think',
+      }),
+    );
+    state = applyOpenCodeWireEvent(
+      state,
+      wire('u1', 'message.part.updated', {
+        messageID: messageId,
+        part: { id: reasoningId, messageID: messageId, type: 'reasoning', text: 'think' },
+      }),
+    );
+    const part = state.parts[reasoningId];
+    expect(part?.type).toBe('reasoning');
+    if (part?.type === 'reasoning') {
+      expect(part.text).toBe('think');
+    }
+  });
+});
+
+describe('OpenCode session status', () => {
+  it('parses nested session.status.type busy', () => {
+    let state = createEmptyOpenCodeStore('pane-test');
+    state = applyOpenCodeWireEvent(state, {
+      id: 's1',
+      type: 'session.status',
+      properties: {
+        sessionID: 'sess_busy',
+        status: { type: 'busy' },
+      },
+    } as OpenCodeWireEvent);
+    expect(selectSessionStatus(state, 'sess_busy')).toBe('busy');
+  });
+
+  it('marks optimistic busy until idle wire event', () => {
+    let state = markOptimisticBusy(createEmptyOpenCodeStore('pane-test'), 'sess_send');
+    expect(selectSessionStatus(state, 'sess_send')).toBe('busy');
+    state = applyOpenCodeWireEvent(state, {
+      id: 'idle1',
+      type: 'session.idle',
+      properties: { sessionID: 'sess_send' },
+    } as OpenCodeWireEvent);
+    expect(selectSessionStatus(state, 'sess_send')).toBe('idle');
+    expect(state.optimisticBusy.sess_send).toBeUndefined();
+  });
+
+  it('seeds idle for sessions missing from status snapshot', () => {
+    let state = createEmptyOpenCodeStore('pane-test');
+    state = applyOpenCodeWireEvent(state, {
+      id: 'c1',
+      type: 'session.created',
+      properties: {
+        session: {
+          id: 'sess_a',
+          slug: 'a',
+          projectID: 'p',
+          directory: '/tmp',
+          title: 'A',
+          version: '1',
+          time: { created: 1, updated: 1 },
+        },
+      },
+    } as OpenCodeWireEvent);
+    state = applyOpenCodeWireEvent(state, {
+      id: 'b1',
+      type: 'session.status',
+      properties: { sessionID: 'sess_b', status: { type: 'busy' } },
+    } as OpenCodeWireEvent);
+    state = applySessionStatusSnapshot(state, { sess_b: { type: 'busy' } });
+    expect(selectSessionStatus(state, 'sess_a')).toBe('idle');
+    expect(selectSessionStatus(state, 'sess_b')).toBe('busy');
   });
 });
 

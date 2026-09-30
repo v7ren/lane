@@ -159,17 +159,19 @@ export function resolveConfiguredDefaultModel(
   raw: unknown,
 ): { providerID: string; modelID: string } | null {
   if (!raw || typeof raw !== 'object') return null;
-  const defaults = (raw as { default?: Record<string, string> }).default;
-  if (!defaults || typeof defaults !== 'object') return null;
-  const providerIds = [
-    'opencode-go',
-    ...Object.keys(defaults).filter((id) => id !== 'opencode-go'),
-  ];
-  for (const providerID of providerIds) {
-    const modelID = defaults[providerID];
-    if (typeof modelID === 'string' && modelID.length > 0) {
+  const configModel = (raw as { model?: unknown }).model;
+  if (typeof configModel === 'string' && configModel.includes('/')) {
+    const slash = configModel.indexOf('/');
+    const providerID = configModel.slice(0, slash).trim();
+    const modelID = configModel.slice(slash + 1).trim();
+    if (providerID.length > 0 && modelID.length > 0) {
       return { providerID, modelID };
     }
   }
   return null;
+}
+
+/** Label for composer pill when OpenCode `/config` specifies `model: provider/id`. */
+export function resolveConfigModelPillLabel(raw: unknown): string | null {
+  return resolveConfiguredDefaultModel(raw)?.modelID ?? null;
 }

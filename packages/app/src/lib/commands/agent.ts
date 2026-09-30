@@ -1,5 +1,6 @@
 import type { Capabilities } from '../agent-events';
 import { opencodeClient } from '../opencode/client.js';
+import { getOpenCodeStore } from '../opencode/store.js';
 import { findProjectFiles } from '../transcript/opencode-actions.js';
 import type { CommandRegistry } from './index';
 
@@ -17,6 +18,7 @@ export async function sendOpenCodePrompt(args: {
   agent?: string;
   model?: { providerID: string; modelID: string };
 }) {
+  getOpenCodeStore(args.paneId).markSessionOptimisticBusy(args.sessionId);
   await opencodeClient.promptAsync(args.paneId, args.sessionId, {
     messageID: args.messageId,
     parts: args.parts,

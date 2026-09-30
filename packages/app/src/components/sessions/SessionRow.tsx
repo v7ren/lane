@@ -33,7 +33,7 @@ export function SessionRow({
 
   const depthPad = (session.depth ?? 0) * 10;
   const metaLine = [
-    DISPLAY_STATUS_LABEL[session.status],
+    session.statusLabel ?? DISPLAY_STATUS_LABEL[session.status],
     formatRelativeTime(session.updatedAt),
     session.lastMessagePreview,
   ]

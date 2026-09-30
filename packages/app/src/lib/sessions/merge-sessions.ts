@@ -7,7 +7,8 @@ import {
   type DisplayStatus,
 } from '../display-status';
 import type { OpenCodeStoreState, SessionStatus } from '../opencode/store.js';
-import { assembleMessageText, selectPermissions } from '../opencode/selectors.js';
+import { assembleMessageText, selectPermissions, selectSessionStatus } from '../opencode/selectors.js';
+import { formatOpenCodeSessionStatusLabel } from '../opencode/session-status.js';
 import type { ShellSession } from '../shell-data';
 import { isUserShellPane } from '../pane-surface';
 import { buildPaneDisplayNames } from '../pane-display-name';
@@ -33,6 +34,19 @@ export function mapOpenCodeDisplayStatus(
     default:
       return 'idle';
   }
+}
+
+export function openCodeSessionDisplayStatus(
+  state: OpenCodeStoreState,
+  sessionId: string,
+): { status: DisplayStatus; label: string } {
+  const pending = sessionHasPendingPermission(state, sessionId);
+  const ocStatus = selectSessionStatus(state, sessionId);
+  const issue = state.sessionIssues[sessionId];
+  return {
+    status: mapOpenCodeDisplayStatus(ocStatus, pending),
+    label: formatOpenCodeSessionStatusLabel(ocStatus, issue),
+  };
 }
 
 function lastMessagePreview(state: OpenCodeStoreState, sessionId: string): string | undefined {
@@ -73,10 +87,10 @@ export function buildOpenCodeShellSessions(args: {
     const session = state.sessions[sessionId];
     if (!session) continue;
     const pending = sessionHasPendingPermission(state, sessionId);
-    const status = mapOpenCodeDisplayStatus(
-      state.sessionStatus[sessionId] ?? 'unknown',
-      pending,
-    );
+    const ocStatus = selectSessionStatus(state, sessionId);
+    const issue = state.sessionIssues[sessionId];
+    const status = mapOpenCodeDisplayStatus(ocStatus, pending);
+    const statusLabel = formatOpenCodeSessionStatusLabel(ocStatus, issue);
     const updatedAt = session.time?.updated ?? session.time?.created ?? 0;
     const selected = selectedPaneId === paneId && selectedSessionId === sessionId;
     const lastRead = readAtMs[`${paneId}:${sessionId}`] ?? 0;
@@ -94,6 +108,7 @@ export function buildOpenCodeShellSessions(args: {
       title: displayOpenCodeSessionTitle(state, sessionId, session.title),
       agentLabel: session.agent ?? agentLabel,
       status,
+      statusLabel,
       updatedAt,
       unread,
       lastMessagePreview: lastMessagePreview(state, sessionId),

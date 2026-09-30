@@ -11,6 +11,13 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 import { getServerInfo, opencodeClient } from './client.js';
 import { sortMessageIds, sortPartIdsForMessage } from './ordering.js';
+import {
+  applyParsedSessionStatus,
+  applySessionStatusSnapshot,
+  clearOptimisticBusy,
+  markOptimisticBusy,
+  parseWireSessionStatus,
+} from './session-status.js';
 
 export type SessionStatus = 'idle' | 'busy' | 'retry' | 'unknown';
 export type ConnectionStatus = 'connected' | 'disconnected' | 'unknown';
@@ -45,6 +52,8 @@ export type OpenCodeStoreState = {
   partOrderSeq: number;
   parts: Record<string, Part>;
   sessionStatus: Record<string, SessionStatus>;
+  /** Prompt sent locally; cleared when server reports idle. */
+  optimisticBusy: Record<string, true>;
   sessionIssues: Record<string, SessionIssue>;
   permissions: Record<string, PermissionAsked>;
   questions: Record<string, QuestionRequest>;
@@ -71,6 +80,7 @@ export function createEmptyOpenCodeStore(paneId: string): OpenCodeStoreState {
     partOrderSeq: 0,
     parts: {},
     sessionStatus: {},
+    optimisticBusy: {},
     sessionIssues: {},
     permissions: {},
     questions: {},
@@ -114,13 +124,29 @@ function assignPartOrder(
   return { partOrder, partOrderSeq };
 }
 
+function replacePartFromUpdate(existing: Part, incoming: Part): Part {
+  const merged = { ...existing, ...incoming } as Part;
+  const incomingRecord = incoming as Record<string, unknown>;
+  if (incoming.type === 'text' || incoming.type === 'reasoning') {
+    if ('text' in incomingRecord) {
+      return {
+        ...merged,
+        text: typeof incomingRecord.text === 'string' ? incomingRecord.text : '',
+      } as Part;
+    }
+  }
+  return merged;
+}
+
 function upsertPart(
   state: OpenCodeStoreState,
   messageId: string,
   part: Part,
   orderHint?: number,
 ): OpenCodeStoreState {
-  const parts = { ...state.parts, [part.id]: part };
+  const existing = state.parts[part.id];
+  const nextPart = existing ? replacePartFromUpdate(existing, part) : part;
+  const parts = { ...state.parts, [part.id]: nextPart };
   const { partOrder, partOrderSeq } = assignPartOrder(state, part.id, orderHint);
   const list = state.partsByMessage[messageId] ?? [];
   const merged = list.includes(part.id) ? list : [...list, part.id];
@@ -261,27 +287,16 @@ export function applyOpenCodeWireEvent(
     }
     case 'session.status': {
       const sessionID = props.sessionID as string | undefined;
-      const status = props.status as string | undefined;
-      if (sessionID && status) {
-        const mapped: SessionStatus =
-          status === 'busy' ? 'busy' : status === 'retry' ? 'retry' : status === 'idle' ? 'idle' : 'unknown';
-        next = { ...next, sessionStatus: { ...next.sessionStatus, [sessionID]: mapped } };
-        if (status === 'retry') {
-          const issue = parseSessionIssuePayload(props, 'retry');
-          if (issue) {
-            next = upsertSessionIssue(next, sessionID, issue);
-          }
-        } else if (status === 'idle') {
-          next = clearSessionIssue(next, sessionID);
-        }
+      const parsed = sessionID ? parseWireSessionStatus(props.status) : null;
+      if (sessionID && parsed) {
+        next = applyParsedSessionStatus(next, sessionID, parsed, props);
       }
       break;
     }
     case 'session.idle': {
       const sessionID = props.sessionID as string | undefined;
       if (sessionID) {
-        next = { ...next, sessionStatus: { ...next.sessionStatus, [sessionID]: 'idle' } };
-        next = clearSessionIssue(next, sessionID);
+        next = applyParsedSessionStatus(next, sessionID, { type: 'idle' }, props);
       }
       break;
     }
@@ -317,8 +332,12 @@ export function applyOpenCodeWireEvent(
       break;
     }
     case 'message.part.updated': {
-      const part = props.part as Part | undefined;
+      let part = props.part as Part | undefined;
       const messageID = (props.messageID as string | undefined) ?? part?.messageID;
+      const wirePartId = props.partID as string | undefined;
+      if (part && wirePartId && part.id !== wirePartId) {
+        part = { ...part, id: wirePartId };
+      }
       if (part && messageID) {
         if (!next.messages[messageID]) {
           const sessionID =
@@ -446,6 +465,8 @@ export type OpenCodeStore = {
   getState: () => OpenCodeStoreState;
   subscribe: (listener: () => void) => () => void;
   loadInitial: () => Promise<void>;
+  refreshSessionStatus: () => Promise<void>;
+  markSessionOptimisticBusy: (sessionId: string) => void;
   ensureSessionMessages: (sessionId: string) => Promise<void>;
   dispose: () => void;
 };
@@ -482,6 +503,12 @@ export function createOpenCodeStore(paneId: string): OpenCodeStore {
         attachedSession = null;
       }
     }
+    let statusSnapshot: Record<string, unknown> = {};
+    try {
+      statusSnapshot = await opencodeClient.getSessionStatus(paneId);
+    } catch {
+      statusSnapshot = {};
+    }
     setState((prev) => {
       let next: OpenCodeStoreState = {
         ...prev,
@@ -502,6 +529,7 @@ export function createOpenCodeStore(paneId: string): OpenCodeStore {
           ],
         };
       }
+      next = applySessionStatusSnapshot(next, statusSnapshot);
       return next;
     });
     if (!unlisten) {
@@ -518,6 +546,19 @@ export function createOpenCodeStore(paneId: string): OpenCodeStore {
       return () => listeners.delete(listener);
     },
     loadInitial: bootstrap,
+    refreshSessionStatus: async () => {
+      await bootstrap();
+      try {
+        const snapshot = await opencodeClient.getSessionStatus(paneId);
+        setState((prev) => applySessionStatusSnapshot(prev, snapshot));
+      } catch {
+        /* ignore */
+      }
+    },
+    markSessionOptimisticBusy: (sessionId) => {
+      if (!sessionId) return;
+      setState((prev) => markOptimisticBusy(prev, sessionId));
+    },
     ensureSessionMessages: async (sessionId) => {
       if (!sessionId || loadedMessageSessions.has(sessionId)) return;
       await bootstrap();

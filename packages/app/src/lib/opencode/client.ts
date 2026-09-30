@@ -123,6 +123,8 @@ export const opencodeClient = {
     request<Record<string, unknown>>({ pane_id: paneId, method: 'GET', path: '/vcs/status' }),
   getSessionTodos: (paneId: string, sessionId: string) =>
     request<Todo[]>({ pane_id: paneId, method: 'GET', path: `/session/${sessionId}/todo` }),
+  getSessionStatus: (paneId: string) =>
+    request<Record<string, unknown>>({ pane_id: paneId, method: 'GET', path: '/session/status' }),
   getSessionParts: (paneId: string, sessionId: string, messageId: string) =>
     request<Part[]>({
       pane_id: paneId,

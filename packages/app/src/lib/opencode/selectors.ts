@@ -60,7 +60,10 @@ export function finalTextPartForMessage(
 }
 
 export function selectSessionStatus(state: OpenCodeStoreState, sessionId: string): SessionStatus {
-  return state.sessionStatus[sessionId] ?? 'unknown';
+  const wire = state.sessionStatus[sessionId];
+  if (wire === 'busy' || wire === 'retry' || wire === 'idle') return wire;
+  if (state.optimisticBusy[sessionId]) return 'busy';
+  return wire ?? 'unknown';
 }
 
 export function selectPermissions(state: OpenCodeStoreState) {

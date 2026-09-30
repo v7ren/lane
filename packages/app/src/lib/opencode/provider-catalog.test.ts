@@ -3,6 +3,7 @@ import {
   buildComposerModelChoices,
   pickDefaultComposerModel,
   resolveConfiguredDefaultModel,
+  resolveConfigModelPillLabel,
 } from './provider-catalog';
 
 describe('provider-catalog defaults', () => {
@@ -19,11 +20,16 @@ describe('provider-catalog defaults', () => {
     ],
   };
 
-  it('resolveConfiguredDefaultModel uses provider default map', () => {
-    expect(resolveConfiguredDefaultModel(raw)).toEqual({
+  it('resolveConfiguredDefaultModel uses GET /config model field', () => {
+    expect(resolveConfiguredDefaultModel({ model: 'opencode-go/mimo-v2.5' })).toEqual({
       providerID: 'opencode-go',
       modelID: 'mimo-v2.5',
     });
+    expect(resolveConfigModelPillLabel({ model: 'opencode-go/mimo-v2.5' })).toBe('mimo-v2.5');
+  });
+
+  it('resolveConfiguredDefaultModel ignores /provider default map', () => {
+    expect(resolveConfiguredDefaultModel(raw)).toBeNull();
   });
 
   it('pickDefaultComposerModel does not fall back to first connected model', () => {
@@ -32,11 +38,14 @@ describe('provider-catalog defaults', () => {
     expect(pickDefaultComposerModel(emptyDefaults, choices, null)).toBeNull();
   });
 
-  it('pickDefaultComposerModel honors configured default when no hint', () => {
+  it('pickDefaultComposerModel honors explicit hint only', () => {
     const choices = buildComposerModelChoices(raw, {
-      current: resolveConfiguredDefaultModel(raw),
+      current: { providerID: 'opencode-go', modelID: 'mimo-v2.5' },
     });
-    const picked = pickDefaultComposerModel(raw, choices, null);
+    const picked = pickDefaultComposerModel(raw, choices, {
+      providerID: 'opencode-go',
+      modelID: 'mimo-v2.5',
+    });
     expect(picked?.providerID).toBe('opencode-go');
     expect(picked?.modelID).toBe('mimo-v2.5');
   });

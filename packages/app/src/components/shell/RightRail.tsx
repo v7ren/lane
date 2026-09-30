@@ -50,7 +50,10 @@ export function RightRail() {
                 <Field label="Agent" value={summary.agent ?? session.agentLabel} />
                 <Field label="Model" value={summary.model ?? '—'} />
                 {summary.provider && <Field label="Provider" value={summary.provider} />}
-                <Field label="Status" value={DISPLAY_STATUS_LABEL[session.status]} />
+                <Field
+                  label="Status"
+                  value={session.statusLabel ?? DISPLAY_STATUS_LABEL[session.status]}
+                />
                 {summary.tokens && (
                   <Field
                     label="Tokens"

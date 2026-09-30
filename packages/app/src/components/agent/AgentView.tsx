@@ -6,6 +6,9 @@ import { useAgentSession } from '../../hooks/useAgentSession';
 import type { ApprovalDecision } from '../../lib/agent-events';
 import { mergePaneAndSessionStatus } from '../../lib/display-status';
 import {
+  openCodeSessionDisplayStatus,
+} from '../../lib/sessions/merge-sessions';
+import {
   sessionCancelTurn,
   sessionOpenInTui,
   sessionRespondApproval,
@@ -140,7 +143,19 @@ export function AgentView({
     });
   }, [pendingQuestions]);
 
-  const displayStatus = mergePaneAndSessionStatus(paneStatus, railState);
+  const displayStatus = useMemo(() => {
+    if (openCodePane && sessionId && ocState) {
+      return openCodeSessionDisplayStatus(ocState, sessionId).status;
+    }
+    return mergePaneAndSessionStatus(paneStatus, railState);
+  }, [ocState, openCodePane, paneStatus, railState, sessionId]);
+
+  const displayStatusLabel = useMemo(() => {
+    if (openCodePane && sessionId && ocState) {
+      return openCodeSessionDisplayStatus(ocState, sessionId).label;
+    }
+    return undefined;
+  }, [ocState, openCodePane, sessionId]);
   const agentLabel =
     paneTitle ??
     getPreset(agentCatalog, (sessionState?.agent_type as never) ?? 'powershell')?.label ??
@@ -294,7 +309,9 @@ export function AgentView({
         <div className="min-w-0 flex-1">
           <div className="text-body font-medium truncate">{agentLabel}</div>
           <div className="text-meta text-text-3 truncate">
-            {formatPaneSubtitle(paneId, agentLabel, paneCwd)}
+            {openCodePane && displayStatus !== 'idle' && displayStatusLabel
+              ? displayStatusLabel
+              : formatPaneSubtitle(paneId, agentLabel, paneCwd)}
           </div>
         </div>
         {headlessClaude && (

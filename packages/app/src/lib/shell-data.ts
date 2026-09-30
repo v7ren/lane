@@ -35,6 +35,8 @@ export type ShellSession = {
   title: string;
   agentLabel: string;
   status: DisplayStatus;
+  /** Human-readable OpenCode status (Busy / Retrying / Idle). */
+  statusLabel?: string;
   updatedAt: number;
   unread: boolean;
   lastMessagePreview?: string;
