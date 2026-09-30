@@ -5,6 +5,7 @@ import { loadSettings, updateSettings } from '../lib/settings';
 import { SettingsTabPanel, type SettingsTabContext } from './settings/settings-tab-panels';
 import { AgentsSection } from './settings/AgentsSection';
 import { ComingSoonPanel } from './settings/ComingSoonPanel';
+import { ProvidersSection } from './settings/ProvidersSection';
 import { SETTINGS_SECTIONS, type SettingsSectionId } from './settings/settings-sections';
 
 interface Props {
@@ -12,6 +13,9 @@ interface Props {
   onClose: () => void;
   projectPath?: string | null;
   onProjectPathChange?: (path: string) => Promise<void>;
+  /** Selected OpenCode pane/session; Providers, MCP and Config act on this pane's server. */
+  opencodePaneId?: string | null;
+  opencodeSessionId?: string | null;
 }
 
 export function SettingsPanel({
@@ -19,6 +23,8 @@ export function SettingsPanel({
   onClose,
   projectPath = null,
   onProjectPathChange,
+  opencodePaneId = null,
+  opencodeSessionId = null,
 }: Props) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [bridgeUrl, setBridgeUrl] = useState<string | null>(null);
@@ -91,6 +97,7 @@ export function SettingsPanel({
       case 'agents':
         return <AgentsSection />;
       case 'providers':
+        return <ProvidersSection paneId={opencodePaneId} sessionId={opencodeSessionId} />;
       case 'mcp':
       case 'config':
       case 'theme':
