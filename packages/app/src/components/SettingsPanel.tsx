@@ -5,6 +5,8 @@ import { loadSettings, updateSettings } from '../lib/settings';
 import { SettingsTabPanel, type SettingsTabContext } from './settings/settings-tab-panels';
 import { AgentsSection } from './settings/AgentsSection';
 import { ComingSoonPanel } from './settings/ComingSoonPanel';
+import { KeybindsSection } from './settings/KeybindsSection';
+import { ThemeSection } from './settings/ThemeSection';
 import { SETTINGS_SECTIONS, type SettingsSectionId } from './settings/settings-sections';
 
 interface Props {
@@ -59,7 +61,13 @@ export function SettingsPanel({
     onClose();
   };
 
-  const onListKeyDown = (e: KeyboardEvent<HTMLElement>) => {
+  /** Theme/Keybinds apply immediately: update panel state and persist right away. */
+  const persistPatch = (patch: Partial<Settings>) => {
+    setSettings((prev) => (prev ? { ...prev, ...patch } : prev));
+    void updateSettings(patch);
+  };
+
+  const onListKeyDown =(e: KeyboardEvent<HTMLElement>) => {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     e.preventDefault();
     const idx = SETTINGS_SECTIONS.findIndex((def) => def.id === section);
@@ -90,11 +98,23 @@ export function SettingsPanel({
         );
       case 'agents':
         return <AgentsSection />;
+      case 'theme':
+        return (
+          <ThemeSection
+            accent={settings.accent_color}
+            onChange={(accent) => persistPatch({ accent_color: accent })}
+          />
+        );
+      case 'keybinds':
+        return (
+          <KeybindsSection
+            keybinds={settings.keybinds}
+            onChange={(keybinds) => persistPatch({ keybinds })}
+          />
+        );
       case 'providers':
       case 'mcp':
       case 'config':
-      case 'theme':
-      case 'keybinds':
         return (
           <ComingSoonPanel title={SETTINGS_SECTIONS.find((def) => def.id === id)?.label ?? id} />
         );

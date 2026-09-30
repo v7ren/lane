@@ -6,6 +6,7 @@ import {
   isModifierCombo,
   shouldIgnoreGlobalShortcut,
 } from './keyboard-target';
+import { matchesAction } from '../lib/keybinds';
 
 export function useShellKeyboard({
   sessionStates,
@@ -47,17 +48,17 @@ export function useShellKeyboard({
       if (shouldIgnoreGlobalShortcut(e.target)) return;
       if (!isModifierCombo(e) && isEditableKeyboardTarget(e.target)) return;
       const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.key.toLowerCase() === 'k') {
+      if (matchesAction(e, 'palette')) {
         e.preventDefault();
         onOpenPalette();
         return;
       }
-      if (mod && e.key.toLowerCase() === 'p') {
+      if (matchesAction(e, 'files')) {
         e.preventDefault();
         onOpenFilePalette();
         return;
       }
-      if (mod && e.key.toLowerCase() === 'j') {
+      if (matchesAction(e, 'bottom')) {
         e.preventDefault();
         onToggleBottom();
         return;
@@ -67,7 +68,7 @@ export function useShellKeyboard({
         onToggleSidebar();
         return;
       }
-      if (mod && e.shiftKey && e.key.toLowerCase() === 'l') {
+      if (matchesAction(e, 'newAgent')) {
         e.preventDefault();
         onNewAgent();
       }
