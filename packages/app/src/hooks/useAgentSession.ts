@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentEventEnvelope, Capabilities } from '../lib/agent-events';
 import { capabilitiesNativeTuiOnly } from '../lib/agent-events';
 import {
@@ -7,6 +7,7 @@ import {
   type AgentTimelineViewModel,
 } from '../lib/agent-timeline-reducer';
 import {
+  mergeEnvelopeLog,
   sessionCapabilities,
   sessionHistory,
   subscribeAgentEvents,
@@ -21,6 +22,13 @@ import {
 } from '../lib/agent-session-capabilities';
 
 export type { AgentSessionSource };
+
+/** Timeline view model carrying the raw ordered envelopes it was built from (protocol panes only). */
+export type SessionTimeline = AgentTimelineViewModel & {
+  envelopes?: readonly AgentEventEnvelope[];
+};
+
+const NO_ENVELOPES: readonly AgentEventEnvelope[] = [];
 
 export function useAgentSession(
   paneId: string | null,
@@ -38,7 +46,14 @@ export function useAgentSession(
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [envelopes, setEnvelopes] = useState<readonly AgentEventEnvelope[]>(NO_ENVELOPES);
   const vmRef = useRef(timeline);
+  const envelopesRef = useRef<readonly AgentEventEnvelope[]>(NO_ENVELOPES);
+
+  const applyEnvelopes = useCallback((next: readonly AgentEventEnvelope[]) => {
+    envelopesRef.current = next;
+    setEnvelopes(next);
+  }, []);
 
   const opencode = useOpenCodeChat(
     source === 'opencode_fallback' ? paneId : null,
@@ -57,6 +72,7 @@ export function useAgentSession(
       setCapabilities(demoSession.capabilities);
       setSource(demoSession.source);
       applyVm(demoSession.timeline);
+      applyEnvelopes(NO_ENVELOPES);
       setError(null);
       setLoading(false);
       return;
@@ -76,6 +92,7 @@ export function useAgentSession(
       const history = await sessionHistory(paneId);
       const vm = reduceAgentTimeline(history, []);
       applyVm(vm);
+      applyEnvelopes(mergeEnvelopeLog(envelopesRef.current, history));
       setError(null);
     } catch (err) {
       const resolved = resolveAgentSessionOnCapabilitiesError(err, agentType);
@@ -85,11 +102,12 @@ export function useAgentSession(
     } finally {
       setLoading(false);
     }
-  }, [active, agentType, applyVm, demoSession, paneId]);
+  }, [active, agentType, applyEnvelopes, applyVm, demoSession, paneId]);
 
   useEffect(() => {
     if (!paneId || !active) {
       applyVm(reduceAgentTimeline([], []));
+      applyEnvelopes(NO_ENVELOPES);
       setSource('native_tui');
       setError(null);
       return;
@@ -97,8 +115,9 @@ export function useAgentSession(
     setSource('native_tui');
     setError(null);
     applyVm(reduceAgentTimeline([], []));
+    applyEnvelopes(NO_ENVELOPES);
     void refreshCapabilities();
-  }, [active, applyVm, paneId, refreshCapabilities]);
+  }, [active, applyEnvelopes, applyVm, paneId, refreshCapabilities]);
 
   useEffect(() => {
     if (demoSession || !paneId || !active || source !== 'protocol') return;
@@ -107,22 +126,29 @@ export function useAgentSession(
       if (envelope.pane_id !== paneId) return;
       const next = mergeAgentEventEnvelopes(vmRef.current, [envelope]);
       applyVm(next);
+      applyEnvelopes(mergeEnvelopeLog(envelopesRef.current, [envelope]));
     }).then((fn) => {
       unlisten = fn;
     });
     return () => unlisten?.();
-  }, [active, applyVm, demoSession, paneId, source]);
+  }, [active, applyEnvelopes, applyVm, demoSession, paneId, source]);
 
   useEffect(() => {
     if (source !== 'opencode_fallback' || !paneId || !active) return;
-    const envelopes = opencodeViewToEnvelopes(paneId, opencode.view, opencode.permissions);
-    applyVm(reduceAgentTimeline([], envelopes));
+    const fallbackEnvelopes = opencodeViewToEnvelopes(paneId, opencode.view, opencode.permissions);
+    applyVm(reduceAgentTimeline([], fallbackEnvelopes));
   }, [active, applyVm, opencode.permissions, opencode.view, paneId, source]);
+
+  const timelineWithEnvelopes = useMemo<SessionTimeline>(
+    () => (source === 'protocol' && envelopes.length > 0 ? { ...timeline, envelopes } : timeline),
+    [envelopes, source, timeline],
+  );
 
   return {
     capabilities,
     source,
-    timeline,
+    timeline: timelineWithEnvelopes,
+    envelopes,
     loading,
     error: error ?? opencode.error,
     refreshing: opencode.refreshing,
