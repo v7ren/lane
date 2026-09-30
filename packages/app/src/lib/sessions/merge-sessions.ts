@@ -124,7 +124,7 @@ export function buildPaneShellSessions(args: {
     if (isOpenCodePane(pane)) continue;
     const session = sessionStates.get(pane.info.id);
     const status = mergePaneAndSessionStatus(
-      effectivePaneStatus(pane.status, pane.info.surface),
+      effectivePaneStatus(pane.status, pane.info.surface, session?.protocol_backed),
       session?.state,
     );
     const title =

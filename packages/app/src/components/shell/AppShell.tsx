@@ -673,7 +673,13 @@ function AppShellChrome(props: {
                           paneId={selectedPaneId}
                           agentType={selectedPane?.info.agent_type}
                           agentCatalog={agentCatalog}
-                          paneStatus={effectivePaneStatus(selectedPane?.status, selectedPane?.info.surface) ?? undefined}
+                          paneStatus={
+                            effectivePaneStatus(
+                              selectedPane?.status,
+                              selectedPane?.info.surface,
+                              selectedPane ? sessionStates.get(selectedPane.info.id)?.protocol_backed : undefined,
+                            ) ?? undefined
+                          }
                           sessionState={sessionForAgent ?? null}
                           paneTitle={agentPaneTitle}
                           paneCwd={selectedPane?.info.cwd}

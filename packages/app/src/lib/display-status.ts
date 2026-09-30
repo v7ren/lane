@@ -32,15 +32,17 @@ export const DISPLAY_STATUS_LABEL: Record<DisplayStatus, string> = {
 };
 
 /**
- * A headless (protocol-only) pane has no terminal to tell "running" from "idle", so its raw
- * pane status stays `running` for the whole process lifetime. Ignore that value there and let
- * the session state (driven by turn events) decide; errors and waiting still pass through.
+ * A headless pane has no terminal to tell "running" from "idle", and a protocol-backed pane
+ * (e.g. Codex with a TUI attached) keeps repainting its terminal, so their raw pane status stays
+ * `running` for the whole process lifetime. Ignore that value there and let the session state
+ * (driven by turn events) decide; errors and waiting still pass through.
  */
 export function effectivePaneStatus(
   paneStatus: string | null | undefined,
   surface: string | null | undefined,
+  protocolBacked?: boolean,
 ): string | null | undefined {
-  if (surface === 'headless' && paneStatus === 'running') return undefined;
+  if ((surface === 'headless' || protocolBacked) && paneStatus === 'running') return undefined;
   return paneStatus;
 }
 

@@ -11,6 +11,11 @@ describe('effectivePaneStatus', () => {
     expect(effectivePaneStatus('running', undefined)).toBe('running');
   });
 
+  it('drops running for a protocol-backed terminal pane (Codex with a TUI attached)', () => {
+    expect(effectivePaneStatus('running', 'tui', true)).toBeUndefined();
+    expect(effectivePaneStatus('running', 'tui', false)).toBe('running');
+  });
+
   it('keeps errors and waiting for headless panes', () => {
     expect(effectivePaneStatus('error', 'headless')).toBe('error');
     expect(effectivePaneStatus('waiting_input', 'headless')).toBe('waiting_input');

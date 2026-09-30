@@ -25,6 +25,10 @@ pub struct SessionStateSnapshot {
     pub state: SessionStateKind,
     pub updated_at_ms: i64,
     pub detail: Option<String>,
+    /// True when the pane is driven by a protocol adapter (state comes from agent events, not
+    /// terminal activity), so the raw pane status must not be used to decide working vs idle.
+    #[serde(default)]
+    pub protocol_backed: bool,
 }
 
 pub struct SessionStateStore {
@@ -158,6 +162,7 @@ impl SessionStateStore {
             state,
             updated_at_ms,
             detail,
+            protocol_backed: self.protocol_panes.lock().contains(&pane_id),
         };
         self.states.lock().insert(pane_id, snap.clone());
         snap

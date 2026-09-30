@@ -9,6 +9,8 @@ export type SessionRailState = {
   state: string;
   updated_at_ms: number;
   detail?: string | null;
+  /** Driven by agent events (not terminal activity); ignore the raw pane status. */
+  protocol_backed?: boolean;
 };
 
 /**
