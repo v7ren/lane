@@ -128,6 +128,66 @@ export function readOutputText(output: unknown): string {
   return String(output);
 }
 
+function editStringsFromInput(input: unknown): { oldText: string; newText: string } {
+  if (input && typeof input === 'object') {
+    const rec = input as Record<string, unknown>;
+    const oldRaw = rec.oldString ?? rec.old_string ?? rec.old;
+    const newRaw = rec.newString ?? rec.new_string ?? rec.new;
+    const oldText = typeof oldRaw === 'string' ? oldRaw : '';
+    const newText = typeof newRaw === 'string' ? newRaw : '';
+    return { oldText, newText };
+  }
+  return { oldText: '', newText: '' };
+}
+
+function looksLikeUnifiedDiff(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.startsWith('@@')) return true;
+  if (trimmed.includes('\n@@')) return true;
+  return /^---\s/m.test(trimmed) || /^\+\+\+\s/m.test(trimmed);
+}
+
+function computeSimpleLineDiff(oldText: string, newText: string): string {
+  if (oldText === newText) return '';
+  const oldLines = oldText.split(/\r?\n/);
+  const newLines = newText.split(/\r?\n/);
+  const lines: string[] = [];
+  let oi = 0;
+  let ni = 0;
+  while (oi < oldLines.length || ni < newLines.length) {
+    if (oi < oldLines.length && ni < newLines.length && oldLines[oi] === newLines[ni]) {
+      oi += 1;
+      ni += 1;
+      continue;
+    }
+    if (
+      oi < oldLines.length &&
+      (ni >= newLines.length || !newLines.slice(ni).includes(oldLines[oi]))
+    ) {
+      lines.push(`- ${oldLines[oi]}`);
+      oi += 1;
+      continue;
+    }
+    if (ni < newLines.length) {
+      lines.push(`+ ${newLines[ni]}`);
+      ni += 1;
+    }
+  }
+  return lines.join('\n');
+}
+
+export function editDiffText(input: unknown, diff?: string): string {
+  if (typeof diff === 'string' && diff.trim()) {
+    if (looksLikeUnifiedDiff(diff)) return diff.trimEnd();
+    const { oldText, newText } = editStringsFromInput(input);
+    if (!oldText && !newText) return diff.trimEnd();
+  }
+  const { oldText, newText } = editStringsFromInput(input);
+  if (oldText || newText) return computeSimpleLineDiff(oldText, newText);
+  if (typeof diff === 'string' && diff.trim()) return diff.trimEnd();
+  return '';
+}
+
 export function writeContentText(input: unknown): string {
   if (typeof input === 'string') {
     const parsed = parseToolInput(input);
@@ -154,7 +214,8 @@ export function toolPathHeader(
 } {
   const isRead = name === 'read' || name === 'read_file';
   const isWrite = name === 'write';
-  if (!isRead && !isWrite) {
+  const isEdit = name === 'edit' || name === 'apply_patch';
+  if (!isRead && !isWrite && !isEdit) {
     return { primary: toolDisplayLabel(tool) };
   }
   const full = filePathFromToolInput(input);
@@ -162,9 +223,17 @@ export function toolPathHeader(
     return { primary: toolDisplayLabel(tool) };
   }
   const chip = displayPathChip(full, projectRoot);
+  let pathTestId: string;
+  if (isWrite) {
+    pathTestId = 'tool-write-path';
+  } else if (isRead) {
+    pathTestId = 'tool-read-path';
+  } else {
+    pathTestId = 'tool-edit-path';
+  }
   return {
     primary: chip.label,
-    pathTestId: isWrite ? 'tool-write-path' : 'tool-read-path',
+    pathTestId,
     kindLabel: toolDisplayLabel(tool),
   };
 }

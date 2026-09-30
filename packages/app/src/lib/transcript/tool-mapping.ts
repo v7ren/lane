@@ -89,11 +89,27 @@ export function normalizeToolPayload(
     const diff =
       (typeof stateOut?.diff === 'string' ? stateOut.diff : undefined) ??
       (typeof stateIn?.diff === 'string' ? stateIn.diff : undefined);
+    const pathRaw =
+      stateIn?.path ?? stateIn?.filePath ?? stateIn?.file ?? stateIn?.target;
+    const baseInput = {
+      path: normalizeToolPathValue(pathRaw, projectRoot),
+      content: stateIn?.content ?? stateIn?.contents,
+    };
+    if (name === 'edit' || name === 'apply_patch') {
+      const oldString = stateIn?.oldString ?? stateIn?.old_string;
+      const newString = stateIn?.newString ?? stateIn?.new_string;
+      return {
+        input: {
+          ...baseInput,
+          ...(typeof oldString === 'string' ? { oldString } : {}),
+          ...(typeof newString === 'string' ? { newString } : {}),
+        },
+        output: stateOut?.output ?? output,
+        diff,
+      };
+    }
     return {
-      input: {
-        path: stateIn?.path ?? stateIn?.file ?? stateIn?.target,
-        content: stateIn?.content ?? stateIn?.contents,
-      },
+      input: baseInput,
       output: stateOut?.output ?? output,
       diff,
     };

@@ -10,7 +10,7 @@ import {
   resolveToolFields,
   toolPathHeader,
   writeContentText,
-  filePathFromToolInput,
+  editDiffText,
 } from './tool-render';
 
 function GlobGrepOutput({
@@ -242,34 +242,6 @@ function CollapsibleToolContent({
   );
 }
 
-function TruncatedMono({
-  text,
-  max = 480,
-}: {
-  text: string;
-  max?: number;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const trimmed = text.trim();
-  if (trimmed.length <= max) {
-    return <pre className="whitespace-pre-wrap font-mono text-[12px] text-text-2">{trimmed}</pre>;
-  }
-  return (
-    <div>
-      <pre className="whitespace-pre-wrap font-mono text-[12px] text-text-2">
-        {expanded ? trimmed : `${trimmed.slice(0, max)}…`}
-      </pre>
-      <button
-        type="button"
-        className="text-meta text-link mt-1"
-        onClick={() => setExpanded((v) => !v)}
-      >
-        {expanded ? 'Show less' : 'Show more'}
-      </button>
-    </div>
-  );
-}
-
 export function ToolCard({
   tool,
   projectRoot,
@@ -342,19 +314,11 @@ export function ToolCard({
             />
           )}
           {(name === 'edit' || name === 'apply_patch') && (
-            <div className="space-y-1">
-              {(() => {
-                const full = filePathFromToolInput(input);
-                if (!full) return null;
-                const chip = displayPathChip(full, projectRoot);
-                return (
-                  <span className="font-mono text-[12px] text-text-2" title={chip.title}>
-                    {chip.label}
-                  </span>
-                );
-              })()}
-              {diff && <TruncatedMono text={diff} max={1200} />}
-            </div>
+            <TruncatedMonoLines
+              text={editDiffText(input, diff)}
+              maxLines={BASH_OUTPUT_MAX_LINES}
+              testId="tool-edit-diff"
+            />
           )}
           {(name === 'grep' || name === 'glob') && (
             <div className="space-y-1 text-[12px] text-text-2">

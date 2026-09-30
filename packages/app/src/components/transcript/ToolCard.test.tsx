@@ -169,6 +169,59 @@ describe('ToolCard', () => {
     expect(container.querySelector('[data-testid="tool-write-content"]')?.textContent).toBe('ok');
   });
 
+  it('edit tool shows path in header and inline diff from old/new strings', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'edit-1',
+      name: 'edit',
+      status: 'completed',
+      input: { path: 'app.ts', oldString: 'foo', newString: 'bar' },
+      output: undefined,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.querySelector('[data-testid="tool-edit-path"]')?.textContent).toBe('app.ts');
+    expect(container.textContent).toContain('Edit');
+    const diffEl = container.querySelector('[data-testid="tool-edit-diff"]');
+    expect(diffEl?.textContent).toContain('foo');
+    expect(diffEl?.textContent).toContain('bar');
+    expect(container.textContent).not.toContain('[object Object]');
+  });
+
+  it('edit tool accepts old_string and new_string spellings', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'edit-snake',
+      name: 'edit',
+      status: 'completed',
+      input: { path: 'app.ts', old_string: 'alpha', new_string: 'beta' },
+      output: undefined,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    const diffEl = container.querySelector('[data-testid="tool-edit-diff"]');
+    expect(diffEl?.textContent).toContain('alpha');
+    expect(diffEl?.textContent).toContain('beta');
+  });
+
+  it('apply_patch tool shows path in header', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'patch-1',
+      name: 'apply_patch',
+      status: 'completed',
+      input: { path: 'patch.ts', oldString: 'x', newString: 'y' },
+      output: undefined,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.querySelector('[data-testid="tool-edit-path"]')?.textContent).toBe('patch.ts');
+    expect(container.textContent).toContain('Edit');
+  });
+
   it('shows different status chip labels for pending vs error', () => {
     const pending: TranscriptToolCall = {
       ...bashCompleted,
