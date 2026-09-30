@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef } from 'react';
 import { configureMonacoWorkers } from '../../lib/editor/monaco-setup';
 import { languageForPath } from '../../lib/editor/language';
 import { dispatchAddToComposer } from '../../lib/editor/add-to-composer';
+import { shouldApplyExternalContent } from '../../lib/editor/content-sync';
 import type { EditorTab } from '../../lib/editor/tabs';
 import type * as Monaco from 'monaco-editor';
 
@@ -21,10 +22,29 @@ export function MonacoEditorPane({
   onChange: (value: string) => void;
 }) {
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const appliedRevisionRef = useRef(tab.revision ?? 0);
 
   useEffect(() => {
     configureMonacoWorkers();
   }, []);
+
+  // Uncontrolled after mount: only content replaced from outside (disk reload) is pushed in.
+  useEffect(() => {
+    const editor = editorRef.current;
+    const revision = tab.revision ?? 0;
+    if (!editor) return;
+    if (
+      shouldApplyExternalContent({
+        revision,
+        appliedRevision: appliedRevisionRef.current,
+        tabContent: tab.content,
+        editorValue: editor.getValue(),
+      })
+    ) {
+      editor.setValue(tab.content);
+    }
+    appliedRevisionRef.current = revision;
+  }, [tab.revision, tab.content]);
 
   useEffect(() => {
     if (!revealLine || !editorRef.current) return;
@@ -44,13 +64,15 @@ export function MonacoEditorPane({
     >
       <div className="flex-1 min-h-0" data-testid="monaco-editor-pane">
       <MonacoEditor
+        key={tab.id}
         height="100%"
         language={languageForPath(tab.path)}
         theme="loomria-dark"
-        value={tab.content}
+        defaultValue={tab.content}
         onChange={(v) => onChange(v ?? '')}
         onMount={(ed) => {
           editorRef.current = ed;
+          appliedRevisionRef.current = tab.revision ?? 0;
           if (revealLine) ed.revealLineInCenter(revealLine);
           ed.addAction({
             id: 'loomria-add-to-composer',

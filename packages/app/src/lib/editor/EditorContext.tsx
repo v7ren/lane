@@ -147,6 +147,7 @@ export function EditorProvider({
                       ...t,
                       content: disk.content,
                       savedContent: disk.content,
+                      revision: (t.revision ?? 0) + 1,
                       dirty: false,
                       mtimeMs: disk.mtimeMs,
                     }
@@ -382,6 +383,7 @@ export function EditorProvider({
                   ...t,
                   content: disk.content,
                   savedContent: disk.content,
+                  revision: (t.revision ?? 0) + 1,
                   dirty: false,
                   mtimeMs: disk.mtimeMs,
                 }

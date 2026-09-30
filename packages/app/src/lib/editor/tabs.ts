@@ -8,6 +8,8 @@ export type EditorTab = {
   content: string;
   savedContent: string;
   mtimeMs: number | null;
+  /** Bumped when content is replaced from outside the editor (disk reload / re-open). */
+  revision?: number;
 };
 
 export type CloseTabResult =
@@ -35,6 +37,7 @@ export function openTab(
             savedContent: opts.content,
             mtimeMs: opts.mtimeMs,
             dirty: false,
+            revision: (t.revision ?? 0) + 1,
             preview: opts.preview ?? t.preview,
           }
         : t,
