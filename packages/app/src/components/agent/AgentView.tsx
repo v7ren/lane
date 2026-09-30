@@ -316,7 +316,10 @@ export function AgentView({
       }
     >
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border-subtle shrink-0 w-full">
-        <DisplayStatusDot status={displayStatus} pulse={displayStatus === 'needs_approval'} />
+        <DisplayStatusDot
+          status={displayStatus}
+          pulse={displayStatus === 'needs_approval' || displayStatus === 'waiting'}
+        />
         <div className="min-w-0 flex-1">
           <div className="text-body font-medium truncate">{agentLabel}</div>
           <div className="text-meta text-text-3 truncate">

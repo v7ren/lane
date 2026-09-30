@@ -7,8 +7,11 @@ import {
   type DisplayStatus,
 } from '../display-status';
 import type { OpenCodeStoreState, SessionStatus } from '../opencode/store.js';
-import { assembleMessageText, selectPermissions, selectSessionStatus } from '../opencode/selectors.js';
-import { formatOpenCodeSessionStatusLabel } from '../opencode/session-status.js';
+import { assembleMessageText, getPendingForSession, selectSessionStatus } from '../opencode/selectors.js';
+import {
+  deriveOpenCodeDisplayStatus,
+  formatOpenCodeSessionDisplayLabel,
+} from '../opencode/session-status.js';
 import type { ShellSession } from '../shell-data';
 import { isUserShellPane } from '../pane-surface';
 import { buildPaneDisplayNames } from '../pane-display-name';
@@ -20,32 +23,22 @@ export function isOpenCodePane(pane: PaneData): boolean {
 
 export function mapOpenCodeDisplayStatus(
   ocStatus: SessionStatus,
-  pendingPermission: boolean,
+  pending: ReturnType<typeof getPendingForSession>,
 ): DisplayStatus {
-  if (pendingPermission) return 'needs_approval';
-  switch (ocStatus) {
-    case 'busy':
-      return 'working';
-    case 'retry':
-      return 'rate_limited';
-    case 'idle':
-      return 'idle';
-    case 'unknown':
-    default:
-      return 'idle';
-  }
+  return deriveOpenCodeDisplayStatus(ocStatus, pending);
 }
 
 export function openCodeSessionDisplayStatus(
   state: OpenCodeStoreState,
   sessionId: string,
 ): { status: DisplayStatus; label: string } {
-  const pending = sessionHasPendingPermission(state, sessionId);
+  const pending = getPendingForSession(state, sessionId);
   const ocStatus = selectSessionStatus(state, sessionId);
   const issue = state.sessionIssues[sessionId];
+  const status = deriveOpenCodeDisplayStatus(ocStatus, pending);
   return {
-    status: mapOpenCodeDisplayStatus(ocStatus, pending),
-    label: formatOpenCodeSessionStatusLabel(ocStatus, issue),
+    status,
+    label: formatOpenCodeSessionDisplayLabel(status, ocStatus, issue),
   };
 }
 
@@ -56,14 +49,6 @@ function lastMessagePreview(state: OpenCodeStoreState, sessionId: string): strin
   const text = assembleMessageText(state, lastId).trim();
   if (!text) return undefined;
   return text.length > 80 ? `${text.slice(0, 77)}…` : text;
-}
-
-function sessionHasPendingPermission(state: OpenCodeStoreState, sessionId: string): boolean {
-  return selectPermissions(state).some((p) => {
-    const legacy = (p as { sessionID?: string }).sessionID;
-    const nested = (p as { data?: { sessionID?: string } }).data?.sessionID;
-    return legacy === sessionId || nested === sessionId;
-  });
 }
 
 export function buildOpenCodeShellSessions(args: {
@@ -86,17 +71,18 @@ export function buildOpenCodeShellSessions(args: {
   for (const sessionId of state.sessionOrder) {
     const session = state.sessions[sessionId];
     if (!session) continue;
-    const pending = sessionHasPendingPermission(state, sessionId);
+    const pending = getPendingForSession(state, sessionId);
     const ocStatus = selectSessionStatus(state, sessionId);
     const issue = state.sessionIssues[sessionId];
-    const status = mapOpenCodeDisplayStatus(ocStatus, pending);
-    const statusLabel = formatOpenCodeSessionStatusLabel(ocStatus, issue);
+    const status = deriveOpenCodeDisplayStatus(ocStatus, pending);
+    const statusLabel = formatOpenCodeSessionDisplayLabel(status, ocStatus, issue);
     const updatedAt = session.time?.updated ?? session.time?.created ?? 0;
     const selected = selectedPaneId === paneId && selectedSessionId === sessionId;
     const lastRead = readAtMs[`${paneId}:${sessionId}`] ?? 0;
     const unread =
       !selected &&
       (status === 'needs_approval' ||
+        status === 'waiting' ||
         (status === 'working' && updatedAt > lastRead) ||
         updatedAt > lastRead + 60_000);
 

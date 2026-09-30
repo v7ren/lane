@@ -1,6 +1,7 @@
 /** Unified display status for rail, pane chrome, and agent view. */
 export type DisplayStatus =
   | 'needs_approval'
+  | 'waiting'
   | 'error'
   | 'rate_limited'
   | 'working'
@@ -10,6 +11,7 @@ export type DisplayStatus =
 
 export const DISPLAY_STATUS_ORDER: Record<DisplayStatus, number> = {
   needs_approval: 0,
+  waiting: 0,
   error: 1,
   rate_limited: 2,
   working: 3,
@@ -20,6 +22,7 @@ export const DISPLAY_STATUS_ORDER: Record<DisplayStatus, number> = {
 
 export const DISPLAY_STATUS_LABEL: Record<DisplayStatus, string> = {
   needs_approval: 'Needs approval',
+  waiting: 'Waiting for input',
   error: 'Error',
   rate_limited: 'Rate limited',
   working: 'Working',
@@ -47,6 +50,7 @@ export function mergePaneAndSessionStatus(
 export function displayStatusDotClass(status: DisplayStatus): string {
   switch (status) {
     case 'needs_approval':
+    case 'waiting':
       return 'bg-lr-warn';
     case 'error':
       return 'bg-lr-err';
@@ -70,6 +74,7 @@ export function displayStatusDotClass(status: DisplayStatus): string {
 export function displayStatusTextClass(status: DisplayStatus): string {
   switch (status) {
     case 'needs_approval':
+    case 'waiting':
       return 'text-lr-warn font-semibold';
     case 'error':
       return 'text-lr-err font-medium';
@@ -93,6 +98,7 @@ export function displayStatusTextClass(status: DisplayStatus): string {
 export function displayStatusRailAccentClass(status: DisplayStatus): string {
   switch (status) {
     case 'needs_approval':
+    case 'waiting':
       return 'border-l-lr-warn';
     case 'error':
       return 'border-l-lr-err';
@@ -114,7 +120,7 @@ export function displayStatusRailAccentClass(status: DisplayStatus): string {
 }
 
 export function displayStatusRailSurfaceClass(status: DisplayStatus, selected: boolean): string {
-  if (status === 'needs_approval') {
+  if (status === 'needs_approval' || status === 'waiting') {
     return selected
       ? 'border-lr-warn/55 bg-lr-warn/12 lr-rail-needs-approval'
       : 'border-lr-warn/40 bg-lr-warn/8 lr-rail-needs-approval';

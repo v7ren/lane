@@ -1,4 +1,51 @@
+import type { DisplayStatus } from '../display-status';
 import type { OpenCodeStoreState, SessionIssue, SessionStatus } from './store.js';
+
+export type SessionPendingInput = {
+  questions: readonly unknown[];
+  permissions: readonly unknown[];
+};
+
+export function sessionHasPendingInput(pending: SessionPendingInput): boolean {
+  return pending.questions.length > 0 || pending.permissions.length > 0;
+}
+
+/** Maps wire session status + pending questions/permissions to unified display status. */
+export function deriveOpenCodeDisplayStatus(
+  ocStatus: SessionStatus,
+  pending: SessionPendingInput,
+): DisplayStatus {
+  const hasPending = sessionHasPendingInput(pending);
+  if (ocStatus === 'busy' && hasPending) return 'waiting';
+  if (hasPending) return 'needs_approval';
+  switch (ocStatus) {
+    case 'busy':
+      return 'working';
+    case 'retry':
+      return 'rate_limited';
+    case 'idle':
+      return 'idle';
+    case 'unknown':
+      return 'idle';
+    default: {
+      const _exhaustive: never = ocStatus;
+      return _exhaustive;
+    }
+  }
+}
+
+export function formatOpenCodeSessionDisplayLabel(
+  displayStatus: DisplayStatus,
+  ocStatus: SessionStatus,
+  issue?: SessionIssue | null,
+): string {
+  if (displayStatus === 'waiting') {
+    return DISPLAY_STATUS_LABEL_WAITING;
+  }
+  return formatOpenCodeSessionStatusLabel(ocStatus, issue);
+}
+
+export const DISPLAY_STATUS_LABEL_WAITING = 'Waiting for input';
 
 export type ParsedWireSessionStatus = {
   type: Exclude<SessionStatus, 'unknown'>;

@@ -4,6 +4,7 @@ import { DisplayStatusDot } from './DisplayStatusDot';
 
 const LEGEND: DisplayStatus[] = [
   'needs_approval',
+  'waiting',
   'working',
   'done',
   'idle',

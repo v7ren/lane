@@ -82,7 +82,10 @@ export function SessionRow({
             className="w-full min-w-0 text-left px-2 py-1.5 pr-7"
           >
             <div className="flex items-center gap-1.5 min-w-0 w-full">
-              <DisplayStatusDot status={session.status} pulse={session.status === 'needs_approval'} />
+              <DisplayStatusDot
+                status={session.status}
+                pulse={session.status === 'needs_approval' || session.status === 'waiting'}
+              />
               <span className="text-meta font-medium text-text truncate min-w-0 flex-1">
                 {session.title}
               </span>
