@@ -422,6 +422,37 @@ describe('ToolCard', () => {
     expect(container.textContent).toContain('Task');
   });
 
+  it('task tool resolves child session from metadata and task output', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'task-live',
+      name: 'task',
+      status: 'completed',
+      input: {
+        description: 'Ping task',
+        prompt: 'Reply with only the word ping and nothing else.',
+        subagent_type: 'general',
+      },
+      output: `<task id="ses_child" state="completed">
+<task_result>
+ping
+</task_result>
+</task>`,
+      metadata: { sessionId: 'ses_child', parentSessionId: 'ses_parent' },
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.querySelector('[data-testid="tool-task-description"]')?.textContent).toBe(
+      'Ping task',
+    );
+    expect(container.querySelector('[data-testid="tool-task-session"]')?.textContent).toBe(
+      'ses_child',
+    );
+    expect(container.textContent).not.toContain('[object Object]');
+    expect(container.textContent).not.toMatch(/\{"description"/);
+  });
+
   it('task tool without session id omits session line', () => {
     const tool: TranscriptToolCall = {
       kind: 'tool_call',

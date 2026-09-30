@@ -106,6 +106,10 @@ function mapPartToItem(
         part.state && 'input' in part.state ? (part.state as { input?: unknown }).input : undefined;
       const output =
         part.state && 'output' in part.state ? (part.state as { output?: unknown }).output : undefined;
+      const metadata =
+        part.state && 'metadata' in part.state
+          ? (part.state as { metadata?: unknown }).metadata
+          : undefined;
       const normalized = normalizeToolPayload(part.tool, input, output, {
         projectRoot,
       });
@@ -127,6 +131,7 @@ function mapPartToItem(
         input: normalized.input,
         output: normalized.output,
         diff: normalized.diff,
+        metadata,
       };
     }
     case 'patch': {

@@ -41,6 +41,8 @@ export type TranscriptToolCall = {
   input: unknown;
   output: unknown;
   diff?: string;
+  /** OpenCode tool state metadata (e.g. child session id for task tools). */
+  metadata?: unknown;
 };
 
 export type TranscriptPatch = {

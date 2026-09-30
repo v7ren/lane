@@ -417,7 +417,7 @@ function taskDescriptionText(input: unknown): string {
   return '';
 }
 
-type TaskSessionIdKey = 'sessionID' | 'sessionId' | 'session_id' | 'id';
+type TaskSessionIdKey = 'sessionID' | 'sessionId' | 'session_id';
 
 function taskSessionIdFromRecord(
   rec: Record<string, unknown>,
@@ -436,10 +436,6 @@ function taskSessionIdFromRecord(
       const val = rec.session_id;
       return typeof val === 'string' && val.length > 0 ? val : undefined;
     }
-    case 'id': {
-      const val = rec.id;
-      return typeof val === 'string' && val.length > 0 ? val : undefined;
-    }
     default: {
       const _never: never = key;
       return _never;
@@ -447,10 +443,10 @@ function taskSessionIdFromRecord(
   }
 }
 
-function taskChildSessionId(input: unknown): string | undefined {
-  if (!input || typeof input !== 'object') return undefined;
-  const rec = input as Record<string, unknown>;
-  const keys: TaskSessionIdKey[] = ['sessionID', 'sessionId', 'session_id', 'id'];
+function taskChildSessionIdFromMetadata(metadata: unknown): string | undefined {
+  if (!metadata || typeof metadata !== 'object') return undefined;
+  const rec = metadata as Record<string, unknown>;
+  const keys: TaskSessionIdKey[] = ['sessionID', 'sessionId', 'session_id'];
   for (const key of keys) {
     const sessionId = taskSessionIdFromRecord(rec, key);
     if (sessionId != null) return sessionId;
@@ -458,9 +454,49 @@ function taskChildSessionId(input: unknown): string | undefined {
   return undefined;
 }
 
-function TaskToolBody({ input }: { input: unknown }) {
+const TASK_OUTPUT_SESSION_ID_RE = /<task\s+id="([^"]+)"/;
+
+function taskChildSessionIdFromOutput(output: unknown): string | undefined {
+  if (typeof output !== 'string') return undefined;
+  const match = TASK_OUTPUT_SESSION_ID_RE.exec(output);
+  const id = match?.[1]?.trim();
+  return id && id.length > 0 ? id : undefined;
+}
+
+function taskChildSessionIdFromInput(input: unknown): string | undefined {
+  if (!input || typeof input !== 'object') return undefined;
+  const rec = input as Record<string, unknown>;
+  const keys: TaskSessionIdKey[] = ['sessionID', 'sessionId', 'session_id'];
+  for (const key of keys) {
+    const sessionId = taskSessionIdFromRecord(rec, key);
+    if (sessionId != null) return sessionId;
+  }
+  return undefined;
+}
+
+function resolveTaskChildSessionId(
+  input: unknown,
+  output: unknown,
+  metadata: unknown,
+): string | undefined {
+  return (
+    taskChildSessionIdFromMetadata(metadata) ??
+    taskChildSessionIdFromOutput(output) ??
+    taskChildSessionIdFromInput(input)
+  );
+}
+
+function TaskToolBody({
+  input,
+  output,
+  metadata,
+}: {
+  input: unknown;
+  output: unknown;
+  metadata?: unknown;
+}) {
   const description = taskDescriptionText(input);
-  const sessionId = taskChildSessionId(input);
+  const sessionId = resolveTaskChildSessionId(input, output, metadata);
 
   return (
     <div className="space-y-1 text-[12px] text-text-2">
@@ -633,7 +669,9 @@ export function ToolCard({
             <WebfetchToolBody input={input} output={output} />
           )}
           {isTodoToolName(name) && <TodoToolBody input={input} output={output} />}
-          {isTaskToolName(name) && <TaskToolBody input={input} />}
+          {isTaskToolName(name) && (
+            <TaskToolBody input={input} output={output} metadata={tool.metadata} />
+          )}
           {!KNOWN_TOOL_NAMES.has(name) && (
             <div className="grid gap-2 md:grid-cols-2">
               <PartFallback
