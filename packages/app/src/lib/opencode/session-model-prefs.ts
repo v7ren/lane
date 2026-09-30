@@ -1,5 +1,8 @@
 export type SessionModelRef = { providerID: string; modelID: string; userPicked?: boolean };
 
+/** Fired on `window` when a session's user-picked model changes (detail: { paneId, sessionId }). */
+export const SESSION_MODEL_CHANGED_EVENT = 'loomria:session-model-changed';
+
 const STORAGE_VERSION = 2;
 const LEGACY_KEY_PREFIX = 'loomria:composer-model:';
 
@@ -70,6 +73,11 @@ export function setSessionComposerModel(
       storageKey(paneId, sessionId),
       JSON.stringify({ ...model, userPicked: true }),
     );
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent(SESSION_MODEL_CHANGED_EVENT, { detail: { paneId, sessionId } }),
+      );
+    }
   } catch {
     /* ignore */
   }

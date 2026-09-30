@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
   type RefObject,
@@ -51,6 +52,7 @@ import {
 } from '../../lib/opencode/provider-catalog';
 import {
   getUserPickedSessionModel,
+  SESSION_MODEL_CHANGED_EVENT,
   setSessionComposerModel,
 } from '../../lib/opencode/session-model-prefs';
 import {
@@ -114,6 +116,7 @@ export function AgentComposerPanel({
   const [agent, setAgent] = useState('build');
   const [permissionMode, setPermissionMode] = useState<'allow' | 'ask'>('allow');
   const [model, setModel] = useState<ComposerModelChoice | null>(null);
+  const [, bumpModelPick] = useReducer((n: number) => n + 1, 0);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [modelSearch, setModelSearch] = useState('');
@@ -257,6 +260,16 @@ export function AgentComposerPanel({
       setCommands(cmds.map((c) => ({ name: c.name, description: c.description }))),
     );
   }, [demo, openCode, paneId, sessionId, sessionModel?.model, sessionModel?.provider]);
+
+  // Re-render when the pick is changed elsewhere (e.g. Settings > Providers > Use this model).
+  useEffect(() => {
+    const onChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ paneId?: string; sessionId?: string }>).detail;
+      if (detail?.paneId === paneId && detail?.sessionId === sessionId) bumpModelPick();
+    };
+    window.addEventListener(SESSION_MODEL_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(SESSION_MODEL_CHANGED_EVENT, onChanged);
+  }, [paneId, sessionId]);
 
   useEffect(() => {
     if (!openCode || demo || !sessionId || models.length === 0) return;
