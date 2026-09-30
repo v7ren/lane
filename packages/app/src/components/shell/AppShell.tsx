@@ -814,6 +814,10 @@ function AppShellChrome(props: {
         onClose={() => shell.setSettingsOpen(false)}
         projectPath={projectPath}
         onProjectPathChange={onProjectPathChange}
+        opencodePaneId={
+          selectedPane?.info.agent_type === 'opencode_native' ? selectedPane.info.id : null
+        }
+        opencodeSessionId={selectedSession?.sessionId ?? null}
       />
 
       <PortsPanel open={portsOpen} onClose={() => setPortsOpen(false)} />

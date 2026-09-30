@@ -79,16 +79,6 @@ describe('SettingsPanel sections', () => {
     expect(nav('general').getAttribute('aria-current')).toBeNull();
   });
 
-  it('shows a coming-soon notice for placeholder sections', async () => {
-    await mount();
-    for (const id of ['providers', 'mcp', 'config']) {
-      await act(async () => nav(id).click());
-      expect(container.querySelector('[data-testid="settings-coming-soon"]')?.textContent).toContain(
-        'Coming soon',
-      );
-    }
-  });
-
   it('moves selection with arrow keys', async () => {
     await mount();
     await act(async () => {
