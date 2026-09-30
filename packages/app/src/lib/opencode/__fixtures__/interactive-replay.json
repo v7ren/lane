@@ -1,0 +1,123 @@
+{
+  "synthetic": true,
+  "events": [
+    {
+      "id": "evt_replay_busy_001",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_replay_001",
+        "status": { "type": "busy" }
+      }
+    },
+    {
+      "id": "evt_replay_question_asked",
+      "type": "question.asked",
+      "properties": {
+        "id": "que_replay_001",
+        "sessionID": "ses_replay_001",
+        "questions": [
+          {
+            "header": "Color choice",
+            "options": [
+              { "description": "Choose red", "label": "Red" },
+              { "description": "Choose blue", "label": "Blue" }
+            ],
+            "question": "Pick a color:"
+          }
+        ],
+        "tool": {
+          "callID": "call_replay_001",
+          "messageID": "msg_asst_replay_001"
+        }
+      }
+    },
+    {
+      "id": "evt_replay_question_replied",
+      "type": "question.replied",
+      "properties": {
+        "sessionID": "ses_replay_001",
+        "requestID": "que_replay_001",
+        "answers": [["Blue"]]
+      }
+    },
+    {
+      "id": "evt_replay_msg_asst",
+      "type": "message.updated",
+      "properties": {
+        "info": {
+          "id": "msg_asst_replay_001",
+          "sessionID": "ses_replay_001",
+          "role": "assistant",
+          "time": { "created": 10, "completed": 11 },
+          "agent": "build",
+          "model": { "providerID": "anthropic", "modelID": "claude-sonnet-4" }
+        }
+      }
+    },
+    {
+      "id": "evt_replay_part_text",
+      "type": "message.part.updated",
+      "properties": {
+        "messageID": "msg_asst_replay_001",
+        "part": {
+          "id": "part_text_replay_001",
+          "messageID": "msg_asst_replay_001",
+          "sessionID": "ses_replay_001",
+          "type": "text",
+          "text": "You chose blue."
+        }
+      }
+    },
+    {
+      "id": "evt_replay_idle_001",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_replay_001",
+        "status": { "type": "idle" }
+      }
+    }
+  ],
+  "permissionEvents": [
+    {
+      "id": "evt_perm_busy",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_replay_perm_001",
+        "status": { "type": "busy" }
+      }
+    },
+    {
+      "id": "evt_perm_asked",
+      "type": "permission.asked",
+      "properties": {
+        "id": "perm_replay_001",
+        "sessionID": "ses_replay_perm_001",
+        "permission": "bash",
+        "patterns": ["echo test"],
+        "metadata": {},
+        "always": [],
+        "tool": {
+          "messageID": "msg_perm_replay_001",
+          "callID": "call_perm_replay_001"
+        }
+      }
+    },
+    {
+      "id": "evt_perm_replied",
+      "type": "permission.replied",
+      "properties": {
+        "sessionID": "ses_replay_perm_001",
+        "requestID": "perm_replay_001",
+        "reply": "once"
+      }
+    },
+    {
+      "id": "evt_perm_idle",
+      "type": "session.status",
+      "properties": {
+        "sessionID": "ses_replay_perm_001",
+        "status": { "type": "idle" }
+      }
+    }
+  ]
+}
