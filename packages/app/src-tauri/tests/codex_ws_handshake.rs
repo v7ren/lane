@@ -55,10 +55,22 @@ fn spawn_fake_server() -> (String, Log) {
                         json!({"method": "thread/started", "params": {"thread": {"id": SERVER_THREAD}}}),
                     );
                 }
-                Some("thread/resume") => send(
-                    &mut ws,
-                    json!({"id": id, "result": {"thread": {"id": v["params"]["threadId"]}}}),
-                ),
+                Some("thread/resume") => {
+                    // Real Codex 0.159 quirk: a name-only rollout cannot be resumed with
+                    // approvalPolicy/sandbox overrides ("no rollout found").
+                    let p = &v["params"];
+                    if p.get("approvalPolicy").is_some() || p.get("sandbox").is_some() {
+                        send(
+                            &mut ws,
+                            json!({"id": id, "error": {"code": -32600, "message": "no rollout found for thread id x"}}),
+                        );
+                    } else {
+                        send(
+                            &mut ws,
+                            json!({"id": id, "result": {"thread": {"id": p["threadId"]}}}),
+                        );
+                    }
+                }
                 Some("turn/start") => {
                     send(
                         &mut ws,
@@ -214,4 +226,9 @@ fn existing_thread_is_resumed_not_started() {
     let log = log.lock();
     assert_eq!(log[2]["params"]["threadId"], "thr-existing");
     assert_eq!(log[3]["params"]["threadId"], "thr-existing");
+    // Overrides must not ride on resume (regression: "no rollout found"); they go on turn/start.
+    assert!(log[2]["params"].get("approvalPolicy").is_none());
+    assert!(log[2]["params"].get("sandbox").is_none());
+    assert_eq!(log[3]["params"]["approvalPolicy"], "never");
+    assert_eq!(log[3]["params"]["sandboxPolicy"]["type"], "workspaceWrite");
 }
