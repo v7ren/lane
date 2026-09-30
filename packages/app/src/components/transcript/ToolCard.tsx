@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import type { TranscriptToolCall } from '../../lib/transcript';
 import { formatDuration } from '../../lib/transcript';
-import { PartFallback } from './PartFallback';
 import {
   displayPathChip,
   KNOWN_TOOL_NAMES,
@@ -550,6 +549,102 @@ function BashToolBody({ input, output }: { input: unknown; output: unknown }) {
   );
 }
 
+function isEmptyGenericToolValue(value: unknown): boolean {
+  if (value == null) return true;
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return Object.keys(value as object).length === 0;
+  }
+  if (typeof value === 'string') return value.trim() === '';
+  return false;
+}
+
+function formatGenericFieldValue(value: unknown): string {
+  if (value === null) return 'null';
+  if (value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return `[${value.length} items]`;
+  if (typeof value === 'object') {
+    const keys = Object.keys(value as object);
+    return `(${keys.length} ${keys.length === 1 ? 'key' : 'keys'})`;
+  }
+  return String(value);
+}
+
+function GenericToolKvRows({ value, testId }: { value: unknown; testId: string }) {
+  if (typeof value === 'string') {
+    return (
+      <pre
+        data-testid={testId}
+        className="whitespace-pre-wrap font-mono text-[12px] text-text-2"
+      >
+        {value}
+      </pre>
+    );
+  }
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const entries = Object.entries(value as Record<string, unknown>);
+    return (
+      <dl className="space-y-1" data-testid={testId}>
+        {entries.map(([key, fieldValue]) => (
+          <div key={key} className="flex gap-2 min-w-0" data-testid="tool-generic-kv-row">
+            <dt className="shrink-0 font-mono text-text-3">{key}</dt>
+            <dd className="min-w-0 text-text-2 break-words">{formatGenericFieldValue(fieldValue)}</dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
+  if (Array.isArray(value)) {
+    return (
+      <p className="text-text-2" data-testid={testId}>{formatGenericFieldValue(value)}</p>
+    );
+  }
+  return (
+    <p className="text-text-2 font-mono" data-testid={testId}>{formatGenericFieldValue(value)}</p>
+  );
+}
+
+function GenericToolSection({
+  label,
+  value,
+  testId,
+  emptyLabel,
+}: {
+  label: string;
+  value: unknown;
+  testId: string;
+  emptyLabel: string;
+}) {
+  const empty = isEmptyGenericToolValue(value);
+  return (
+    <div className="space-y-1">
+      <span className="text-[10px] font-medium text-text-3 uppercase tracking-wide">{label}</span>
+      {empty ? (
+        <p className="text-text-3" data-testid={testId}>{emptyLabel}</p>
+      ) : (
+        <GenericToolKvRows value={value} testId={testId} />
+      )}
+    </div>
+  );
+}
+
+function GenericToolBody({ input, output }: { input: unknown; output: unknown }) {
+  return (
+    <div className="space-y-3" data-testid="tool-generic-body">
+      <GenericToolSection label="Input" value={input} testId="tool-generic-input" emptyLabel="No input" />
+      {output != null && (
+        <GenericToolSection
+          label="Output"
+          value={output}
+          testId="tool-generic-output"
+          emptyLabel="No output"
+        />
+      )}
+    </div>
+  );
+}
+
 function CollapsibleToolContent({
   text,
   testId,
@@ -673,13 +768,7 @@ export function ToolCard({
             <TaskToolBody input={input} output={output} metadata={tool.metadata} />
           )}
           {!KNOWN_TOOL_NAMES.has(name) && (
-            <div className="grid gap-2 md:grid-cols-2">
-              <PartFallback
-                title={`Unknown tool: ${tool.name?.trim() || name}`}
-                value={input}
-              />
-              {output != null && <PartFallback title="Details" value={output} />}
-            </div>
+            <GenericToolBody input={input} output={output} />
           )}
         </div>
       )}

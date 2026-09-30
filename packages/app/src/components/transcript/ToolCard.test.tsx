@@ -471,6 +471,45 @@ ping
     expect(container.querySelector('[data-testid="tool-task-session"]')).toBeNull();
   });
 
+  it('unknown tool shows pretty title and key/value input without JSON dump', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'mystery-1',
+      name: 'mystery_tool',
+      status: 'completed',
+      input: { foo: 'bar', n: 1 },
+      output: undefined,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.textContent).toContain('Mystery tool');
+    expect(container.textContent).toContain('foo');
+    expect(container.textContent).toContain('bar');
+    expect(container.textContent).toContain('1');
+    expect(container.textContent).not.toContain('Unknown tool');
+    expect(container.textContent).not.toContain('{"');
+    expect(container.querySelector('[data-testid="tool-generic-body"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="part-fallback"]')).toBeNull();
+    expect(container.querySelector('[data-testid="tool-bash-command"]')).toBeNull();
+  });
+
+  it('unknown tool with empty input shows No input without JSON', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'mystery-empty',
+      name: 'custom_tool',
+      status: 'completed',
+      input: {},
+      output: undefined,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.textContent).toContain('No input');
+    expect(container.textContent).not.toContain('{"');
+  });
+
   it('shows different status chip labels for pending vs error', () => {
     const pending: TranscriptToolCall = {
       ...bashCompleted,
