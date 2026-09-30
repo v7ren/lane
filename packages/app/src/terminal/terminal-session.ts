@@ -13,11 +13,7 @@ import {
   terminalThemeFromCss,
 } from './theme';
 import type { PaneDataListener, TerminalSessionOptions } from './types';
-import {
-  layoutDeltaBelowOneCell,
-  shouldNotifyPtyResize,
-  TERMINAL_SCROLLBAR_GUTTER_PX,
-} from './terminal-fit.js';
+import { shouldNotifyPtyResize } from './terminal-fit.js';
 import '@xterm/xterm/css/xterm.css';
 
 function isWindowsRuntime(): boolean {
@@ -49,23 +45,13 @@ export class TerminalSession {
   private openFrame: number | null = null;
   private resizeFrame: number | null = null;
   private refreshFrame: number | null = null;
-  private ptyNotifyTimer: ReturnType<typeof setTimeout> | null = null;
-  private pendingPtyCols = 0;
-  private pendingPtyRows = 0;
   private lastSentCols = 0;
   private lastSentRows = 0;
   private ptyCols: number;
   private ptyRows: number;
   private generation = 0;
   private themeObserver: MutationObserver | null = null;
-  private agentTuiLayoutObserver: MutationObserver | null = null;
   private mountContainer: HTMLElement | null = null;
-  private fitRegion: HTMLElement | null = null;
-  private lastObservedWidth = 0;
-  private lastObservedHeight = 0;
-  private surfaceHost: HTMLElement | null = null;
-  private surfaceVisibilityObserver: MutationObserver | null = null;
-  private surfaceWasActive = false;
   private disposed = false;
 
   constructor(private readonly options: TerminalSessionOptions) {
@@ -84,8 +70,31 @@ export class TerminalSession {
   nudgeReflow(): boolean {
     if (!this.term) return false;
     this.fitAndNotify();
-    this.refreshAndNudgeAltBuffer();
+    this.scheduleRefresh();
     return true;
+  }
+
+  /** Move the xterm wrapper into another in-flow host (or the park) without disposing. */
+  reparent(target: HTMLElement): void {
+    const wrapper = this.mountContainer;
+    if (!wrapper || this.disposed) return;
+    if (wrapper.parentElement === target) {
+      if (this.hostHasLayout()) this.scheduleFit();
+      return;
+    }
+    target.appendChild(wrapper);
+    if (this.hostHasLayout()) {
+      requestAnimationFrame(() => {
+        if (this.disposed) return;
+        this.fitAndNotify();
+        this.scheduleRefresh();
+      });
+    }
+  }
+
+  /** @internal tests — stable xterm root element across reparents */
+  getTerminalElement(): HTMLElement | undefined {
+    return this.term?.element;
   }
 
   mount(
@@ -154,8 +163,6 @@ export class TerminalSession {
       this.installFileLinkProvider(terminal);
       this.installTextareaGuards(container, terminal, this.inputBatcher);
       this.installResizeObservers(container);
-      this.installSurfaceVisibilityObserver(container);
-      this.installAgentTuiLayoutObserver(container);
       this.installFocusHandlers(container);
       this.installThemeObserver(terminal);
       this.fitAndNotify();
@@ -183,11 +190,6 @@ export class TerminalSession {
       cancelAnimationFrame(this.refreshFrame);
       this.refreshFrame = null;
     }
-    if (this.ptyNotifyTimer !== null) {
-      clearTimeout(this.ptyNotifyTimer);
-      this.ptyNotifyTimer = null;
-    }
-
     this.unlistenData?.();
     this.unlistenData = null;
 
@@ -204,13 +206,6 @@ export class TerminalSession {
 
     this.themeObserver?.disconnect();
     this.themeObserver = null;
-
-    this.agentTuiLayoutObserver?.disconnect();
-    this.agentTuiLayoutObserver = null;
-
-    this.surfaceVisibilityObserver?.disconnect();
-    this.surfaceVisibilityObserver = null;
-    this.surfaceHost = null;
 
     this.focusCleanup?.();
     this.focusCleanup = null;
@@ -229,85 +224,25 @@ export class TerminalSession {
     this.term = null;
   }
 
-  private surfaceIsActive(): boolean {
-    const host = this.surfaceHost ?? this.mountContainer?.closest('[data-pane-surface-host]');
-    if (host instanceof HTMLElement) {
-      return host.getAttribute('data-pane-surface-host') === '1';
-    }
-    return true;
-  }
-
   private hostHasLayout(): boolean {
-    const region = this.fitRegion ?? this.mountContainer;
-    if (!region) return false;
-    const rect = region.getBoundingClientRect();
+    const container = this.mountContainer;
+    if (!container) return false;
+    const rect = container.getBoundingClientRect();
     return rect.width > 0 && rect.height > 0;
   }
 
-  private fitRegionSize(): { width: number; height: number } | null {
-    const region = this.fitRegion ?? this.mountContainer;
-    if (!region) return null;
-    const rect = region.getBoundingClientRect();
-    const width = Math.max(0, rect.width - TERMINAL_SCROLLBAR_GUTTER_PX);
-    const height = rect.height;
-    if (width <= 0 || height <= 0) return null;
-    return { width, height };
-  }
-
-  private installSurfaceVisibilityObserver(container: HTMLElement): void {
-    const host = container.closest('[data-pane-surface-host]');
-    if (!(host instanceof HTMLElement)) return;
-    this.surfaceHost = host;
-
-    const refit = () => {
-      if (!this.surfaceIsActive() || !this.hostHasLayout()) return;
-      this.scheduleFit();
-    };
-
-    this.surfaceVisibilityObserver = new MutationObserver(refit);
-    this.surfaceVisibilityObserver.observe(host, {
-      attributes: true,
-      attributeFilter: ['data-pane-surface-host', 'data-surface-visible'],
-    });
-    refit();
-  }
-
   private installResizeObservers(container: HTMLElement): void {
-    const region =
-      container.closest('[data-terminal-fit-region]') ??
-      container.parentElement ??
-      container;
-    this.fitRegion = region instanceof HTMLElement ? region : container;
-
     this.resizeObserver = new ResizeObserver(() => {
-      if (!this.surfaceIsActive() || !this.hostHasLayout()) return;
-      const size = this.fitRegionSize();
-      if (!size) return;
-      const cellW = this.term?.options.fontSize ?? TERMINAL_FONT_SIZE;
-      const cellH = (this.term?.options.fontSize ?? TERMINAL_FONT_SIZE) * 1.2;
-      if (
-        this.lastObservedWidth > 0 &&
-        layoutDeltaBelowOneCell(
-          this.lastObservedWidth,
-          this.lastObservedHeight,
-          size.width,
-          size.height,
-          cellW,
-          cellH,
-        )
-      ) {
-        return;
-      }
-      this.lastObservedWidth = size.width;
-      this.lastObservedHeight = size.height;
+      if (!this.hostHasLayout()) return;
       this.scheduleFit();
     });
-    this.resizeObserver.observe(this.fitRegion);
+    this.resizeObserver.observe(container);
 
     this.intersectionObserver = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
           window.setTimeout(() => {
+            if (!this.hostHasLayout()) return;
             this.fitAndNotify();
             this.scheduleRefresh();
           }, 50);
@@ -315,28 +250,7 @@ export class TerminalSession {
       },
       { threshold: 0.1 },
     );
-    this.intersectionObserver.observe(this.fitRegion);
-  }
-
-  /** Refit when Agent Mode moves the pane surface out of the parked off-screen slot. */
-  private installAgentTuiLayoutObserver(container: HTMLElement): void {
-    const layoutRoot = container.closest('[data-agent-tui-layout]');
-    if (!layoutRoot) return;
-
-    const refitIfOpen = () => {
-      if (layoutRoot.getAttribute('data-agent-tui-layout') !== 'open') return;
-      requestAnimationFrame(() => {
-        if (this.disposed) return;
-        this.scheduleFit();
-      });
-    };
-
-    this.agentTuiLayoutObserver = new MutationObserver(refitIfOpen);
-    this.agentTuiLayoutObserver.observe(layoutRoot, {
-      attributes: true,
-      attributeFilter: ['data-agent-tui-layout'],
-    });
-    refitIfOpen();
+    this.intersectionObserver.observe(container);
   }
 
   private installThemeObserver(terminal: Terminal): void {
@@ -488,17 +402,7 @@ export class TerminalSession {
   private fitAndNotify(): void {
     const terminal = this.term;
     const fitAddon = this.fitAddon;
-    if (!terminal || !fitAddon) return;
-    const active = this.surfaceIsActive() && this.hostHasLayout();
-    if (!active) {
-      this.surfaceWasActive = false;
-      return;
-    }
-    if (!this.surfaceWasActive) {
-      this.lastSentCols = 0;
-      this.lastSentRows = 0;
-    }
-    this.surfaceWasActive = true;
+    if (!terminal || !fitAddon || !this.hostHasLayout()) return;
 
     try {
       fitAddon.fit();
@@ -507,30 +411,20 @@ export class TerminalSession {
     }
 
     const { cols, rows } = terminal;
-    this.pendingPtyCols = cols;
-    this.pendingPtyRows = rows;
-    if (this.ptyNotifyTimer !== null) {
-      clearTimeout(this.ptyNotifyTimer);
+    if (!shouldNotifyPtyResize(this.lastSentCols, this.lastSentRows, cols, rows)) {
+      return;
     }
-    this.ptyNotifyTimer = setTimeout(() => {
-      this.ptyNotifyTimer = null;
-      const nextCols = this.pendingPtyCols;
-      const nextRows = this.pendingPtyRows;
-      if (!shouldNotifyPtyResize(this.lastSentCols, this.lastSentRows, nextCols, nextRows)) {
-        return;
-      }
-      this.lastSentCols = nextCols;
-      this.lastSentRows = nextRows;
-      this.options.onResize(nextCols, nextRows);
-      if (typeof window !== 'undefined') {
-        const w = window as Window & {
-          __loomriaPtyResizeLog?: { count: number; events: { cols: number; rows: number; t: number }[] };
-        };
-        const log = (w.__loomriaPtyResizeLog ??= { count: 0, events: [] });
-        log.count += 1;
-        log.events.push({ cols: nextCols, rows: nextRows, t: Date.now() });
-      }
-    }, 180);
+    this.lastSentCols = cols;
+    this.lastSentRows = rows;
+    this.options.onResize(cols, rows);
+    if (typeof window !== 'undefined') {
+      const w = window as Window & {
+        __loomriaPtyResizeLog?: { count: number; events: { cols: number; rows: number; t: number }[] };
+      };
+      const log = (w.__loomriaPtyResizeLog ??= { count: 0, events: [] });
+      log.count += 1;
+      log.events.push({ cols, rows, t: Date.now() });
+    }
   }
 
   private applyPtyDimensions(): void {
@@ -555,7 +449,4 @@ export class TerminalSession {
     });
   }
 
-  private refreshAndNudgeAltBuffer(): void {
-    this.scheduleRefresh();
-  }
 }

@@ -39,7 +39,7 @@ export function AgentTuiPlaceholder() {
   );
 }
 
-/** @deprecated Prefer AgentTuiHeader + inline layout in PersistentPaneSurfaces */
+/** @deprecated Prefer AgentTuiHeader + PaneTerminalHost in AppShell agent column */
 export function AgentTuiColumn({
   agentLabel,
   onHide,

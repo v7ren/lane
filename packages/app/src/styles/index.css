@@ -88,10 +88,6 @@ body,
   padding-right: 14px;
 }
 
-[data-terminal-fit-region] {
-  contain: layout size style;
-}
-
 .terminal-host .xterm {
   height: 100%;
   width: 100%;

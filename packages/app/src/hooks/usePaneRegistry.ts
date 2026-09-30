@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PaneStreamManager } from '../terminal';
+import { disposeTerminalSession } from '../terminal/terminal-session-registry';
 import { useDemoFixtures } from '../lib/demo/DemoContext';
 import {
   tauri,
@@ -171,6 +172,7 @@ export function usePaneRegistry(): PaneRegistryApi {
   }, [demo, refresh]);
 
   const killPane = useCallback(async (paneId: string) => {
+    disposeTerminalSession(paneId);
     if (demo) {
       setPanes((prev) => {
         const next = new Map(prev);
@@ -237,6 +239,9 @@ export function usePaneRegistry(): PaneRegistryApi {
   );
 
   const killAll = useCallback(async () => {
+    for (const id of panesRef.current.keys()) {
+      disposeTerminalSession(id);
+    }
     if (demo) {
       setPanes(new Map());
       return;

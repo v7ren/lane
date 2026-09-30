@@ -11,7 +11,10 @@ import {
 import type { AgentCatalog, AgentId } from '@loomria/shared';
 import type { PaneData } from '../../hooks/usePaneRegistry';
 import { AgentView } from '../agent/AgentView';
-import { PersistentPaneSurfaces } from '../PersistentPaneSurfaces';
+import { AgentTuiHeader, AgentTuiPlaceholder } from '../agent/AgentTuiColumn';
+import { PaneTerminalHost } from '../PaneTerminalHost';
+import { TerminalLifecycle } from '../TerminalLifecycle';
+import { TerminalPark } from '../TerminalPark';
 import { SettingsPanel } from '../SettingsPanel';
 import type { PaneRegistryApi } from '../../hooks/usePaneRegistry';
 import type { SessionRailState } from '../../hooks/useSessionRail';
@@ -142,7 +145,6 @@ function AppShellInner({
     [sessionStates],
   );
 
-  const [layoutEpoch, setLayoutEpoch] = useState(0);
   const [mutedMap, setMutedMap] = useState<Record<string, boolean>>({});
   const [newPaneOpen, setNewPaneOpen] = useState(false);
   const dragBase = useRef(0);
@@ -229,16 +231,6 @@ function AppShellInner({
       setMutedMap((prev) => ({ ...prev, [selectedPaneId]: muted }));
     });
   }, [selectedPaneId]);
-
-  useEffect(() => {
-    setLayoutEpoch((n) => n + 1);
-  }, [
-    layout,
-    shell.bottomTab,
-    showTui,
-    selectedPaneId,
-    shell.selectedTerminalPaneId,
-  ]);
 
   const selectedPane = panes.find((p) => p.info.id === selectedPaneId);
   const sessionForAgent = selectedPaneId ? sessionStates.get(selectedPaneId) : undefined;
@@ -338,7 +330,6 @@ function AppShellInner({
           newPaneOpen={newPaneOpen}
           setNewPaneOpen={setNewPaneOpen}
           dragBase={dragBase}
-          layoutEpoch={layoutEpoch}
           markBottomPanelResized={markBottomPanelResized}
         />
       </SessionActionsProvider>
@@ -392,7 +383,6 @@ function AppShellChrome(props: {
   newPaneOpen: boolean;
   setNewPaneOpen: (open: boolean) => void;
   dragBase: MutableRefObject<number>;
-  layoutEpoch: number;
   markBottomPanelResized: () => void;
 }) {
   const actions = useSessionActions();
@@ -440,7 +430,6 @@ function AppShellChrome(props: {
     newPaneOpen,
     setNewPaneOpen,
     dragBase,
-    layoutEpoch,
     markBottomPanelResized,
   } = props;
 
@@ -654,23 +643,6 @@ function AppShellChrome(props: {
                 style={{ flex: `0 0 ${layout.bottomPanelPercent}%` }}
                 data-testid="bottom-panel-host"
               >
-                <PersistentPaneSurfaces
-                  bottomTab={shell.bottomTab}
-                  agentPaneId={selectedPaneId}
-                  selectedTerminalPaneId={shell.selectedTerminalPaneId}
-                  showTui={showTui}
-                  chatWidthPercent={showTui ? chatPercent : undefined}
-                  layoutEpoch={layoutEpoch}
-                  agentCatalog={agentCatalog}
-                  registry={registry}
-                  projectPath={projectPath}
-                  sessionStates={sessionStates}
-                  agentPaneTitle={agentPaneTitle}
-                  tuiSurfaceLive={tuiSurfaceLive}
-                  onHideTui={() => setShowTui(false)}
-                  onClosePane={onClosePane}
-                  onEnterAgent={(id) => selectSession(id)}
-                />
                 <PanelErrorBoundary region="bottom">
                 <BottomPanel
                   tab={shell.bottomTab}
@@ -720,10 +692,21 @@ function AppShellChrome(props: {
                         )}
                         {showTui && selectedPaneId && (
                           <div
-                            data-agent-tui-region={selectedPaneId}
-                            className="flex-1 min-w-[280px] min-h-0 pointer-events-none"
-                            aria-hidden
-                          />
+                            className="flex flex-1 min-w-[280px] min-h-0 flex-col border-l border-border-subtle bg-canvas z-[2]"
+                            data-agent-tui-column={selectedPaneId}
+                          >
+                            <AgentTuiHeader
+                              agentLabel={agentPaneTitle ?? selectedPane?.info.agent_type ?? 'Agent'}
+                              onHide={() => setShowTui(false)}
+                            />
+                            <div className="relative flex flex-1 min-h-0 flex flex-col">
+                              {!tuiSurfaceLive && <AgentTuiPlaceholder />}
+                              <PaneTerminalHost
+                                paneId={selectedPaneId}
+                                className={tuiSurfaceLive ? '' : 'invisible pointer-events-none'}
+                              />
+                            </div>
+                          </div>
                         )}
                         </div>
                       </div>
@@ -743,7 +726,7 @@ function AppShellChrome(props: {
                         onNewShell={() => void handleNewShell()}
                         onCloseShell={(id) => onClosePane(id)}
                       />
-                      <div className="flex-1 min-h-0 relative">
+                      <div className="flex flex-1 min-h-0 flex-col relative">
                         {!isTauriRuntime() && (
                           <p
                             className="absolute inset-0 flex items-center justify-center text-meta text-text-3 pointer-events-none z-[4] px-4 text-center"
@@ -756,6 +739,12 @@ function AppShellChrome(props: {
                           <p className="p-4 text-meta text-text-3">
                             No terminal panes yet. Use + to open a shell.
                           </p>
+                        )}
+                        {shell.selectedTerminalPaneId && (
+                          <PaneTerminalHost
+                            paneId={shell.selectedTerminalPaneId}
+                            className="flex-1 min-h-0"
+                          />
                         )}
                       </div>
                     </>
@@ -815,6 +804,16 @@ function AppShellChrome(props: {
         onClose={() => shell.setSettingsOpen(false)}
         projectPath={projectPath}
         onProjectPathChange={onProjectPathChange}
+      />
+
+      <TerminalPark />
+      <TerminalLifecycle
+        panes={panes}
+        bottomTab={shell.bottomTab}
+        agentPaneId={selectedPaneId}
+        showTui={showTui}
+        selectedTerminalPaneId={shell.selectedTerminalPaneId}
+        subscribePaneData={registry.subscribePaneData}
       />
     </div>
   );
