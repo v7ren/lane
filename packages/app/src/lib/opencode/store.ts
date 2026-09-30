@@ -15,6 +15,13 @@ import { sortMessageIds, sortPartIdsForMessage } from './ordering.js';
 export type SessionStatus = 'idle' | 'busy' | 'retry' | 'unknown';
 export type ConnectionStatus = 'connected' | 'disconnected' | 'unknown';
 
+export type SessionIssue = {
+  message: string;
+  retryAtMs?: number;
+  kind: 'error' | 'rate_limit' | 'retry';
+  updatedAt: number;
+};
+
 export type OpenCodeEventEnvelope = {
   pane_id: string;
   server_id: string;
@@ -38,6 +45,7 @@ export type OpenCodeStoreState = {
   partOrderSeq: number;
   parts: Record<string, Part>;
   sessionStatus: Record<string, SessionStatus>;
+  sessionIssues: Record<string, SessionIssue>;
   permissions: Record<string, PermissionAsked>;
   questions: Record<string, QuestionRequest>;
   todosBySession: Record<string, Todo[]>;
@@ -63,6 +71,7 @@ export function createEmptyOpenCodeStore(paneId: string): OpenCodeStoreState {
     partOrderSeq: 0,
     parts: {},
     sessionStatus: {},
+    sessionIssues: {},
     permissions: {},
     questions: {},
     todosBySession: {},
@@ -148,6 +157,62 @@ function propsOf(event: OpenCodeWireEvent): Record<string, unknown> {
   return event.properties ?? {};
 }
 
+function parseSessionIssuePayload(
+  props: Record<string, unknown>,
+  kind: SessionIssue['kind'],
+): SessionIssue | null {
+  const err = props.error;
+  let message: string | null = null;
+  let retryAtMs: number | undefined;
+
+  if (typeof err === 'string' && err.trim()) {
+    message = err.trim();
+  } else if (err && typeof err === 'object') {
+    const record = err as Record<string, unknown>;
+    if (typeof record.message === 'string' && record.message.trim()) {
+      message = record.message.trim();
+    } else if (typeof record.error === 'string' && record.error.trim()) {
+      message = record.error.trim();
+    }
+    const retry =
+      record.retryAt ?? record.retry_at ?? record.retry_at_ms ?? record.retryAtMs;
+    if (typeof retry === 'number' && Number.isFinite(retry)) {
+      retryAtMs = retry;
+    }
+  }
+  if (!message && typeof props.message === 'string' && props.message.trim()) {
+    message = props.message.trim();
+  }
+  if (!message) return null;
+  const retryProp = props.retryAt ?? props.retry_at ?? props.retry_at_ms ?? props.retryAtMs;
+  if (retryAtMs == null && typeof retryProp === 'number' && Number.isFinite(retryProp)) {
+    retryAtMs = retryProp;
+  }
+  return {
+    message,
+    retryAtMs,
+    kind,
+    updatedAt: Date.now(),
+  };
+}
+
+function upsertSessionIssue(
+  state: OpenCodeStoreState,
+  sessionID: string,
+  issue: SessionIssue,
+): OpenCodeStoreState {
+  return {
+    ...state,
+    sessionIssues: { ...state.sessionIssues, [sessionID]: issue },
+  };
+}
+
+function clearSessionIssue(state: OpenCodeStoreState, sessionID: string): OpenCodeStoreState {
+  if (!state.sessionIssues[sessionID]) return state;
+  const { [sessionID]: _removed, ...sessionIssues } = state.sessionIssues;
+  return { ...state, sessionIssues };
+}
+
 export function applyOpenCodeWireEvent(
   state: OpenCodeStoreState,
   wire: OpenCodeWireEvent,
@@ -201,6 +266,14 @@ export function applyOpenCodeWireEvent(
         const mapped: SessionStatus =
           status === 'busy' ? 'busy' : status === 'retry' ? 'retry' : status === 'idle' ? 'idle' : 'unknown';
         next = { ...next, sessionStatus: { ...next.sessionStatus, [sessionID]: mapped } };
+        if (status === 'retry') {
+          const issue = parseSessionIssuePayload(props, 'retry');
+          if (issue) {
+            next = upsertSessionIssue(next, sessionID, issue);
+          }
+        } else if (status === 'idle') {
+          next = clearSessionIssue(next, sessionID);
+        }
       }
       break;
     }
@@ -208,6 +281,7 @@ export function applyOpenCodeWireEvent(
       const sessionID = props.sessionID as string | undefined;
       if (sessionID) {
         next = { ...next, sessionStatus: { ...next.sessionStatus, [sessionID]: 'idle' } };
+        next = clearSessionIssue(next, sessionID);
       }
       break;
     }
@@ -215,6 +289,15 @@ export function applyOpenCodeWireEvent(
       const sessionID = props.sessionID as string | undefined;
       if (sessionID) {
         next = { ...next, sessionStatus: { ...next.sessionStatus, [sessionID]: 'retry' } };
+        const lower = JSON.stringify(props).toLowerCase();
+        const kind: SessionIssue['kind'] =
+          lower.includes('rate') || lower.includes('quota') || lower.includes('limit')
+            ? 'rate_limit'
+            : 'error';
+        const issue = parseSessionIssuePayload(props, kind);
+        if (issue) {
+          next = upsertSessionIssue(next, sessionID, issue);
+        }
       }
       break;
     }

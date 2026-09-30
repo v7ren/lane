@@ -209,4 +209,34 @@ describe('fromOpenCode adapter', () => {
     const vm = fromOpenCode(state, sessionId);
     expect(vm.turns.length).toBeGreaterThan(0);
   });
+
+  it('shows session rate limit as inline transcript row after lone user turn', () => {
+    const sessionId = 'sess_rate';
+    let state = createEmptyOpenCodeStore('pane-test');
+    state = applyOpenCodeWireEvent(state, {
+      id: 'u1',
+      type: 'message.updated',
+      properties: {
+        info: { id: 'msg_u1', sessionID: sessionId, role: 'user', time: { created: 1 } },
+      },
+    } as OpenCodeWireEvent);
+    state = applyOpenCodeWireEvent(state, {
+      id: 'e_rate',
+      type: 'session.error',
+      properties: {
+        sessionID: sessionId,
+        error: { message: 'Rate limit exceeded', retry_at_ms: 1_700_000_000_000 },
+      },
+    } as OpenCodeWireEvent);
+
+    const vm = fromOpenCode(state, sessionId);
+    expect(vm.turns).toHaveLength(2);
+    expect(vm.turns[1]?.role).toBe('assistant');
+    expect(vm.turns[1]?.items[0]?.kind).toBe('retry');
+    if (vm.turns[1]?.items[0]?.kind === 'retry') {
+      expect(vm.turns[1].items[0].message).toContain('Rate limit');
+      expect(vm.turns[1].items[0].retryAtMs).toBe(1_700_000_000_000);
+    }
+    expect(vm.rateLimit?.message).toContain('Rate limit');
+  });
 });

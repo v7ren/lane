@@ -1,7 +1,11 @@
 import { useEffect } from 'react';
 import type { CloseRequestedEvent } from '@tauri-apps/api/window';
 import { isTauriRuntime } from '../lib/is-tauri';
-import { requestCloseConfirm } from '../lib/window-close-request';
+import {
+  isAppCloseConfirmed,
+  markAppCloseConfirmed,
+  requestCloseConfirm,
+} from '../lib/window-close-request';
 import { tauri, type PaneInfo } from '../lib/tauri';
 
 export type CloseRequestReason = 'user-gesture' | 'unknown';
@@ -34,12 +38,30 @@ async function listPanesWithTimeout(): Promise<PaneInfo[]> {
   }
 }
 
+async function exitAppAfterConfirm(): Promise<void> {
+  if (isAppCloseConfirmed()) {
+    await tauri.closeCurrentWindow();
+    return;
+  }
+  markAppCloseConfirmed();
+  try {
+    await tauri.killAllPanes();
+  } catch (err) {
+    console.warn('[loomria] killAllPanes during close failed', err);
+  }
+  await tauri.closeCurrentWindow();
+}
+
 export function useWindowCloseGuard(): void {
   useEffect(() => {
     if (!isTauriRuntime()) return;
     let unlisten: (() => void) | null = null;
     void tauri
       .onCurrentWindowCloseRequested(async (event: CloseRequestedEvent) => {
+        if (isAppCloseConfirmed()) {
+          return;
+        }
+
         const panes = await listPanesWithTimeout();
         const agents = panes.filter((p) => isAgentPane(p.agent_type));
         logCloseRequest('user-gesture', agents.length);
@@ -53,7 +75,7 @@ export function useWindowCloseGuard(): void {
           if (settled) return;
           settled = true;
           console.warn('[loomria] close confirmation timed out; forcing window close');
-          void tauri.closeCurrentWindow();
+          void exitAppAfterConfirm();
         }, CLOSE_HANDLER_TIMEOUT_MS);
 
         try {
@@ -62,14 +84,14 @@ export function useWindowCloseGuard(): void {
           settled = true;
           window.clearTimeout(forceCloseTimer);
           if (ok) {
-            await tauri.closeCurrentWindow();
+            await exitAppAfterConfirm();
           }
         } catch (err) {
           if (!settled) {
             settled = true;
             window.clearTimeout(forceCloseTimer);
             console.warn('[loomria] close confirmation failed; forcing window close', err);
-            await tauri.closeCurrentWindow();
+            await exitAppAfterConfirm();
           }
         }
       })

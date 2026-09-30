@@ -47,30 +47,13 @@ pub fn pane_link(
 pub fn resolve_model(
     request_provider: Option<&str>,
     request_model_id: Option<&str>,
-    settings: &Value,
+    _settings: &Value,
 ) -> Option<OpenCodeModelRef> {
-    if let Some((provider_id, model_id)) =
-        parse_request_model(request_provider, request_model_id)
-    {
-        return Some(OpenCodeModelRef {
+    parse_request_model(request_provider, request_model_id).map(|(provider_id, model_id)| {
+        OpenCodeModelRef {
             provider_id,
             model_id,
-        });
-    }
-    let model_id = settings
-        .get("opencode_model_id")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())?;
-    let provider = settings
-        .get("opencode_model_provider")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or(DEFAULT_OPENCODE_PROVIDER);
-    Some(OpenCodeModelRef {
-        provider_id: provider.to_string(),
-        model_id: model_id.to_string(),
+        }
     })
 }
 
@@ -343,17 +326,6 @@ mod tests {
     }
 
     #[test]
-    fn resolve_model_falls_back_to_settings() {
-        let settings = json!({
-            "opencode_model_provider": "anthropic",
-            "opencode_model_id": "claude-sonnet-4",
-        });
-        let model = resolve_model(None, None, &settings).unwrap();
-        assert_eq!(model.provider_id, "anthropic");
-        assert_eq!(model.model_id, "claude-sonnet-4");
-    }
-
-    #[test]
     fn resolve_model_none_when_unset() {
         assert!(resolve_model(None, None, &json!({})).is_none());
     }
@@ -365,11 +337,4 @@ mod tests {
         assert_eq!(model.model_id, "glm-5.2");
     }
 
-    #[test]
-    fn resolve_model_settings_model_id_defaults_provider_to_opencode_go() {
-        let settings = json!({ "opencode_model_id": "deepseek-v4-pro" });
-        let model = resolve_model(None, None, &settings).unwrap();
-        assert_eq!(model.provider_id, "opencode-go");
-        assert_eq!(model.model_id, "deepseek-v4-pro");
-    }
 }

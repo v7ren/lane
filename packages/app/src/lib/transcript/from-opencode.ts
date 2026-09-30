@@ -145,13 +145,23 @@ function mapPartToItem(
         prompt: part.prompt ?? '',
         title: (part as { description?: string }).description,
       };
-    case 'retry':
+    case 'retry': {
+      const retryPart = part as {
+        message?: string;
+        retryAt?: number;
+        retry_at?: number;
+        retry_at_ms?: number;
+      };
+      const retryAtMs =
+        retryPart.retryAt ?? retryPart.retry_at ?? retryPart.retry_at_ms ?? undefined;
       return {
         kind: 'retry',
         id: part.id,
         attempt: part.attempt ?? 1,
-        message: (part as { message?: string }).message,
+        message: retryPart.message,
+        retryAtMs,
       };
+    }
     case 'step-finish':
       return {
         kind: 'step_usage',
@@ -195,6 +205,21 @@ function buildAssistantMeta(message: Message, items: TranscriptItem[]): Assistan
   };
 }
 
+function messageErrorText(message: Message): string | null {
+  const record = message as Message & {
+    error?: unknown;
+    info?: { error?: unknown };
+  };
+  const err = record.error ?? record.info?.error;
+  if (typeof err === 'string' && err.trim()) return err.trim();
+  if (err && typeof err === 'object') {
+    const nested = err as { message?: string; error?: string };
+    if (typeof nested.message === 'string' && nested.message.trim()) return nested.message.trim();
+    if (typeof nested.error === 'string' && nested.error.trim()) return nested.error.trim();
+  }
+  return null;
+}
+
 function buildAssistantTurn(state: OpenCodeStoreState, message: Message): TranscriptTurn {
   const partIds = partIdsForMessage(state, message.id);
   const items: TranscriptItem[] = [];
@@ -203,6 +228,11 @@ function buildAssistantTurn(state: OpenCodeStoreState, message: Message): Transc
     if (!part) continue;
     const item = mapPartToItem(part, message, state.directory);
     if (item) items.push(item);
+  }
+
+  const errText = messageErrorText(message);
+  if (errText && !items.some((i) => i.kind === 'error')) {
+    items.push({ kind: 'error', id: `${message.id}-error`, message: errText });
   }
 
   if (items.length === 0) {
@@ -251,13 +281,49 @@ export function fromOpenCode(state: OpenCodeStoreState, sessionId: string): Tran
   }
 
   const status = selectSessionStatus(state, sessionId);
+  const issue = state.sessionIssues[sessionId];
+  const lastUserIdx = turns.reduce<number | null>((acc, turn, index) => {
+    return turn.role === 'user' ? index : acc;
+  }, null);
+  const hasAssistantAfterLastUser =
+    lastUserIdx != null && turns.slice(lastUserIdx + 1).some((t) => t.role === 'assistant');
+  if (issue && lastUserIdx != null && !hasAssistantAfterLastUser) {
+    const item: TranscriptItem =
+      issue.kind === 'retry' || issue.retryAtMs != null
+        ? {
+            kind: 'retry',
+            id: `session-retry-${sessionId}`,
+            attempt: 1,
+            message: issue.message,
+            retryAtMs: issue.retryAtMs,
+          }
+        : {
+            kind: 'error',
+            id: `session-error-${sessionId}`,
+            message: issue.message,
+          };
+    turns.push({
+      id: item.id,
+      role: 'assistant',
+      items: [item],
+    });
+  }
+
   const flatItems = flattenTranscriptTurns(turns);
+  const rateLimit =
+    issue?.kind === 'rate_limit' || (issue?.retryAtMs != null && status === 'retry')
+      ? { message: issue.message, retryAtMs: issue.retryAtMs }
+      : undefined;
+  const lastError =
+    issue && issue.kind === 'error' && status !== 'busy' ? issue.message : undefined;
 
   return {
     turns,
     flatItems,
     sessionBusy: status === 'busy',
     turnActive: status === 'busy',
+    rateLimit,
+    lastError,
     globalFilePaths: state.lastFileEdits,
   };
 }

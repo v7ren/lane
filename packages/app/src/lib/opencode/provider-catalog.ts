@@ -152,5 +152,24 @@ export function pickDefaultComposerModel(
       if (hit) return hit;
     }
   }
-  return choices.find((c) => c.connected) ?? choices[0] ?? null;
+  return null;
+}
+
+export function resolveConfiguredDefaultModel(
+  raw: unknown,
+): { providerID: string; modelID: string } | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const defaults = (raw as { default?: Record<string, string> }).default;
+  if (!defaults || typeof defaults !== 'object') return null;
+  const providerIds = [
+    'opencode-go',
+    ...Object.keys(defaults).filter((id) => id !== 'opencode-go'),
+  ];
+  for (const providerID of providerIds) {
+    const modelID = defaults[providerID];
+    if (typeof modelID === 'string' && modelID.length > 0) {
+      return { providerID, modelID };
+    }
+  }
+  return null;
 }

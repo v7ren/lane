@@ -515,8 +515,9 @@ export async function findBridgeUrl(): Promise<string | null> {
 function shouldUseFetchBridgeSse(baseUrl: string): boolean {
   if (isNgrokHost(baseUrl)) return true;
   try {
-    const { hostname } = new URL(baseUrl);
-    return hostname !== '127.0.0.1' && hostname !== 'localhost';
+    const bridgeOrigin = new URL(baseUrl).origin;
+    const pageOrigin = typeof window !== 'undefined' ? window.location.origin : bridgeOrigin;
+    return bridgeOrigin !== pageOrigin;
   } catch {
     return false;
   }

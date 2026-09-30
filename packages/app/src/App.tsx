@@ -17,6 +17,7 @@ import {
   setCloseConfirmListener,
   type CloseConfirmRequest,
 } from './lib/window-close-request';
+import { migrateLegacyComposerModelKeys } from './lib/opencode/session-model-prefs';
 
 export default function App() {
   const demo = useDemoFixtures();
@@ -31,6 +32,10 @@ export default function App() {
   const [closeConfirm, setCloseConfirm] = useState<CloseConfirmRequest | null>(null);
 
   useWindowCloseGuard();
+
+  useEffect(() => {
+    migrateLegacyComposerModelKeys();
+  }, []);
 
   useEffect(() => {
     setCloseConfirmListener((req) => setCloseConfirm(req));

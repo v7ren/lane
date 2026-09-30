@@ -68,6 +68,7 @@ export type TranscriptRetry = {
   id: string;
   attempt: number;
   message?: string;
+  retryAtMs?: number;
 };
 
 export type TranscriptError = {

@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Default permissions for Loomria","local":true,"windows":["main"],"permissions":["core:default","core:window:allow-close","dialog:default","notification:default","store:default"]}}
+{"default":{"identifier":"default","description":"Default permissions for Loomria","local":true,"windows":["main"],"permissions":["core:default","core:window:allow-close","core:window:allow-destroy","dialog:default","notification:default","store:default"]}}

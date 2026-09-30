@@ -4,6 +4,7 @@ use once_cell::sync::OnceCell;
 use rand::Rng;
 
 static TOKEN: OnceCell<String> = OnceCell::new();
+static ALLOWED_WEBVIEW_ORIGINS: OnceCell<Vec<String>> = OnceCell::new();
 
 pub fn init_token() -> String {
     TOKEN
@@ -19,6 +20,29 @@ pub fn init_token() -> String {
 
 pub fn token() -> Option<&'static str> {
     TOKEN.get().map(String::as_str)
+}
+
+pub fn set_allowed_webview_origins(origins: Vec<String>) -> Result<(), ()> {
+    ALLOWED_WEBVIEW_ORIGINS.set(origins).map_err(|_| ())
+}
+
+pub fn origin_from_dev_url(dev_url: &str) -> Option<String> {
+    let trimmed = dev_url.trim();
+    let scheme = if trimmed.starts_with("https://") {
+        "https"
+    } else if trimmed.starts_with("http://") {
+        "http"
+    } else {
+        return None;
+    };
+    let rest = trimmed
+        .strip_prefix("https://")
+        .or_else(|| trimmed.strip_prefix("http://"))?;
+    let host_port = rest.split('/').next()?.trim();
+    if host_port.is_empty() {
+        return None;
+    }
+    Some(format!("{scheme}://{host_port}"))
 }
 
 pub fn extract_token(headers_raw: &str, query: &str) -> Option<String> {
@@ -56,13 +80,20 @@ pub fn host_allowed(host_header: Option<&str>, port: u16) -> bool {
     }
 }
 
-pub fn cors_allow_origin(origin_header: Option<&str>, dev: bool) -> Option<String> {
+pub fn cors_allow_origin(origin_header: Option<&str>, _dev: bool) -> Option<String> {
     let origin = origin_header.map(|h| h.trim()).filter(|h| !h.is_empty())?;
-    if origin == "tauri://localhost" || origin == "http://tauri.localhost" {
+    const BUILTIN: &[&str] = &[
+        "tauri://localhost",
+        "http://tauri.localhost",
+        "https://tauri.localhost",
+    ];
+    if BUILTIN.contains(&origin) {
         return Some(origin.to_string());
     }
-    if dev && (origin == "http://127.0.0.1:1420" || origin == "http://localhost:1420") {
-        return Some(origin.to_string());
+    if let Some(list) = ALLOWED_WEBVIEW_ORIGINS.get() {
+        if list.iter().any(|allowed| allowed == origin) {
+            return Some(origin.to_string());
+        }
     }
     None
 }
@@ -104,5 +135,40 @@ mod tests {
     fn rejects_wrong_host() {
         assert!(!host_allowed(Some("evil.com:17321"), 17321));
         assert!(host_allowed(Some("127.0.0.1:17321"), 17321));
+    }
+
+    #[test]
+    fn allows_configured_dev_webview_origin() {
+        if ALLOWED_WEBVIEW_ORIGINS.get().is_none() {
+            let _ = set_allowed_webview_origins(vec![
+                "http://127.0.0.1:1430".to_string(),
+                "http://localhost:1430".to_string(),
+            ]);
+        }
+        assert_eq!(
+            cors_allow_origin(Some("http://127.0.0.1:1430"), true).as_deref(),
+            Some("http://127.0.0.1:1430")
+        );
+        assert_eq!(cors_allow_origin(Some("http://127.0.0.1:1420"), true), None);
+    }
+
+    #[test]
+    fn allows_production_tauri_origins_without_config() {
+        assert_eq!(
+            cors_allow_origin(Some("http://tauri.localhost"), false).as_deref(),
+            Some("http://tauri.localhost")
+        );
+        assert_eq!(
+            cors_allow_origin(Some("tauri://localhost"), false).as_deref(),
+            Some("tauri://localhost")
+        );
+    }
+
+    #[test]
+    fn parses_dev_url_origin() {
+        assert_eq!(
+            origin_from_dev_url("http://127.0.0.1:1430/"),
+            Some("http://127.0.0.1:1430".to_string())
+        );
     }
 }

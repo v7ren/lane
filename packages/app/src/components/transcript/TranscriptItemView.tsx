@@ -277,13 +277,20 @@ export function TranscriptItemView({
       );
     case 'retry':
       return (
-        <p className="text-meta text-status-approval px-1">
+        <p className="text-meta text-status-approval px-1" data-testid="transcript-retry">
           Retry attempt {item.attempt}
           {item.message ? ` · ${item.message}` : ''}
+          {item.retryAtMs != null
+            ? ` · retry ${new Date(item.retryAtMs).toLocaleTimeString()}`
+            : ''}
         </p>
       );
     case 'error':
-      return <p className="text-meta text-status-error px-1">{item.message}</p>;
+      return (
+        <p className="text-meta text-status-error px-1" data-testid="transcript-error">
+          {item.message}
+        </p>
+      );
     case 'step_usage':
       return null;
     case 'user_prompt':

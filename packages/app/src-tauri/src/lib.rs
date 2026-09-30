@@ -98,6 +98,25 @@ pub fn run() {
             let port_file = app_paths::bridge_port_file();
             let _ = app_paths::ensure_app_data_dir();
 
+            let mut webview_origins = vec![
+                "http://tauri.localhost".to_string(),
+                "https://tauri.localhost".to_string(),
+                "tauri://localhost".to_string(),
+            ];
+            if cfg!(debug_assertions) {
+                if let Some(dev_url) = &app.config().build.dev_url {
+                    if let Some(origin) = bridge_auth::origin_from_dev_url(dev_url.as_str()) {
+                        webview_origins.push(origin.clone());
+                        if origin.contains("127.0.0.1") {
+                            webview_origins.push(origin.replace("127.0.0.1", "localhost"));
+                        } else if origin.contains("localhost") {
+                            webview_origins.push(origin.replace("localhost", "127.0.0.1"));
+                        }
+                    }
+                }
+            }
+            let _ = bridge_auth::set_allowed_webview_origins(webview_origins);
+
             let state = app.state::<AppState>();
             let registry = state.registry.clone();
             let agents = state.agents.clone();

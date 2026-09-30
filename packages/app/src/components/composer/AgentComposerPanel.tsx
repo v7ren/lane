@@ -35,10 +35,11 @@ import {
   buildComposerModelChoices,
   filterComposerModelChoices,
   pickDefaultComposerModel,
+  resolveConfiguredDefaultModel,
   type ComposerModelChoice,
 } from '../../lib/opencode/provider-catalog';
 import {
-  getSessionComposerModel,
+  getUserPickedSessionModel,
   setSessionComposerModel,
 } from '../../lib/opencode/session-model-prefs';
 import { isTauriRuntime } from '../../lib/is-tauri';
@@ -195,16 +196,17 @@ export function AgentComposerPanel({
     setModelsError(null);
     void fetchProviderCatalog(paneId)
       .then((raw) => {
-        const stored =
-          sessionId != null ? getSessionComposerModel(paneId, sessionId) : null;
+        const userPicked =
+          sessionId != null ? getUserPickedSessionModel(paneId, sessionId) : null;
+        const configuredDefault = resolveConfiguredDefaultModel(raw);
         const hint =
-          stored ??
+          userPicked ??
           (sessionModel?.model
             ? {
                 providerID: sessionModel.provider ?? 'opencode-go',
                 modelID: sessionModel.model,
               }
-            : null);
+            : configuredDefault);
         const choices = buildComposerModelChoices(raw, { current: hint });
         setModels(choices);
         const picked = pickDefaultComposerModel(raw, choices, hint);
@@ -223,7 +225,7 @@ export function AgentComposerPanel({
 
   useEffect(() => {
     if (!openCode || demo || !sessionId || models.length === 0) return;
-    const stored = getSessionComposerModel(paneId, sessionId);
+    const stored = getUserPickedSessionModel(paneId, sessionId);
     if (stored) {
       const hit = models.find(
         (m) => m.providerID === stored.providerID && m.modelID === stored.modelID,
@@ -275,13 +277,17 @@ export function AgentComposerPanel({
             args: rest.join(' '),
           });
         } else {
+          const explicit =
+            sessionId != null ? getUserPickedSessionModel(paneId, sessionId) : null;
           await sendOpenCodePrompt({
             paneId,
             sessionId,
             messageId,
             parts,
             agent,
-            model: model ? { providerID: model.providerID, modelID: model.modelID } : undefined,
+            model: explicit
+              ? { providerID: explicit.providerID, modelID: explicit.modelID }
+              : undefined,
           });
         }
       } else {
