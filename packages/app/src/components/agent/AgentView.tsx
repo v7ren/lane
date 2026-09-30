@@ -20,7 +20,11 @@ import {
   replyOpenCodePermission,
   replyOpenCodeQuestion,
 } from '../../lib/commands/agent';
-import { mapApprovalDecisionToPermissionReply } from '../../lib/opencode/pending-requests';
+import {
+  mapApprovalDecisionToPermissionReply,
+  pendingPermissionSessionId,
+  type OpenCodePermissionReply,
+} from '../../lib/opencode/pending-requests';
 import { useTranscriptViewModel } from '../../lib/transcript/use-transcript-view-model';
 import { useSelectedSession } from '../../lib/shell-data';
 import { useShellSelection } from '../../lib/shell-selection-context';
@@ -32,7 +36,11 @@ import { setSessionMuted } from '../../lib/session-notify-prefs';
 import { formatPaneSubtitle } from '../../lib/session-subtitle';
 import { DisplayStatusDot } from '../DisplayStatusDot';
 import { AgentComposerPanel } from '../composer/AgentComposerPanel';
-import { PermissionDock, type PermissionDockItem } from '../composer/ComposerDocks';
+import {
+  PermissionDock,
+  pendingPermissionToDockItem,
+  type PermissionDockItem,
+} from '../opencode/PermissionDock';
 import { QuestionDock, type QuestionDockItem } from '../opencode/QuestionDock';
 import { TranscriptView } from '../transcript/TranscriptView';
 import { useAgentApprovalShortcuts } from './AgentView.keyboard';
@@ -114,23 +122,18 @@ export function AgentView({
   }, [ocState]);
 
   const permissionDockItems = useMemo((): PermissionDockItem[] => {
-    const fromStore = pendingPermissions.map((perm) => {
-      const raw = perm as Record<string, unknown>;
-      const data = raw.data as Record<string, unknown> | undefined;
-      return {
-        id: String(raw.id ?? ''),
-        title: String(data?.title ?? raw.title ?? 'Permission required'),
-        detail: String(data?.pattern ?? data?.command ?? raw.pattern ?? ''),
-        submitting: Boolean(perm.submitting),
-      };
-    });
+    const fromStore = pendingPermissions
+      .filter((entry) => !sessionId || pendingPermissionSessionId(entry) === sessionId)
+      .map((entry) => pendingPermissionToDockItem(entry));
     if (fromStore.length > 0) return fromStore;
-    return pendingProtocol.map((a) => ({
+    return pendingProtocol.map((a, index) => ({
       id: a.id,
-      title: a.title,
-      detail: a.detail,
+      permissionName: a.title,
+      patterns: a.detail ? [a.detail] : [],
+      always: [],
+      receivedAt: index,
     }));
-  }, [pendingPermissions, pendingProtocol]);
+  }, [pendingPermissions, pendingProtocol, sessionId]);
 
   const questionDockItems = useMemo((): QuestionDockItem[] => {
     if (!ocState || !sessionId) return [];
@@ -197,6 +200,21 @@ export function AgentView({
     },
     [capabilities.send_prompt, paneId, refresh, source],
   );
+
+  const mapPermissionReplyToApproval = useCallback((reply: OpenCodePermissionReply): ApprovalDecision => {
+    switch (reply) {
+      case 'once':
+        return 'allow_once';
+      case 'always':
+        return 'allow_always';
+      case 'reject':
+        return 'deny';
+      default: {
+        const _exhaustive: never = reply;
+        return _exhaustive;
+      }
+    }
+  }, []);
 
   const respondApproval = useCallback(
     async (approvalId: string, decision: ApprovalDecision) => {
@@ -393,7 +411,8 @@ export function AgentView({
             <PermissionDock
               permissions={permissionDockItems}
               busy={permissionDockBusy}
-              onReply={(id, d) => void respondApproval(id, d)}
+              lastRequestError={ocLastRequestError}
+              onReply={(id, reply) => void respondApproval(id, mapPermissionReplyToApproval(reply))}
             />
             <QuestionDock
               questions={questionDockItems}
