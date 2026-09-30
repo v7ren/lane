@@ -143,3 +143,23 @@ export async function forkAt(
 ): Promise<Session> {
   return opencodeSessionActions.forkSession(paneId, sourceSessionId, { messageID: messageId });
 }
+
+export class NoAssistantMessageError extends Error {
+  constructor() {
+    super('Nothing to fork yet: this session has no assistant reply.');
+    this.name = 'NoAssistantMessageError';
+  }
+}
+
+/** Fork a session at its most recent assistant message. */
+export async function forkAtLatestAssistant(
+  paneId: string,
+  sourceSessionId: string,
+): Promise<Session> {
+  const messages = await opencodeSessionActions.listMessages(paneId, sourceSessionId);
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (message.role === 'assistant') return forkAt(paneId, sourceSessionId, message.id);
+  }
+  throw new NoAssistantMessageError();
+}

@@ -11,6 +11,8 @@ import type { Session } from '@loomria/shared/opencode';
 import { loadSettings } from '../settings';
 import {
   forkAt,
+  forkAtLatestAssistant,
+  NoAssistantMessageError,
   opencodeSessionActions,
   type CreateSessionBody,
   type SummarizeSessionBody,
@@ -114,10 +116,16 @@ export function SessionActionsProvider({
   const forkFromHere = useCallback(
     async (session: ShellSession) => {
       if (!session.sessionId) return;
-      pushToast('Select a message in the transcript to fork (Phase 3).');
-      void session;
+      try {
+        const forked = await forkAtLatestAssistant(session.paneId, session.sessionId);
+        onSelectSession(session.paneId, forked.id);
+      } catch (err) {
+        pushToast(
+          err instanceof NoAssistantMessageError ? err.message : `Fork failed: ${String(err)}`,
+        );
+      }
     },
-    [pushToast],
+    [onSelectSession, pushToast],
   );
 
   const revertSession = useCallback(

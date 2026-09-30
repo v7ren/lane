@@ -5,7 +5,12 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 import { invoke } from '@tauri-apps/api/core';
-import { opencodeSessionActions, forkAt } from './opencode-session-actions';
+import {
+  opencodeSessionActions,
+  forkAt,
+  forkAtLatestAssistant,
+  NoAssistantMessageError,
+} from './opencode-session-actions';
 import { setOpenCodeTransport } from './opencode-transport';
 
 describe('opencodeSessionActions', () => {
@@ -66,5 +71,38 @@ describe('opencodeSessionActions', () => {
     expect(invoke).toHaveBeenCalledWith('opencode_request', {
       args: expect.objectContaining({ path: '/session/s1/fork', body: { messageID: 'm2' } }),
     });
+  });
+
+  it('forkAtLatestAssistant forks at the last assistant message', async () => {
+    const transport = vi.fn(async (args: { method: string; path: string }) =>
+      args.method === 'GET'
+        ? [
+            { id: 'u1', role: 'user' },
+            { id: 'a1', role: 'assistant' },
+            { id: 'u2', role: 'user' },
+            { id: 'a2', role: 'assistant' },
+            { id: 'u3', role: 'user' },
+          ]
+        : { id: 'forked' },
+    );
+    setOpenCodeTransport(transport);
+    const forked = await forkAtLatestAssistant('pane-1', 's1');
+    expect(forked).toEqual({ id: 'forked' });
+    expect(transport).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        path: '/session/s1/fork',
+        body: { messageID: 'a2' },
+      }),
+    );
+  });
+
+  it('forkAtLatestAssistant rejects with a friendly error when no assistant message', async () => {
+    const transport = vi.fn(async () => [{ id: 'u1', role: 'user' }]);
+    setOpenCodeTransport(transport);
+    await expect(forkAtLatestAssistant('pane-1', 's1')).rejects.toBeInstanceOf(
+      NoAssistantMessageError,
+    );
+    expect(transport).toHaveBeenCalledTimes(1);
   });
 });
