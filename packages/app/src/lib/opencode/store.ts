@@ -189,7 +189,14 @@ function applyPartDelta(
   const record = { ...(existing as Record<string, unknown>) };
   const current = record[field];
   if (typeof current === 'string') {
-    record[field] = current + delta;
+    if (current === delta) {
+      return state;
+    }
+    if (delta.startsWith(current) && delta.length > current.length) {
+      record[field] = delta;
+    } else {
+      record[field] = current + delta;
+    }
   } else {
     record[field] = delta;
   }

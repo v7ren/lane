@@ -110,6 +110,84 @@ describe('OpenCode part text streaming', () => {
     return { id, type, properties } as OpenCodeWireEvent;
   }
 
+  it('updated then duplicate delta does not double text (Blue)', () => {
+    let state = applyOpenCodeWireEvent(
+      base,
+      wire('m1', 'message.updated', {
+        info: { id: messageId, sessionID: sessionId, role: 'assistant' },
+      }),
+    );
+    state = applyOpenCodeWireEvent(
+      state,
+      wire('u1', 'message.part.updated', {
+        messageID: messageId,
+        part: { id: partId, messageID: messageId, type: 'text', text: 'Blue' },
+      }),
+    );
+    state = applyOpenCodeWireEvent(
+      state,
+      wire('d1', 'message.part.delta', {
+        messageID: messageId,
+        partID: partId,
+        field: 'text',
+        delta: 'Blue',
+      }),
+    );
+    expect(assembleMessageText(state, messageId)).toBe('Blue');
+  });
+
+  it('updated then duplicate delta does not double text (ok)', () => {
+    let state = applyOpenCodeWireEvent(
+      base,
+      wire('m1', 'message.updated', {
+        info: { id: messageId, sessionID: sessionId, role: 'assistant' },
+      }),
+    );
+    state = applyOpenCodeWireEvent(
+      state,
+      wire('u1', 'message.part.updated', {
+        messageID: messageId,
+        part: { id: partId, messageID: messageId, type: 'text', text: 'ok' },
+      }),
+    );
+    state = applyOpenCodeWireEvent(
+      state,
+      wire('d1', 'message.part.delta', {
+        messageID: messageId,
+        partID: partId,
+        field: 'text',
+        delta: 'ok',
+      }),
+    );
+    expect(assembleMessageText(state, messageId)).toBe('ok');
+  });
+
+  it('appends a new token after authoritative updated text', () => {
+    let state = applyOpenCodeWireEvent(
+      base,
+      wire('m1', 'message.updated', {
+        info: { id: messageId, sessionID: sessionId, role: 'assistant' },
+      }),
+    );
+    state = applyOpenCodeWireEvent(
+      state,
+      wire('u1', 'message.part.updated', {
+        messageID: messageId,
+        part: { id: partId, messageID: messageId, type: 'text', text: 'Blue' },
+      }),
+    );
+    state = applyOpenCodeWireEvent(
+      state,
+      wire('d1', 'message.part.delta', {
+        messageID: messageId,
+        partID: partId,
+        field: 'text',
+        delta: '!',
+      }),
+    );
+    expect(assembleMessageText(state, messageId)).toBe('Blue!');
+  });
+
   it('delta then authoritative updated yields single text', () => {
     let state = applyOpenCodeWireEvent(
       base,

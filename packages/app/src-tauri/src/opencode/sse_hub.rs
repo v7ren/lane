@@ -237,6 +237,10 @@ fn fan_out_raw(
         let guard = state.lock();
         (guard.app.clone(), guard.panes.clone())
     };
+    if !is_delta {
+        flush_pending(state, pending);
+        *last_flush = Instant::now();
+    }
     for pane in panes {
         let payload = OpenCodeEventPayload {
             pane_id: pane.pane_id.clone(),
