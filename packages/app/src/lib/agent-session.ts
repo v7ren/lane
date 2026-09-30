@@ -76,6 +76,32 @@ export function subscribeAgentEvents(
   });
 }
 
+/** Upper bound on retained raw envelopes per pane (oldest dropped first). */
+export const MAX_ENVELOPE_LOG = 20000;
+
+/**
+ * Merge envelopes into an ordered, seq-deduplicated log. Returns the existing
+ * array (same identity) when nothing new was added.
+ */
+export function mergeEnvelopeLog(
+  existing: readonly AgentEventEnvelope[],
+  incoming: readonly AgentEventEnvelope[],
+  limit: number = MAX_ENVELOPE_LOG,
+): readonly AgentEventEnvelope[] {
+  if (incoming.length === 0) return existing;
+  const seen = new Set<number>();
+  for (const env of existing) seen.add(env.seq);
+  const added: AgentEventEnvelope[] = [];
+  for (const env of incoming) {
+    if (seen.has(env.seq)) continue;
+    seen.add(env.seq);
+    added.push(env);
+  }
+  if (added.length === 0) return existing;
+  const merged = [...existing, ...added].sort((a, b) => a.seq - b.seq);
+  return merged.length > limit ? merged.slice(merged.length - limit) : merged;
+}
+
 export function isSessionCommandMissing(err: unknown): boolean {
   const msg = String(err);
   return (
