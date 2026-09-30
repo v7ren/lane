@@ -165,7 +165,8 @@ fn join_under_root(root_canon: &Path, rel: &str) -> Result<PathBuf, String> {
 pub fn resolve_new_under_root(root_canon: &Path, rel: &str) -> Result<PathBuf, String> {
     let joined = join_under_root(root_canon, rel)?;
     let mut anchor = joined.clone();
-    while !anchor.exists() {
+    // symlink_metadata so a dangling link is not skipped (canonicalize then fails -> rejected)
+    while anchor.symlink_metadata().is_err() {
         anchor = anchor
             .parent()
             .ok_or_else(|| "invalid path".to_string())?
@@ -284,6 +285,10 @@ fn walk_dir(
         let entry = entry.map_err(|e| e.to_string())?;
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().into_owned();
+        // Never follow symlinks/junctions: they may point outside the project root.
+        if entry.file_type().map_err(|e| e.to_string())?.is_symlink() {
+            continue;
+        }
         if path.is_dir() {
             if is_ignored_dir(&name) {
                 continue;
@@ -602,5 +607,86 @@ mod tests {
         fs::write(root.join("bin.dat"), &[0u8, 1, 0, 2]).unwrap();
         let canon = fs::canonicalize(&root).unwrap();
         assert!(read_utf8_file(&canon.join("bin.dat")).is_err());
+    }
+
+    /// Creates `outside` (with a secret file) next to `project` and returns its path.
+    fn make_outside(dir: &tempfile::TempDir) -> PathBuf {
+        let outside = dir.path().join("outside");
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("secret.txt"), "secret").unwrap();
+        fs::canonicalize(&outside).unwrap()
+    }
+
+    /// Shared assertions: `link` (relative name inside root) points at the outside dir.
+    fn assert_link_escape_rejected(canon: &Path, outside: &Path, link: &str) {
+        assert!(resolve_inside_root(canon, link).is_err(), "resolve link dir");
+        assert!(
+            resolve_inside_root(canon, &format!("{link}/secret.txt")).is_err(),
+            "read through link"
+        );
+        assert!(list_dir_impl(canon, link).is_err(), "list through link");
+        assert!(
+            resolve_new_under_root(canon, &format!("{link}/secret.txt")).is_err(),
+            "overwrite through link"
+        );
+        assert!(
+            resolve_new_under_root(canon, &format!("{link}/new.txt")).is_err(),
+            "create through link"
+        );
+        assert!(
+            resolve_new_under_root(canon, &format!("{link}/newdir/new.txt")).is_err(),
+            "create nested through link"
+        );
+        // walking the project must not surface files from beyond the link
+        let walked = walk_files_impl(canon, "secret").unwrap();
+        assert!(walked.is_empty(), "walk followed link: {walked:?}");
+        assert_eq!(fs::read_to_string(outside.join("secret.txt")).unwrap(), "secret");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn rejects_junction_escape() {
+        let (dir, canon) = setup();
+        let outside = make_outside(&dir);
+        let link = canon.join("jlink");
+        let status = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(&link)
+            .arg(&outside)
+            .output()
+            .expect("run mklink");
+        assert!(status.status.success(), "mklink /J failed: {status:?}");
+        assert_link_escape_rejected(&canon, &outside, "jlink");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn rejects_symlink_dir_escape() {
+        let (dir, canon) = setup();
+        let outside = make_outside(&dir);
+        if let Err(e) = std::os::windows::fs::symlink_dir(&outside, canon.join("slink")) {
+            eprintln!("skipping rejects_symlink_dir_escape: cannot create symlink ({e})");
+            return;
+        }
+        assert_link_escape_rejected(&canon, &outside, "slink");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_symlink_escape() {
+        let (dir, canon) = setup();
+        let outside = make_outside(&dir);
+        std::os::unix::fs::symlink(&outside, canon.join("slink")).unwrap();
+        assert_link_escape_rejected(&canon, &outside, "slink");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_symlink_file_escape() {
+        let (dir, canon) = setup();
+        let outside = make_outside(&dir);
+        std::os::unix::fs::symlink(outside.join("secret.txt"), canon.join("flink")).unwrap();
+        assert!(resolve_inside_root(&canon, "flink").is_err());
+        assert!(resolve_new_under_root(&canon, "flink").is_err());
     }
 }
