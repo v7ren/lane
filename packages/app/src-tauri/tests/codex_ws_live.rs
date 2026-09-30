@@ -89,6 +89,63 @@ fn prompt(url: &str, thread: Option<String>, cwd: &str) -> Vec<AgentEvent> {
     wait_agent_message(&mut rx)
 }
 
+fn start_server(tmp: &std::path::Path) -> (Server, String) {
+    std::fs::create_dir_all(tmp).unwrap();
+    let port = free_port();
+    let url = format!("ws://127.0.0.1:{port}");
+    let exe = loomria_app_lib::shell_env::resolve_codex_executable().expect("codex on PATH");
+    let server = Server(
+        Command::new(exe)
+            .args(["app-server", "--listen", &url])
+            .current_dir(tmp)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn codex"),
+    );
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while TcpStream::connect(("127.0.0.1", port)).is_err() {
+        assert!(Instant::now() < deadline, "server did not come up");
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    (server, url)
+}
+
+/// Repro for "no rollout found" right after opening a pane: thread/start +
+/// thread/name/set, socket dropped, then an immediate thread/resume with the app's
+/// thread options. No model turn is spent.
+#[test]
+#[ignore = "live codex"]
+fn live_resume_right_after_bootstrap() {
+    let tmp = std::env::temp_dir().join("loomria-ws-live2");
+    let cwd = tmp.to_string_lossy().to_string();
+    let (_server, url) = start_server(&tmp);
+    let mut failures = Vec::new();
+    for i in 0..6 {
+        let mut a = raw_client(&url);
+        let started = rpc(&mut a, 2, "thread/start", json!({"cwd": cwd}));
+        let tid = started["result"]["thread"]["id"].as_str().unwrap().to_string();
+        let named = rpc(&mut a, 3, "thread/name/set", json!({"threadId": tid, "name": "Loomria"}));
+        assert!(named.get("result").is_some(), "{named}");
+        // Alternate abrupt drop and graceful close; resume immediately with `{threadId, cwd}`
+        // only (overrides such as approvalPolicy/sandbox make resume fail, see codex_ws.rs).
+        if i % 2 == 0 {
+            drop(a);
+        } else {
+            let _ = a.close(None);
+            drop(a);
+        }
+        let mut b = raw_client(&url);
+        let r = rpc(&mut b, 2, "thread/resume", json!({"threadId": tid, "cwd": cwd}));
+        println!("iter {i}: resume ok={} {}", r.get("result").is_some(), r.get("error").map(|e| e.to_string()).unwrap_or_default());
+        if r.get("result").is_none() {
+            failures.push(r);
+        }
+    }
+    assert!(failures.is_empty(), "{failures:?}");
+}
+
 #[test]
 #[ignore = "live codex"]
 fn live_handshake_thread_roundtrip() {

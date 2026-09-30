@@ -58,7 +58,7 @@ pub struct CodexWsClient {
     request_seq: AtomicU64,
     materialized: Arc<AtomicBool>,
     startup_error: Arc<parking_lot::Mutex<Option<String>>>,
-    _thread_options: CodexThreadOptions,
+    thread_options: CodexThreadOptions,
 }
 
 impl CodexWsClient {
@@ -140,7 +140,7 @@ impl CodexWsClient {
             request_seq: AtomicU64::new(1),
             materialized: Arc::clone(&materialized),
             startup_error: Arc::clone(&startup_error),
-            _thread_options: thread_options.clone(),
+            thread_options: thread_options.clone(),
         });
         let state = LoopState {
             events_tx: events_tx.clone(),
@@ -212,6 +212,17 @@ impl CodexWsClient {
         });
         if let Some(policy) = approval_policy {
             params["approvalPolicy"] = json!(policy);
+        } else if let Some(policy) = self.thread_options.approval_policy.clone() {
+            params["approvalPolicy"] = policy;
+        }
+        if let Some(sandbox) = self.thread_options.sandbox_policy.as_ref() {
+            // turn/start takes the tagged-object form, thread options hold the CLI string.
+            params["sandboxPolicy"] = match sandbox.as_str() {
+                Some("workspace-write") => json!({ "type": "workspaceWrite" }),
+                Some("read-only") => json!({ "type": "readOnly" }),
+                Some("danger-full-access") => json!({ "type": "dangerFullAccess" }),
+                _ => sandbox.clone(),
+            };
         }
         self.pending_prompts
             .lock()
@@ -296,12 +307,21 @@ fn run_ws_loop(
     send_json(&mut ws, json!({ "jsonrpc": "2.0", "method": "initialized" }))?;
 
     // 3. thread/start (server allocates the id) or thread/resume.
+    //
+    // ROOT CAUSE of "no rollout found" right after opening a pane (reproduced live on
+    // 0.159): `thread/resume` of a thread whose rollout only holds `thread/name/set`
+    // succeeds with `{threadId, cwd}` but FAILS with "no rollout found" as soon as it also
+    // carries an `approvalPolicy` or `sandbox` override (deterministic, either key alone).
+    // So resume never sends overrides; the policies travel on every `turn/start` instead
+    // (see `send_turn_with_policy`). `thread/start` has no rollout to read, so it keeps them.
     let mut thread_params = json!({ "cwd": cwd });
-    if let Some(policy) = thread_options.approval_policy.clone() {
-        thread_params["approvalPolicy"] = policy;
-    }
-    if let Some(sandbox) = thread_options.sandbox_policy.clone() {
-        thread_params["sandbox"] = sandbox;
+    if matches!(mode, ThreadMode::Start { .. }) {
+        if let Some(policy) = thread_options.approval_policy.clone() {
+            thread_params["approvalPolicy"] = policy;
+        }
+        if let Some(sandbox) = thread_options.sandbox_policy.clone() {
+            thread_params["sandbox"] = sandbox;
+        }
     }
     let method = match &mode {
         ThreadMode::Start { .. } => "thread/start",
