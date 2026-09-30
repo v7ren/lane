@@ -3,6 +3,7 @@ import type { Session } from '@loomria/shared/opencode';
 import type { PaneData } from '../../hooks/usePaneRegistry';
 import type { SessionRailState } from '../../hooks/useSessionRail';
 import {
+  effectivePaneStatus,
   mergePaneAndSessionStatus,
   type DisplayStatus,
 } from '../display-status';
@@ -122,7 +123,10 @@ export function buildPaneShellSessions(args: {
     if (isUserShellPane(pane.info.agent_type)) continue;
     if (isOpenCodePane(pane)) continue;
     const session = sessionStates.get(pane.info.id);
-    const status = mergePaneAndSessionStatus(pane.status, session?.state);
+    const status = mergePaneAndSessionStatus(
+      effectivePaneStatus(pane.status, pane.info.surface),
+      session?.state,
+    );
     const title =
       paneTitles.get(pane.info.id) ??
       (session?.agent_type

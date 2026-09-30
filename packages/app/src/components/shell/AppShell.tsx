@@ -15,6 +15,7 @@ import { AgentTuiHeader, AgentTuiPlaceholder } from '../agent/AgentTuiColumn';
 import { PaneTerminalHost } from '../PaneTerminalHost';
 import { TerminalLifecycle } from '../TerminalLifecycle';
 import { TerminalPark } from '../TerminalPark';
+import { effectivePaneStatus } from '../../lib/display-status';
 import { PortsPanel } from '../PortsPanel';
 import { SettingsPanel } from '../SettingsPanel';
 import type { PaneRegistryApi } from '../../hooks/usePaneRegistry';
@@ -672,7 +673,7 @@ function AppShellChrome(props: {
                           paneId={selectedPaneId}
                           agentType={selectedPane?.info.agent_type}
                           agentCatalog={agentCatalog}
-                          paneStatus={selectedPane?.status}
+                          paneStatus={effectivePaneStatus(selectedPane?.status, selectedPane?.info.surface) ?? undefined}
                           sessionState={sessionForAgent ?? null}
                           paneTitle={agentPaneTitle}
                           paneCwd={selectedPane?.info.cwd}

@@ -31,6 +31,19 @@ export const DISPLAY_STATUS_LABEL: Record<DisplayStatus, string> = {
   connecting: 'Connecting',
 };
 
+/**
+ * A headless (protocol-only) pane has no terminal to tell "running" from "idle", so its raw
+ * pane status stays `running` for the whole process lifetime. Ignore that value there and let
+ * the session state (driven by turn events) decide; errors and waiting still pass through.
+ */
+export function effectivePaneStatus(
+  paneStatus: string | null | undefined,
+  surface: string | null | undefined,
+): string | null | undefined {
+  if (surface === 'headless' && paneStatus === 'running') return undefined;
+  return paneStatus;
+}
+
 export function mergePaneAndSessionStatus(
   paneStatus?: string | null,
   sessionState?: string | null,
