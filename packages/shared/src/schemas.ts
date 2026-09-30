@@ -97,6 +97,10 @@ export const SettingsSchema = z.object({
   theme: z.enum(['dark', 'light']).default('dark'),
   /** Developer option: install MCP configs to launch the bundled Rust binary instead of npm. */
   developer_use_rust_mcp: z.boolean().default(false),
+  /** UI accent colour (#RRGGBB); unset means the default blue. */
+  accent_color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  /** Rebound shortcuts by action id (combo strings like "Ctrl+Shift+L"); unset means defaults. */
+  keybinds: z.record(z.string(), z.string()).optional(),
   /** Optional path to the librarian project indexer script (default scripts/project-indexer.py). */
   librarian_indexer_path: z.string().optional(),
   /** Default OpenCode provider for opencode_native API prompts (write_terminal_input). */
