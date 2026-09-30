@@ -29,6 +29,12 @@ import {
   demoMentionFiles,
 } from '../../lib/demo/composer-fixtures';
 import { composerAllowlistOk } from '../../lib/opencode/composer-allowlist';
+import {
+  attachmentSizeError,
+  buildPromptPartsFromComposer,
+  revokeAttachmentPreviews,
+  type PendingUploadAttachment,
+} from '../../lib/opencode/encode-attachment';
 import { createPromptMessageId } from '../../lib/opencode/prompt-send';
 import { fetchProviderCatalog, opencodeClient } from '../../lib/opencode/client';
 import {
@@ -101,6 +107,7 @@ export function AgentComposerPanel({
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionHits, setMentionHits] = useState<{ path: string }[]>([]);
   const [fileParts, setFileParts] = useState<PromptPart[]>([]);
+  const [uploadAttachments, setUploadAttachments] = useState<PendingUploadAttachment[]>([]);
   const historyRef = useRef<string[]>([]);
   const historyIdx = useRef<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -276,9 +283,13 @@ export function AgentComposerPanel({
     if (!raw || disabled || busy || sendInFlightRef.current) return;
     sendInFlightRef.current = true;
     onError(null);
-    const parts: PromptPart[] = [...fileParts, { type: 'text', text: raw }];
     const messageId = createPromptMessageId();
     try {
+      const parts = await buildPromptPartsFromComposer({
+        mentionFileParts: fileParts,
+        uploads: uploadAttachments,
+        text: raw,
+      });
       if (openCode && sessionId) {
         if (mode === 'shell' || raw.startsWith('!')) {
           const cmd = raw.startsWith('!') ? raw.slice(1).trim() : raw;
@@ -315,6 +326,8 @@ export function AgentComposerPanel({
       historyRef.current = [raw, ...historyRef.current.filter((h) => h !== raw)].slice(0, 50);
       historyIdx.current = null;
       setDraft('');
+      revokeAttachmentPreviews(uploadAttachments);
+      setUploadAttachments([]);
       setFileParts([]);
       setMode('chat');
     } catch (err) {
@@ -329,6 +342,7 @@ export function AgentComposerPanel({
     disabled,
     draft,
     fileParts,
+    uploadAttachments,
     mode,
     model,
     onError,
@@ -359,14 +373,18 @@ export function AgentComposerPanel({
     }
   };
 
-  const attachFiles = async (files: FileList | null) => {
+  const attachFiles = (files: FileList | null) => {
     if (!files) return;
-    const next: PromptPart[] = [];
+    const next: PendingUploadAttachment[] = [];
     for (const file of Array.from(files)) {
-      const url = URL.createObjectURL(file);
-      next.push({ type: 'file', mime: file.type || 'application/octet-stream', filename: file.name, url });
+      const sizeErr = attachmentSizeError(file);
+      if (sizeErr) {
+        onError(sizeErr);
+        return;
+      }
+      next.push({ file, previewUrl: URL.createObjectURL(file) });
     }
-    setFileParts((prev) => [...prev, ...next]);
+    setUploadAttachments((prev) => [...prev, ...next]);
   };
 
   const filteredModels = useMemo(
@@ -529,15 +547,24 @@ export function AgentComposerPanel({
             )}
           </div>
         </div>
-        {fileParts.length > 0 && (
+        {(fileParts.length > 0 || uploadAttachments.length > 0) && (
           <div className="flex flex-wrap gap-1 mt-2">
             {fileParts.map((f, i) => (
               <span
-                key={`${f.type}-${i}`}
+                key={`mention-${f.type}-${i}`}
                 className="inline-flex items-center gap-1 text-meta px-2 py-0.5 rounded-full bg-elevated border border-border-subtle"
               >
                 <Paperclip className="w-3 h-3" />
                 {f.type === 'file' ? f.filename ?? 'file' : 'text'}
+              </span>
+            ))}
+            {uploadAttachments.map((u, i) => (
+              <span
+                key={`upload-${u.file.name}-${i}`}
+                className="inline-flex items-center gap-1 text-meta px-2 py-0.5 rounded-full bg-elevated border border-border-subtle"
+              >
+                <Paperclip className="w-3 h-3" />
+                {u.file.name}
               </span>
             ))}
           </div>
