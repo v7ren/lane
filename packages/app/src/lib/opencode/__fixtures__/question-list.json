@@ -1,0 +1,20 @@
+[
+  {
+    "id": "que_demo_001",
+    "sessionID": "ses_demo_001",
+    "questions": [
+      {
+        "header": "Color choice",
+        "options": [
+          { "description": "Choose red", "label": "Red" },
+          { "description": "Choose blue", "label": "Blue" }
+        ],
+        "question": "Pick a color:"
+      }
+    ],
+    "tool": {
+      "callID": "call_demo_001",
+      "messageID": "msg_asst_001"
+    }
+  }
+]

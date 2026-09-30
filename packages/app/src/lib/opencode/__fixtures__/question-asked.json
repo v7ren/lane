@@ -2,23 +2,21 @@
   "id": "evt_question_asked_001",
   "type": "question.asked",
   "properties": {
-    "id": "req_question_001",
-    "sessionID": "sess_demo_001",
+    "id": "que_demo_001",
+    "sessionID": "ses_demo_001",
     "questions": [
       {
-        "question": "Proceed with deployment?",
-        "header": "Deploy",
+        "header": "Color choice",
         "options": [
-          { "label": "Yes", "description": "Continue with deploy" },
-          { "label": "No", "description": "Cancel" }
+          { "description": "Choose red", "label": "Red" },
+          { "description": "Choose blue", "label": "Blue" }
         ],
-        "multiple": false,
-        "custom": true
+        "question": "Pick a color:"
       }
     ],
     "tool": {
-      "messageID": "msg_asst_001",
-      "callID": "call_tool_002"
+      "callID": "call_demo_001",
+      "messageID": "msg_asst_001"
     }
   }
 }

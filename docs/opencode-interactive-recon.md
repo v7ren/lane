@@ -35,6 +35,7 @@ SSE wire shape (confirmed in `packages/shared/src/opencode/index.ts`): `{ id, ty
 - `__fixtures__/permission-asked.json` (new)
 - `__fixtures__/permission-replied.json` (new)
 - `__fixtures__/question-asked.json` (new)
+- `__fixtures__/question-list.json` (new)
 - `__fixtures__/question-replied.json` (new)
 - `__fixtures__/question-rejected.json` (new)
 
@@ -240,7 +241,8 @@ Frontend client: `packages/app/src/lib/opencode/client.ts` (`listPermissions`, `
 |------|--------|
 | `permission-asked.json` | From `EventPermissionAsked` in spec (flat `properties`) |
 | `permission-replied.json` | From `EventPermissionReplied` |
-| `question-asked.json` | From `EventQuestionAsked` + `QuestionInfo` |
+| `question-asked.json` | Live-capture-shaped `EventQuestionAsked` SSE (flat `properties`) |
+| `question-list.json` | Live-capture-shaped `GET /question` list entity (array) |
 | `question-replied.json` | From `EventQuestionReplied` |
 | `question-rejected.json` | From `EventQuestionRejected` |
 
@@ -257,3 +259,4 @@ Not marked `"synthetic": true` — field lists match generated OpenAPI types (sa
 3. Is `permission.updated` still emitted by any server build, and should the web store handle it?
 4. When to use v2 session-scoped `/api/session/...` routes vs legacy `/permission` and `/question`?
 5. `PermissionAsked` exported type maps to durable `PermissionAsked` schema, not `PermissionRequest` / wire `properties` — naming alignment for TS consumers?
+6. Live capture: `question.asked` SSE `properties` match flat spec (no `properties.question` wrapper); live question items omitted `multiple`/`custom`; live `GET /permission` stayed `[]` — permission wire/list not captured.
