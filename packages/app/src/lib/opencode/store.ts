@@ -455,7 +455,7 @@ export function applyOpenCodeWireEvent(
   return next;
 }
 
-function hydratePendingOnState(
+export function hydratePendingOnState(
   state: OpenCodeStoreState,
   lists: { questions: QuestionRequest[]; permissions: PermissionAsked[] },
 ): OpenCodeStoreState {
