@@ -112,6 +112,63 @@ export function displayPathChip(fullPath: string, projectRoot: string | null | u
   return { label: base ?? fullPath, title };
 }
 
+export function readOutputText(output: unknown): string {
+  if (output == null) return '';
+  if (typeof output === 'string') return output;
+  if (typeof output === 'object') {
+    const rec = output as Record<string, unknown>;
+    if (typeof rec.content === 'string') return rec.content;
+    if (typeof rec.text === 'string') return rec.text;
+    try {
+      return JSON.stringify(output, null, 2);
+    } catch {
+      return String(output);
+    }
+  }
+  return String(output);
+}
+
+export function writeContentText(input: unknown): string {
+  if (typeof input === 'string') {
+    const parsed = parseToolInput(input);
+    if (parsed !== input) return writeContentText(parsed);
+    return input;
+  }
+  if (input && typeof input === 'object') {
+    const rec = input as Record<string, unknown>;
+    const content = rec.content ?? rec.contents ?? rec.text ?? rec.body;
+    if (typeof content === 'string') return content;
+  }
+  return '';
+}
+
+export function toolPathHeader(
+  tool: TranscriptToolCall,
+  name: string,
+  input: unknown,
+  projectRoot?: string | null,
+): {
+  primary: string;
+  pathTestId?: string;
+  kindLabel?: string;
+} {
+  const isRead = name === 'read' || name === 'read_file';
+  const isWrite = name === 'write';
+  if (!isRead && !isWrite) {
+    return { primary: toolDisplayLabel(tool) };
+  }
+  const full = filePathFromToolInput(input);
+  if (!full) {
+    return { primary: toolDisplayLabel(tool) };
+  }
+  const chip = displayPathChip(full, projectRoot);
+  return {
+    primary: chip.label,
+    pathTestId: isWrite ? 'tool-write-path' : 'tool-read-path',
+    kindLabel: toolDisplayLabel(tool),
+  };
+}
+
 export function formatJsonFallback(value: unknown): string {
   if (value == null) return '';
   if (typeof value === 'string') return value;

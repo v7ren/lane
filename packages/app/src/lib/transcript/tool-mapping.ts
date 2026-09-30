@@ -92,7 +92,7 @@ export function normalizeToolPayload(
     return {
       input: {
         path: stateIn?.path ?? stateIn?.file ?? stateIn?.target,
-        content: stateIn?.content,
+        content: stateIn?.content ?? stateIn?.contents,
       },
       output: stateOut?.output ?? output,
       diff,

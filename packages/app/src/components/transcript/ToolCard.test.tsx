@@ -102,6 +102,73 @@ describe('ToolCard', () => {
     expect(outputEl?.textContent).toContain('line-50');
   });
 
+  it('read tool shows path in header and collapsible file content from output', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'read-1',
+      name: 'read',
+      status: 'completed',
+      input: { path: 'hello.txt' },
+      output: 'hello',
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.querySelector('[data-testid="tool-read-path"]')?.textContent).toBe('hello.txt');
+    expect(container.textContent).toContain('Read');
+    expect(container.querySelector('[data-testid="tool-read-content"]')).toBeNull();
+    const showMore = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Show more',
+    );
+    expect(showMore).not.toBeUndefined();
+    act(() => showMore!.click());
+    expect(container.querySelector('[data-testid="tool-read-content"]')?.textContent).toBe('hello');
+  });
+
+  it('write tool shows path in header and collapsible contents from input', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'write-1',
+      name: 'write',
+      status: 'completed',
+      input: { path: 'out.txt', contents: 'file body' },
+      output: undefined,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.querySelector('[data-testid="tool-write-path"]')?.textContent).toBe('out.txt');
+    expect(container.textContent).toContain('Write');
+    expect(container.querySelector('[data-testid="tool-write-content"]')).toBeNull();
+    const showMore = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Show more',
+    );
+    act(() => showMore!.click());
+    expect(container.querySelector('[data-testid="tool-write-content"]')?.textContent).toBe(
+      'file body',
+    );
+  });
+
+  it('write tool with object input does not render [object Object]', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'write-obj',
+      name: 'write',
+      status: 'completed',
+      input: { path: 'a.txt', content: 'ok' },
+      output: undefined,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.textContent).not.toContain('[object Object]');
+    const showMore = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Show more',
+    );
+    act(() => showMore!.click());
+    expect(container.querySelector('[data-testid="tool-write-content"]')?.textContent).toBe('ok');
+  });
+
   it('shows different status chip labels for pending vs error', () => {
     const pending: TranscriptToolCall = {
       ...bashCompleted,

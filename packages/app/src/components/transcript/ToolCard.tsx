@@ -6,8 +6,10 @@ import { PartFallback } from './PartFallback';
 import {
   displayPathChip,
   KNOWN_TOOL_NAMES,
+  readOutputText,
   resolveToolFields,
-  toolDisplayLabel,
+  toolPathHeader,
+  writeContentText,
   filePathFromToolInput,
 } from './tool-render';
 
@@ -209,6 +211,37 @@ function BashToolBody({ input, output }: { input: unknown; output: unknown }) {
   );
 }
 
+function CollapsibleToolContent({
+  text,
+  testId,
+}: {
+  text: string;
+  testId: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const trimmed = text.trimEnd();
+  if (!trimmed) return null;
+  return (
+    <div>
+      {expanded && (
+        <pre
+          data-testid={testId}
+          className="whitespace-pre-wrap font-mono text-[12px] text-text-2"
+        >
+          {trimmed}
+        </pre>
+      )}
+      <button
+        type="button"
+        className="text-meta text-link"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {expanded ? 'Show less' : 'Show more'}
+      </button>
+    </div>
+  );
+}
+
 function TruncatedMono({
   text,
   max = 480,
@@ -246,7 +279,7 @@ export function ToolCard({
 }) {
   const [open, setOpen] = useState(tool.status === 'running' || tool.status === 'completed');
   const { name, input, output, diff } = resolveToolFields(tool, projectRoot);
-  const headerLabel = toolDisplayLabel(tool);
+  const header = toolPathHeader(tool, name, input, projectRoot);
 
   return (
     <div
@@ -265,7 +298,20 @@ export function ToolCard({
           <ChevronRight className="w-3.5 h-3.5 text-text-3 shrink-0" />
         )}
         <ToolStatusChip status={tool.status} />
-        <span className="font-mono text-[12px] text-text flex-1 min-w-0 truncate">{headerLabel}</span>
+        {header.kindLabel != null ? (
+          <span className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="shrink-0 text-[10px] font-medium text-text-3">{header.kindLabel}</span>
+            <span
+              data-testid={header.pathTestId}
+              className="font-mono text-[12px] text-text truncate"
+              title={header.primary}
+            >
+              {header.primary}
+            </span>
+          </span>
+        ) : (
+          <span className="font-mono text-[12px] text-text flex-1 min-w-0 truncate">{header.primary}</span>
+        )}
         {tool.durationMs != null && (
           <span className="shrink-0 text-meta text-text-3">{formatDuration(tool.durationMs)}</span>
         )}
@@ -276,33 +322,26 @@ export function ToolCard({
             <BashToolBody input={input} output={output} />
           )}
           {(name === 'read' || name === 'read_file') && (
-            <div className="flex flex-wrap gap-2 items-center text-[12px]">
-              {(() => {
-                const full =
-                  filePathFromToolInput(input) ??
-                  (typeof (input as { path?: string })?.path === 'string'
-                    ? (input as { path: string }).path
-                    : undefined);
-                if (!full) return null;
-                const chip = displayPathChip(full, projectRoot);
-                return (
-                  <span
-                    className="font-mono px-2 py-0.5 rounded-full bg-elevated border border-border-subtle"
-                    title={chip.title}
-                  >
-                    {chip.label}
-                  </span>
-                );
-              })()}
+            <div className="space-y-2">
               {(input as { start?: number; end?: number })?.start != null && (
-                <span className="text-text-3">
+                <span className="text-[12px] text-text-3">
                   L{(input as { start?: number }).start}–
                   {(input as { end?: number }).end ?? '?'}
                 </span>
               )}
+              <CollapsibleToolContent
+                text={readOutputText(output)}
+                testId="tool-read-content"
+              />
             </div>
           )}
-          {(name === 'write' || name === 'edit' || name === 'apply_patch') && (
+          {name === 'write' && (
+            <CollapsibleToolContent
+              text={writeContentText(input)}
+              testId="tool-write-content"
+            />
+          )}
+          {(name === 'edit' || name === 'apply_patch') && (
             <div className="space-y-1">
               {(() => {
                 const full = filePathFromToolInput(input);
