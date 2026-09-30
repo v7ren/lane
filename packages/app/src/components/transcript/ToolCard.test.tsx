@@ -62,6 +62,46 @@ describe('ToolCard', () => {
     expect(container.textContent).toContain('echo hello');
   });
 
+  it('renders bash command and output from object input', () => {
+    const tool: TranscriptToolCall = {
+      ...bashCompleted,
+      id: 'bash-object',
+      input: { command: 'echo hi' },
+      output: 'hi\n',
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    const command = container.querySelector('[data-testid="tool-bash-command"]');
+    const output = container.querySelector('[data-testid="tool-bash-output"]');
+    expect(command?.textContent).toBe('echo hi');
+    expect(output?.textContent).toContain('hi');
+    expect(container.textContent).not.toContain('[object Object]');
+  });
+
+  it('collapses long bash output to ~40 lines with Show more', () => {
+    const longOutput = `${Array.from({ length: 50 }, (_, i) => `line-${i + 1}`).join('\n')}\n`;
+    const tool: TranscriptToolCall = {
+      ...bashCompleted,
+      id: 'bash-long',
+      input: { command: 'seq 50' },
+      output: longOutput,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    const outputEl = container.querySelector('[data-testid="tool-bash-output"]');
+    expect(outputEl?.textContent).toContain('line-1');
+    expect(outputEl?.textContent).toContain('line-40');
+    expect(outputEl?.textContent).not.toContain('line-50');
+    const showMore = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Show more',
+    );
+    expect(showMore).not.toBeUndefined();
+    act(() => showMore!.click());
+    expect(outputEl?.textContent).toContain('line-50');
+  });
+
   it('shows different status chip labels for pending vs error', () => {
     const pending: TranscriptToolCall = {
       ...bashCompleted,

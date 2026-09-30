@@ -120,6 +120,95 @@ function ToolStatusChip({ status }: { status: TranscriptToolCall['status'] }) {
   }
 }
 
+const BASH_OUTPUT_MAX_LINES = 40;
+
+function bashCommandText(input: unknown): string {
+  if (typeof input === 'string') return input;
+  if (input && typeof input === 'object') {
+    const rec = input as Record<string, unknown>;
+    if (typeof rec.command === 'string') return rec.command;
+    if (typeof rec.input === 'string') return rec.input;
+  }
+  return '';
+}
+
+function bashOutputText(output: unknown): string {
+  if (output == null) return '';
+  if (typeof output === 'string') return output;
+  if (typeof output === 'object') {
+    const rec = output as Record<string, unknown>;
+    const parts: string[] = [];
+    if (typeof rec.stdout === 'string') parts.push(rec.stdout);
+    if (typeof rec.stderr === 'string') parts.push(rec.stderr);
+    if (typeof rec.output === 'string') parts.push(rec.output);
+    if (parts.length > 0) return parts.join('');
+  }
+  return '';
+}
+
+function TruncatedMonoLines({
+  text,
+  maxLines = BASH_OUTPUT_MAX_LINES,
+  testId,
+}: {
+  text: string;
+  maxLines?: number;
+  testId?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const trimmed = text.trimEnd();
+  if (!trimmed) {
+    return (
+      <pre
+        data-testid={testId}
+        className="whitespace-pre-wrap font-mono text-[12px] text-text-2"
+      />
+    );
+  }
+  const lines = trimmed.split(/\r?\n/);
+  if (lines.length <= maxLines) {
+    return (
+      <pre
+        data-testid={testId}
+        className="whitespace-pre-wrap font-mono text-[12px] text-text-2"
+      >
+        {trimmed}
+      </pre>
+    );
+  }
+  const collapsed = lines.slice(0, maxLines).join('\n');
+  return (
+    <div>
+      <pre
+        data-testid={testId}
+        className="whitespace-pre-wrap font-mono text-[12px] text-text-2"
+      >
+        {expanded ? trimmed : collapsed}
+      </pre>
+      <button
+        type="button"
+        className="text-meta text-link mt-1"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {expanded ? 'Show less' : 'Show more'}
+      </button>
+    </div>
+  );
+}
+
+function BashToolBody({ input, output }: { input: unknown; output: unknown }) {
+  const command = bashCommandText(input);
+  const outputText = bashOutputText(output);
+  return (
+    <>
+      <TruncatedMonoLines text={command} maxLines={BASH_OUTPUT_MAX_LINES} testId="tool-bash-command" />
+      {outputText !== '' && (
+        <TruncatedMonoLines text={outputText} testId="tool-bash-output" />
+      )}
+    </>
+  );
+}
+
 function TruncatedMono({
   text,
   max = 480,
@@ -184,10 +273,7 @@ export function ToolCard({
       {open && (
         <div className="px-3 pb-3 space-y-2 border-t border-border-subtle" data-testid="tool-card-body">
           {(name === 'bash' || name === 'shell') && (
-            <>
-              <TruncatedMono text={String(input ?? '')} />
-              {output != null && <TruncatedMono text={String(output)} max={800} />}
-            </>
+            <BashToolBody input={input} output={output} />
           )}
           {(name === 'read' || name === 'read_file') && (
             <div className="flex flex-wrap gap-2 items-center text-[12px]">
