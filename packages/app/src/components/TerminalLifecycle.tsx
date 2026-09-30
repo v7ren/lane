@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { PaneData } from '../hooks/usePaneRegistry';
 import type { BottomPanelTab } from '../lib/shell-selection-context';
 import { isAgentSessionPane, isUserShellPane } from '../lib/pane-surface';
@@ -23,19 +23,28 @@ export function TerminalLifecycle({
   subscribePaneData: (paneId: string, cb: (data: Uint8Array) => void) => () => void;
 }) {
   const layoutVersion = useRef(0);
+  const paneSignature = useMemo(
+    () =>
+      panes
+        .map((p) => `${p.info.id}:${p.info.created_at}:${p.info.surface ?? ''}`)
+        .join('|'),
+    [panes],
+  );
+  const panesRef = useRef(panes);
+  panesRef.current = panes;
 
   useEffect(() => {
-    for (const pane of panes) {
+    for (const pane of panesRef.current) {
       if (pane.info.surface === 'headless') continue;
       ensureTerminalSession(pane.info.id, pane.info.created_at, subscribePaneData);
     }
-  }, [panes, subscribePaneData]);
+  }, [paneSignature, subscribePaneData]);
 
   useLayoutEffect(() => {
     layoutVersion.current += 1;
     const pass = layoutVersion.current;
 
-    for (const pane of panes) {
+    for (const pane of panesRef.current) {
       if (pane.info.surface === 'headless') continue;
       const paneId = pane.info.id;
       const isAgent = isAgentSessionPane(pane.info.agent_type);
@@ -55,7 +64,7 @@ export function TerminalLifecycle({
 
     const frame = requestAnimationFrame(() => {
       if (pass !== layoutVersion.current) return;
-      for (const pane of panes) {
+      for (const pane of panesRef.current) {
         if (pane.info.surface === 'headless') continue;
         ensureTerminalSession(pane.info.id, pane.info.created_at, subscribePaneData).nudgeReflow();
       }
@@ -65,7 +74,7 @@ export function TerminalLifecycle({
       layoutVersion.current += 1;
       cancelAnimationFrame(frame);
     };
-  }, [agentPaneId, bottomTab, panes, selectedTerminalPaneId, showTui, subscribePaneData]);
+  }, [agentPaneId, bottomTab, paneSignature, selectedTerminalPaneId, showTui, subscribePaneData]);
 
   return null;
 }

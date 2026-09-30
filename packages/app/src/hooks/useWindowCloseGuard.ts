@@ -1,9 +1,13 @@
 import { useEffect } from 'react';
 import type { CloseRequestedEvent } from '@tauri-apps/api/window';
 import { isTauriRuntime } from '../lib/is-tauri';
-import { tauri } from '../lib/tauri';
+import { requestCloseConfirm } from '../lib/window-close-request';
+import { tauri, type PaneInfo } from '../lib/tauri';
 
 export type CloseRequestReason = 'user-gesture' | 'unknown';
+
+const LIST_PANES_TIMEOUT_MS = 2_000;
+const CLOSE_HANDLER_TIMEOUT_MS = 20_000;
 
 function logCloseRequest(reason: CloseRequestReason, agentPaneCount: number): void {
   const detail = { reason, agentPaneCount, at: new Date().toISOString() };
@@ -16,25 +20,57 @@ function isAgentPane(agentType: string | undefined): boolean {
   return !agentType.includes('orchestrator');
 }
 
+async function listPanesWithTimeout(): Promise<PaneInfo[]> {
+  try {
+    return await Promise.race([
+      tauri.listPanes(),
+      new Promise<PaneInfo[]>((_, reject) => {
+        window.setTimeout(() => reject(new Error('listPanes timeout')), LIST_PANES_TIMEOUT_MS);
+      }),
+    ]);
+  } catch (err) {
+    console.warn('[loomria] listPanes during close failed; allowing close path', err);
+    return [];
+  }
+}
+
 export function useWindowCloseGuard(): void {
   useEffect(() => {
     if (!isTauriRuntime()) return;
     let unlisten: (() => void) | null = null;
     void tauri
       .onCurrentWindowCloseRequested(async (event: CloseRequestedEvent) => {
-        const panes = await tauri.listPanes();
+        const panes = await listPanesWithTimeout();
         const agents = panes.filter((p) => isAgentPane(p.agent_type));
         logCloseRequest('user-gesture', agents.length);
         if (agents.length === 0) {
           return;
         }
         event.preventDefault();
-        const n = agents.length;
-        const ok = window.confirm(
-          `${n} agent session${n === 1 ? '' : 's'} are running — close Loomria?`,
-        );
-        if (ok) {
-          await tauri.closeCurrentWindow();
+
+        let settled = false;
+        const forceCloseTimer = window.setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          console.warn('[loomria] close confirmation timed out; forcing window close');
+          void tauri.closeCurrentWindow();
+        }, CLOSE_HANDLER_TIMEOUT_MS);
+
+        try {
+          const ok = await requestCloseConfirm(agents.length);
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(forceCloseTimer);
+          if (ok) {
+            await tauri.closeCurrentWindow();
+          }
+        } catch (err) {
+          if (!settled) {
+            settled = true;
+            window.clearTimeout(forceCloseTimer);
+            console.warn('[loomria] close confirmation failed; forcing window close', err);
+            await tauri.closeCurrentWindow();
+          }
         }
       })
       .then((fn) => {

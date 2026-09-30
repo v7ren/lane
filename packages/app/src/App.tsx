@@ -12,6 +12,11 @@ import { isTauriRuntime } from './lib/is-tauri';
 import { loadSettings, syncPublicSettingsToBridge } from './lib/settings';
 import { tauri } from './lib/tauri';
 import { useWindowCloseGuard } from './hooks/useWindowCloseGuard';
+import { CloseConfirmModal } from './components/CloseConfirmModal';
+import {
+  setCloseConfirmListener,
+  type CloseConfirmRequest,
+} from './lib/window-close-request';
 
 export default function App() {
   const demo = useDemoFixtures();
@@ -23,8 +28,14 @@ export default function App() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [showTui, setShowTui] = useState(false);
   const [railConnecting, setRailConnecting] = useState(true);
+  const [closeConfirm, setCloseConfirm] = useState<CloseConfirmRequest | null>(null);
 
   useWindowCloseGuard();
+
+  useEffect(() => {
+    setCloseConfirmListener((req) => setCloseConfirm(req));
+    return () => setCloseConfirmListener(null);
+  }, []);
 
   useEffect(() => {
     if (demo) {
@@ -91,6 +102,20 @@ export default function App() {
   }, []);
 
   return (
+    <>
+    {closeConfirm && (
+      <CloseConfirmModal
+        agentCount={closeConfirm.agentCount}
+        onConfirm={() => {
+          closeConfirm.resolve(true);
+          setCloseConfirm(null);
+        }}
+        onCancel={() => {
+          closeConfirm.resolve(false);
+          setCloseConfirm(null);
+        }}
+      />
+    )}
     <AppShell
       agentCatalog={agentCatalog}
       registry={registry}
@@ -108,5 +133,6 @@ export default function App() {
       onClosePane={(id: string) => void handleClose(id)}
       onJumpApproval={jumpApproval}
     />
+    </>
   );
 }

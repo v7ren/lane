@@ -120,8 +120,10 @@ function AppShellInner({
 
   useEffect(() => {
     if (readBottomRatioUserTouched()) return;
-    patchLayout({ bottomPanelPercent: defaultBottomRatio({ hasEditorTabs }) });
-  }, [hasEditorTabs, patchLayout]);
+    const target = defaultBottomRatio({ hasEditorTabs });
+    if (layout.bottomPanelPercent === target) return;
+    patchLayout({ bottomPanelPercent: target });
+  }, [hasEditorTabs, layout.bottomPanelPercent, patchLayout]);
 
   useEffect(() => {
     if (!demo) return;
@@ -149,7 +151,10 @@ function AppShellInner({
   const [newPaneOpen, setNewPaneOpen] = useState(false);
   const dragBase = useRef(0);
 
-  const panes = registry.paneList.filter((p) => !p.info.id.startsWith('loomria-orchestrator-'));
+  const panes = useMemo(
+    () => registry.paneList.filter((p) => !p.info.id.startsWith('loomria-orchestrator-')),
+    [registry.paneList],
+  );
   const paneCwds = useMemo(() => {
     const m = new Map<string, string>();
     for (const p of panes) m.set(p.info.id, p.info.cwd);
@@ -210,13 +215,14 @@ function AppShellInner({
 
   useEffect(() => {
     if (terminalPanes.length === 0) return;
+    const firstId = terminalPanes[0].info.id;
     if (
       !shell.selectedTerminalPaneId ||
       !terminalPanes.some((p) => p.info.id === shell.selectedTerminalPaneId)
     ) {
-      shell.setSelectedTerminalPaneId(terminalPanes[0].info.id);
+      shell.setSelectedTerminalPaneId(firstId);
     }
-  }, [shell, terminalPanes]);
+  }, [shell.selectedTerminalPaneId, shell.setSelectedTerminalPaneId, terminalPanes]);
 
   useEffect(() => {
     if (demo?.variant === 'empty') return;
