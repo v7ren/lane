@@ -97,6 +97,23 @@ describe('opencodeSessionActions', () => {
     );
   });
 
+  it('forkAtLatestAssistant reads the real wire shape [{ info, parts }]', async () => {
+    const transport = vi.fn(async (args: { method: string }) =>
+      args.method === 'GET'
+        ? [
+            { info: { id: 'u1', sessionID: 's1', role: 'user' }, parts: [] },
+            { info: { id: 'a1', sessionID: 's1', role: 'assistant' }, parts: [] },
+            { info: { id: 'u2', sessionID: 's1', role: 'user' }, parts: [] },
+          ]
+        : { id: 'forked' },
+    );
+    setOpenCodeTransport(transport);
+    await forkAtLatestAssistant('pane-1', 's1');
+    expect(transport).toHaveBeenLastCalledWith(
+      expect.objectContaining({ path: '/session/s1/fork', body: { messageID: 'a1' } }),
+    );
+  });
+
   it('forkAtLatestAssistant rejects with a friendly error when no assistant message', async () => {
     const transport = vi.fn(async () => [{ id: 'u1', role: 'user' }]);
     setOpenCodeTransport(transport);

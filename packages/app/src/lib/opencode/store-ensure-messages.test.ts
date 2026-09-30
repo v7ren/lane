@@ -28,6 +28,7 @@ vi.mock('@tauri-apps/api/event', () => ({
 
 import { getOpenCodeStore } from './store.js';
 import { selectMessages } from './selectors.js';
+import { fromOpenCode } from '../transcript/from-opencode.js';
 
 describe('ensureSessionMessages', () => {
   beforeEach(() => {
@@ -61,5 +62,39 @@ describe('ensureSessionMessages', () => {
     await store.ensureSessionMessages('sess_1', { force: true });
     expect(store.getState().lastRequestError).toBeNull();
     expect(selectMessages(store.getState(), 'sess_1')).toHaveLength(1);
+  });
+
+  it('loads history from the real wire shape: [{ info, parts }]', async () => {
+    const paneId = `pane-wire-${Date.now()}`;
+    listMessages.mockResolvedValueOnce([
+      {
+        info: { id: 'msg_u1', sessionID: 'sess_w', role: 'user', time: { created: 1 } },
+        parts: [
+          { id: 'prt_u1', sessionID: 'sess_w', messageID: 'msg_u1', type: 'text', text: 'pick red or blue' },
+        ],
+      },
+      {
+        info: {
+          id: 'msg_a1',
+          sessionID: 'sess_w',
+          role: 'assistant',
+          time: { created: 2, completed: 3 },
+        },
+        parts: [
+          { id: 'prt_a1', sessionID: 'sess_w', messageID: 'msg_a1', type: 'text', text: 'Blue' },
+        ],
+      },
+    ]);
+
+    const store = getOpenCodeStore(paneId);
+    await store.ensureSessionMessages('sess_w');
+
+    expect(store.getState().lastRequestError).toBeNull();
+    expect(selectMessages(store.getState(), 'sess_w')).toHaveLength(2);
+    expect(Object.keys(store.getState().messagesBySession)).not.toContain('undefined');
+
+    const text = JSON.stringify(fromOpenCode(store.getState(), 'sess_w'));
+    expect(text).toContain('pick red or blue');
+    expect(text).toContain('Blue');
   });
 });

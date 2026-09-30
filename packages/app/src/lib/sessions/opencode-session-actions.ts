@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { flattenMessageRows } from '../opencode/message-rows.js';
 import type { Message, Session } from '@loomria/shared/opencode';
 import { getOpenCodeTransport } from '../opencode/transport.js';
 
@@ -97,8 +98,14 @@ export const opencodeSessionActions = {
       path: `/session/${sessionId}/children`,
     }),
 
-  listMessages: (paneId: string, sessionId: string) =>
-    request<Message[]>({ pane_id: paneId, method: 'GET', path: `/session/${sessionId}/message` }),
+  listMessages: async (paneId: string, sessionId: string) =>
+    flattenMessageRows(
+      await request<unknown>({
+        pane_id: paneId,
+        method: 'GET',
+        path: `/session/${sessionId}/message`,
+      }),
+    ),
 
   promptAsync: (
     paneId: string,

@@ -13,6 +13,7 @@ import { emitFileEdited, fileEditedPathsFromProps } from '../editor/file-edited-
 import { getServerInfo,openCodeRequest, opencodeClient } from './client.js';
 import type { OpenCodeRequestArgs } from './client.js';
 import { sortMessageIds, sortPartIdsForMessage } from './ordering.js';
+import { normalizeMessageRows } from './message-rows.js';
 import {
   applyPendingWireEvent,
   clearPendingForSession,
@@ -713,13 +714,14 @@ export function createOpenCodeStore(paneId: string): OpenCodeStore {
             loadingMessagesSessionId: null,
             lastRequestError: null,
           };
-          for (const message of messages) {
-            next = upsertMessage(next, message);
-            const parts = (message as Message & { parts?: Part[] }).parts;
-            if (parts) {
+          for (const row of normalizeMessageRows(messages)) {
+            const info = row.info.sessionID ? row.info : { ...row.info, sessionID: sessionId };
+            const parts = row.parts;
+            next = upsertMessage(next, info);
+            if (parts.length > 0) {
               const base = next.partOrderSeq;
               for (let index = 0; index < parts.length; index += 1) {
-                next = upsertPart(next, message.id, parts[index]!, base + index);
+                next = upsertPart(next, info.id, parts[index]!, base + index);
               }
               next = { ...next, partOrderSeq: base + parts.length };
             }
