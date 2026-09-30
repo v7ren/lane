@@ -315,6 +315,119 @@ function TruncatedMonoLines({
   );
 }
 
+type TodoItemStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+
+type TodoListItem = {
+  id?: string;
+  content: string;
+  status: string;
+};
+
+function isTodoToolName(name: string): boolean {
+  return name === 'todowrite' || name === 'todo_write' || name === 'todo';
+}
+
+function parseTodoListItem(raw: unknown): TodoListItem | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const rec = raw as Record<string, unknown>;
+  const content = typeof rec.content === 'string' ? rec.content : '';
+  const status = typeof rec.status === 'string' ? rec.status : 'pending';
+  const id = typeof rec.id === 'string' ? rec.id : undefined;
+  return { id, content, status };
+}
+
+function todoItemsFromInputOutput(input: unknown, output: unknown): TodoListItem[] {
+  if (input && typeof input === 'object') {
+    const todos = (input as Record<string, unknown>).todos;
+    if (Array.isArray(todos)) {
+      return todos
+        .map(parseTodoListItem)
+        .filter((item): item is TodoListItem => item != null);
+    }
+  }
+  if (Array.isArray(output)) {
+    return output
+      .map(parseTodoListItem)
+      .filter((item): item is TodoListItem => item != null);
+  }
+  if (output && typeof output === 'object') {
+    const todos = (output as Record<string, unknown>).todos;
+    if (Array.isArray(todos)) {
+      return todos
+        .map(parseTodoListItem)
+        .filter((item): item is TodoListItem => item != null);
+    }
+  }
+  return [];
+}
+
+function parseTodoItemStatus(raw: string): TodoItemStatus | null {
+  const lower = raw.toLowerCase().replace(/-/g, '_');
+  switch (lower) {
+    case 'pending':
+      return 'pending';
+    case 'in_progress':
+    case 'inprogress':
+      return 'in_progress';
+    case 'completed':
+    case 'done':
+      return 'completed';
+    case 'cancelled':
+    case 'canceled':
+      return 'cancelled';
+    default:
+      return null;
+  }
+}
+
+function todoStatusLabel(status: TodoItemStatus): string {
+  switch (status) {
+    case 'pending':
+      return 'pending';
+    case 'in_progress':
+      return 'in_progress';
+    case 'completed':
+      return 'completed';
+    case 'cancelled':
+      return 'cancelled';
+    default: {
+      const _never: never = status;
+      return _never;
+    }
+  }
+}
+
+function todoStatusDisplayText(rawStatus: string): string {
+  const parsed = parseTodoItemStatus(rawStatus);
+  if (parsed != null) return todoStatusLabel(parsed);
+  return rawStatus;
+}
+
+function TodoToolBody({ input, output }: { input: unknown; output: unknown }) {
+  const items = todoItemsFromInputOutput(input, output);
+  return (
+    <div className="space-y-1 text-[12px] text-text-2" data-testid="tool-todo-list">
+      <span className="text-text-3" data-testid="tool-todo-count">
+        {items.length} items
+      </span>
+      {items.length > 0 && (
+        <ul className="space-y-1">
+          {items.map((item, index) => (
+            <li
+              key={item.id ?? `${index}-${item.content}`}
+              className="flex gap-2"
+              data-testid="tool-todo-item"
+            >
+              <span className="text-text-3">{todoStatusDisplayText(item.status)}</span>
+              <span>{item.content}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function BashToolBody({ input, output }: { input: unknown; output: unknown }) {
   const command = bashCommandText(input);
   const outputText = bashOutputText(output);
@@ -446,16 +559,7 @@ export function ToolCard({
           {(name === 'webfetch' || name === 'web_fetch') && (
             <WebfetchToolBody input={input} output={output} />
           )}
-          {(name === 'todowrite' || name === 'todo_write') && Array.isArray(output) && (
-            <ul className="space-y-1 text-[12px]">
-              {(output as { content?: string; status?: string }[]).map((t, i) => (
-                <li key={i} className="flex gap-2">
-                  <span className="text-text-3">{t.status}</span>
-                  <span>{t.content}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          {isTodoToolName(name) && <TodoToolBody input={input} output={output} />}
           {name === 'task' && <PartFallback title="Details" value={input} />}
           {!KNOWN_TOOL_NAMES.has(name) && (
             <div className="grid gap-2 md:grid-cols-2">

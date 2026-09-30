@@ -29,7 +29,7 @@ export function toolDisplayLabel(tool: TranscriptToolCall): string {
   if (name === 'grep') return 'Grep';
   if (name === 'glob') return 'Glob';
   if (name === 'webfetch' || name === 'web_fetch') return 'Web fetch';
-  if (name === 'todowrite' || name === 'todo_write') return 'Todo';
+  if (name === 'todowrite' || name === 'todo_write' || name === 'todo') return 'Todo';
   if (name === 'task') return 'Task';
   const pretty = tool.name?.replace(/_/g, ' ').trim();
   return pretty ? pretty.charAt(0).toUpperCase() + pretty.slice(1) : 'Tool';
@@ -262,5 +262,6 @@ export const KNOWN_TOOL_NAMES = new Set([
   'web_fetch',
   'todowrite',
   'todo_write',
+  'todo',
   'task',
 ]);

@@ -319,6 +319,86 @@ describe('ToolCard', () => {
     );
   });
 
+  it('todowrite tool shows checklist from input.todos with visible statuses', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'todo-1',
+      name: 'todowrite',
+      status: 'completed',
+      input: {
+        todos: [
+          { content: 'Write tests', status: 'pending' },
+          { content: 'Ship', status: 'completed' },
+        ],
+      },
+      output: undefined,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.querySelector('[data-testid="tool-todo-list"]')).not.toBeNull();
+    expect(container.textContent).toContain('Write tests');
+    expect(container.textContent).toContain('Ship');
+    expect(container.textContent).toContain('pending');
+    expect(container.textContent).toContain('completed');
+    expect(container.textContent).not.toContain('[object Object]');
+    expect(container.textContent).not.toMatch(/\{"todos"/);
+    const items = container.querySelectorAll('[data-testid="tool-todo-item"]');
+    expect(items.length).toBe(2);
+  });
+
+  it('todowrite tool accepts todo list from array output', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'todo-out',
+      name: 'todowrite',
+      status: 'completed',
+      input: {},
+      output: [{ content: 'From output', status: 'in_progress' }],
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.querySelector('[data-testid="tool-todo-list"]')).not.toBeNull();
+    expect(container.textContent).toContain('From output');
+    expect(container.textContent).toContain('in_progress');
+  });
+
+  it('todo tool name is known and does not show unknown tool fallback', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'todo-alias',
+      name: 'todo',
+      status: 'completed',
+      input: { todos: [{ content: 'Task one', status: 'pending' }] },
+      output: undefined,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.textContent).not.toContain('Unknown tool');
+    expect(container.textContent).not.toMatch(/\{"todos"/);
+    expect(container.textContent).toContain('Task one');
+    expect(container.textContent).toContain('Todo');
+  });
+
+  it('todowrite tool with empty list shows 0 items not JSON', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'todo-empty',
+      name: 'todowrite',
+      status: 'completed',
+      input: { todos: [] },
+      output: undefined,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.querySelector('[data-testid="tool-todo-list"]')).not.toBeNull();
+    expect(container.textContent).toContain('0 items');
+    expect(container.textContent).not.toMatch(/\{"todos"/);
+  });
+
   it('shows different status chip labels for pending vs error', () => {
     const pending: TranscriptToolCall = {
       ...bashCompleted,
