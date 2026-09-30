@@ -124,4 +124,47 @@ mod tests {
     fn rejects_api_namespace() {
         assert!(!is_allowed("GET", "/api/session"));
     }
+
+    #[test]
+    fn allows_provider_reads_and_blocks_provider_writes() {
+        assert!(is_allowed("GET", "/provider"));
+        assert!(is_allowed("GET", "/provider/auth"));
+        assert!(!is_allowed("PUT", "/provider"));
+        assert!(!is_allowed("DELETE", "/provider/auth"));
+    }
+
+    #[test]
+    fn allows_auth_put_and_delete_only() {
+        assert!(is_allowed("PUT", "/auth/openai"));
+        assert!(is_allowed("DELETE", "/auth/openai"));
+        assert!(!is_allowed("GET", "/auth/openai"));
+        assert!(!is_allowed("PUT", "/auth"));
+        assert!(!is_allowed("PUT", "/auth/openai/extra"));
+    }
+
+    #[test]
+    fn allows_mcp_list_add_and_connection_routes() {
+        assert!(is_allowed("GET", "/mcp"));
+        assert!(is_allowed("POST", "/mcp"));
+        assert!(is_allowed("POST", "/mcp/pencil/connect"));
+        assert!(is_allowed("POST", "/mcp/pencil/disconnect"));
+        assert!(!is_allowed("DELETE", "/mcp"));
+        assert!(!is_allowed("DELETE", "/mcp/pencil"));
+        assert!(!is_allowed("GET", "/mcp/pencil/disconnect"));
+    }
+
+    #[test]
+    fn allows_config_get_and_patch_only() {
+        assert!(is_allowed("GET", "/config"));
+        assert!(is_allowed("PATCH", "/config"));
+        assert!(!is_allowed("PUT", "/config"));
+        assert!(!is_allowed("DELETE", "/config"));
+    }
+
+    #[test]
+    fn keeps_global_dispose_blocked() {
+        assert!(!is_allowed("POST", "/global/dispose"));
+        assert!(!is_allowed("GET", "/global/dispose"));
+        assert!(is_allowed("GET", "/global/health"));
+    }
 }
