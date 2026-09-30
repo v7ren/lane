@@ -13,47 +13,98 @@ import {
   editDiffText,
 } from './tool-render';
 
-function GlobGrepOutput({
-  output,
-  projectRoot,
-}: {
-  output: unknown;
-  projectRoot?: string | null;
-}) {
-  const record = output && typeof output === 'object' ? (output as Record<string, unknown>) : null;
-  const matches = record?.matches ?? output;
-  const count =
-    typeof record?.count === 'number'
-      ? record.count
-      : Array.isArray(matches)
-        ? matches.length
-        : undefined;
+const GLOB_GREP_MAX_HITS = 10;
 
+type GlobGrepKind = 'grep' | 'glob';
+
+function grepGlobPatternText(input: unknown): string {
+  if (typeof input === 'string') return input;
+  if (input && typeof input === 'object') {
+    const rec = input as Record<string, unknown>;
+    if (typeof rec.pattern === 'string') return rec.pattern;
+    if (typeof rec.glob === 'string') return rec.glob;
+  }
+  return '';
+}
+
+function globGrepCountLabel(kind: GlobGrepKind, count: number): string {
+  switch (kind) {
+    case 'grep':
+      return `${count} matches`;
+    case 'glob':
+      return `${count} files`;
+    default: {
+      const _never: never = kind;
+      return _never;
+    }
+  }
+}
+
+function parseGlobGrepOutput(output: unknown): { count: number; paths: string[] } {
+  if (output == null) {
+    return { count: 0, paths: [] };
+  }
+  const record = typeof output === 'object' ? (output as Record<string, unknown>) : null;
+  const matches = record?.matches ?? output;
   const paths: string[] = Array.isArray(matches)
     ? matches.map((m) => String(m))
     : typeof matches === 'string'
-      ? matches.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+      ? matches
+          .split(/\r?\n/)
+          .map((l) => l.trim())
+          .filter(Boolean)
       : [];
 
-  if (paths.length === 0) {
-    return <PartFallback title="Details" value={output} />;
-  }
+  const count =
+    typeof record?.count === 'number' ? record.count : paths.length;
+
+  return { count, paths };
+}
+
+function GlobGrepToolBody({
+  kind,
+  input,
+  output,
+  projectRoot,
+}: {
+  kind: GlobGrepKind;
+  input: unknown;
+  output: unknown;
+  projectRoot?: string | null;
+}) {
+  const pattern = grepGlobPatternText(input);
+  const { count, paths } = parseGlobGrepOutput(output);
+  const visiblePaths = paths.slice(0, GLOB_GREP_MAX_HITS);
+  const patternTestId = kind === 'grep' ? 'tool-grep-pattern' : 'tool-glob-pattern';
+  const countTestId = kind === 'grep' ? 'tool-grep-count' : 'tool-glob-count';
+  const hitsTestId = kind === 'grep' ? 'tool-grep-hits' : 'tool-glob-hits';
 
   return (
-    <div className="flex flex-wrap gap-1 items-center">
-      {paths.map((p) => {
-        const chip = displayPathChip(p, projectRoot);
-        return (
-          <span
-            key={p}
-            className="font-mono px-2 py-0.5 rounded-full bg-elevated border border-border-subtle"
-            title={chip.title}
-          >
-            {chip.label}
-          </span>
-        );
-      })}
-      {count != null && <span className="text-text-3">{count} matches</span>}
+    <div className="space-y-1 text-[12px] text-text-2">
+      <p>
+        <span className="font-mono" data-testid={patternTestId}>
+          {pattern}
+        </span>
+      </p>
+      <span data-testid={countTestId} className="text-text-3">
+        {globGrepCountLabel(kind, count)}
+      </span>
+      {visiblePaths.length > 0 && (
+        <div className="flex flex-wrap gap-1 items-center" data-testid={hitsTestId}>
+          {visiblePaths.map((p) => {
+            const chip = displayPathChip(p, projectRoot);
+            return (
+              <span
+                key={p}
+                className="font-mono px-2 py-0.5 rounded-full bg-elevated border border-border-subtle"
+                title={chip.title}
+              >
+                {chip.label}
+              </span>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -320,15 +371,11 @@ export function ToolCard({
               testId="tool-edit-diff"
             />
           )}
-          {(name === 'grep' || name === 'glob') && (
-            <div className="space-y-1 text-[12px] text-text-2">
-              <p>
-                <span className="font-mono">{String(input)}</span>
-              </p>
-              {output != null && (
-                <GlobGrepOutput output={output} projectRoot={projectRoot} />
-              )}
-            </div>
+          {name === 'grep' && (
+            <GlobGrepToolBody kind="grep" input={input} output={output} projectRoot={projectRoot} />
+          )}
+          {name === 'glob' && (
+            <GlobGrepToolBody kind="glob" input={input} output={output} projectRoot={projectRoot} />
           )}
           {(name === 'webfetch' || name === 'web_fetch') && (
             <p className="font-mono text-[12px] text-link break-all">{String(input)}</p>

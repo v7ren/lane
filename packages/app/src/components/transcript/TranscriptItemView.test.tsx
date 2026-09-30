@@ -73,7 +73,7 @@ describe('TranscriptItemView glob tool', () => {
     expect(container.textContent).not.toContain('\\\\Users');
   });
 
-  it('uses PartFallback for empty match output without showing JSON until expanded', () => {
+  it('shows pattern and zero count for empty glob output without JSON fallback', () => {
     act(() => {
       root.render(
         <TranscriptItemView
@@ -84,12 +84,11 @@ describe('TranscriptItemView glob tool', () => {
         />,
       );
     });
-    expect(container.querySelector('[data-testid="part-fallback"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="part-fallback"]')).toBeNull();
     expect(container.textContent).not.toContain('{"');
-    const showBtn = [...container.querySelectorAll('button')].find(
-      (b) => b.textContent === 'Show details',
-    ) as HTMLButtonElement;
-    act(() => showBtn.click());
-    expect(container.textContent).toContain('matches');
+    expect(container.querySelector('[data-testid="tool-glob-pattern"]')?.textContent).toBe(
+      '**/hello.txt',
+    );
+    expect(container.querySelector('[data-testid="tool-glob-count"]')?.textContent).toBe('0 files');
   });
 });

@@ -222,6 +222,67 @@ describe('ToolCard', () => {
     expect(container.textContent).toContain('Edit');
   });
 
+  it('glob tool shows pattern, count, and hit paths without [object Object]', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'glob-1',
+      name: 'glob',
+      status: 'completed',
+      input: { pattern: '*.ts' },
+      output: { matches: ['a.ts', 'b.ts'], count: 2 },
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.textContent).not.toContain('[object Object]');
+    expect(container.querySelector('[data-testid="tool-glob-pattern"]')?.textContent).toBe('*.ts');
+    expect(container.querySelector('[data-testid="tool-glob-count"]')?.textContent).toBe('2 files');
+    const hits = container.querySelector('[data-testid="tool-glob-hits"]');
+    expect(hits?.textContent).toContain('a.ts');
+    expect(hits?.textContent).toContain('b.ts');
+  });
+
+  it('grep tool with object input does not render [object Object]', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'grep-1',
+      name: 'grep',
+      status: 'completed',
+      input: { pattern: 'hello' },
+      output: undefined,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.textContent).not.toContain('[object Object]');
+    expect(container.querySelector('[data-testid="tool-grep-pattern"]')?.textContent).toBe('hello');
+    expect(container.querySelector('[data-testid="tool-grep-count"]')?.textContent).toBe(
+      '0 matches',
+    );
+  });
+
+  it('glob tool renders at most 10 hit paths', () => {
+    const matches = Array.from({ length: 15 }, (_, i) => `file-${i + 1}.ts`);
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'glob-many',
+      name: 'glob',
+      status: 'completed',
+      input: { pattern: '*.ts' },
+      output: { matches, count: 15 },
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    const hitChips = container.querySelectorAll(
+      '[data-testid="tool-glob-hits"] span.font-mono',
+    );
+    expect(hitChips.length).toBe(10);
+    expect(container.querySelector('[data-testid="tool-glob-count"]')?.textContent).toBe(
+      '15 files',
+    );
+  });
+
   it('shows different status chip labels for pending vs error', () => {
     const pending: TranscriptToolCall = {
       ...bashCompleted,
