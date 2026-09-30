@@ -6,6 +6,7 @@ export type PermissionDockItem = {
   id: string;
   title: string;
   detail: string;
+  submitting?: boolean;
 };
 
 export function PermissionDock({
@@ -100,6 +101,7 @@ export type QuestionDockItem = {
   id: string;
   prompt: string;
   options: { label: string }[];
+  submitting?: boolean;
 };
 
 export function QuestionDock({

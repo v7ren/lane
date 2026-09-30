@@ -32,6 +32,10 @@ export function useOpenCodeSessionStatus(paneId: string, sessionId: string) {
   return useOpenCodeStoreSlice(paneId, (state) => selectSessionStatus(state, sessionId));
 }
 
+export function useOpenCodeLastRequestError(paneId: string) {
+  return useOpenCodeStoreSlice(paneId, (state) => state.lastRequestError);
+}
+
 export function useOpenCodePermissions(paneId: string) {
   return useOpenCodeStoreSlice(paneId, selectPermissions);
 }

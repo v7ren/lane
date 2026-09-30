@@ -20,11 +20,13 @@ import {
   replyOpenCodePermission,
   replyOpenCodeQuestion,
 } from '../../lib/commands/agent';
+import { mapApprovalDecisionToPermissionReply } from '../../lib/opencode/pending-requests';
 import { useTranscriptViewModel } from '../../lib/transcript/use-transcript-view-model';
 import { useSelectedSession } from '../../lib/shell-data';
 import { useShellSelection } from '../../lib/shell-selection-context';
 import { useSessionActions } from '../../lib/sessions/session-actions-context';
 import { getOpenCodeStore } from '../../lib/opencode/store';
+import { useOpenCodeLastRequestError } from '../../lib/opencode/hooks';
 import { tauri } from '../../lib/tauri';
 import { setSessionMuted } from '../../lib/session-notify-prefs';
 import { formatPaneSubtitle } from '../../lib/session-subtitle';
@@ -81,6 +83,8 @@ export function AgentView({
   const resolvedAgentType = agentType ?? sessionState?.agent_type ?? null;
   const openCodePane = resolvedAgentType === 'opencode_native' && source !== 'native_tui';
   const store = openCodePane ? getOpenCodeStore(paneId) : null;
+  const ocLastRequestErrorRaw = useOpenCodeLastRequestError(paneId);
+  const ocLastRequestError = openCodePane ? ocLastRequestErrorRaw : null;
   const ocState = useSyncExternalStore(
     store?.subscribe ?? (() => () => {}),
     () => (store ? store.getState() : null),
@@ -121,6 +125,7 @@ export function AgentView({
         id: String(raw.id ?? ''),
         title: String(data?.title ?? raw.title ?? 'Permission required'),
         detail: String(data?.pattern ?? data?.command ?? raw.pattern ?? ''),
+        submitting: Boolean(perm.submitting),
       };
     });
     if (fromStore.length > 0) return fromStore;
@@ -139,6 +144,7 @@ export function AgentView({
         id: String(raw.id ?? ''),
         prompt: first?.question ?? 'Question',
         options: first?.options ?? [],
+        submitting: Boolean(q.submitting),
       };
     });
   }, [pendingQuestions]);
@@ -171,6 +177,11 @@ export function AgentView({
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const permissionDockBusy =
+    busy || permissionDockItems.some((item) => item.submitting);
+  const questionDockBusy =
+    busy || questionDockItems.some((item) => item.submitting);
+
   const send = useCallback(
     async (text: string) => {
       setBusy(true);
@@ -202,7 +213,7 @@ export function AgentView({
           await replyOpenCodePermission(
             paneId,
             approvalId,
-            decision === 'deny' ? 'reject' : decision === 'allow_always' ? 'always' : 'once',
+            mapApprovalDecisionToPermissionReply(decision),
           );
         } else if (source === 'protocol' && capabilities.approvals) {
           await sessionRespondApproval(paneId, approvalId, decision);
@@ -354,12 +365,12 @@ export function AgentView({
       <div
         className={`flex flex-1 flex-col min-h-0 overflow-hidden w-full mx-auto ${showTui ? '' : 'max-w-[52rem]'}`}
       >
-        {(loading || error || actionError) && (
+        {(loading || error || actionError || ocLastRequestError) && (
           <div className="shrink-0">
             {loading && <p className="text-meta text-text-3 px-3 py-2">Loading session…</p>}
-            {(error || actionError) && (
+            {(error || actionError || ocLastRequestError) && (
               <p className="text-meta text-status-error px-3 py-2 border-b border-status-error/30">
-                {actionError ?? error}
+                {actionError ?? ocLastRequestError ?? error}
               </p>
             )}
           </div>
@@ -384,14 +395,14 @@ export function AgentView({
           <div className="shrink-0 flex flex-col max-h-[45%] min-h-0 overflow-y-auto border-t border-border-subtle/50">
             <PermissionDock
               permissions={permissionDockItems}
-              busy={busy}
+              busy={permissionDockBusy}
               onReply={(id, d) => void respondApproval(id, d)}
             />
             <QuestionDock
               questions={questionDockItems}
-              busy={busy}
+              busy={questionDockBusy}
               onReply={(id, answer) => {
-                void replyOpenCodeQuestion(paneId, id, answer).then(() => refresh());
+                void replyOpenCodeQuestion(paneId, id, [[answer]]).then(() => refresh());
               }}
               onReject={(id) => {
                 void rejectOpenCodeQuestion(paneId, id).then(() => refresh());

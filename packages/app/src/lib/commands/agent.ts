@@ -1,6 +1,7 @@
 import type { Capabilities } from '../agent-events';
 import { opencodeClient } from '../opencode/client.js';
 import { getOpenCodeStore } from '../opencode/store.js';
+import type { OpenCodePermissionReply } from '../opencode/pending-requests.js';
 import { findProjectFiles } from '../transcript/opencode-actions.js';
 import type { CommandRegistry } from './index';
 
@@ -54,17 +55,21 @@ export async function abortOpenCodeSession(paneId: string, sessionId: string) {
 export async function replyOpenCodePermission(
   paneId: string,
   requestId: string,
-  reply: 'once' | 'always' | 'reject',
+  reply: OpenCodePermissionReply,
 ) {
-  await opencodeClient.replyPermission(paneId, requestId, { reply });
+  await getOpenCodeStore(paneId).replyPermission(requestId, reply);
 }
 
-export async function replyOpenCodeQuestion(paneId: string, requestId: string, answer: string) {
-  await opencodeClient.replyQuestion(paneId, requestId, { answer });
+export async function replyOpenCodeQuestion(
+  paneId: string,
+  requestId: string,
+  answers: string[][],
+) {
+  await getOpenCodeStore(paneId).replyQuestion(requestId, answers);
 }
 
 export async function rejectOpenCodeQuestion(paneId: string, requestId: string) {
-  await opencodeClient.rejectQuestion(paneId, requestId, {});
+  await getOpenCodeStore(paneId).rejectQuestion(requestId);
 }
 
 export async function searchMentionFiles(paneId: string, query: string) {

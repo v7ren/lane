@@ -1,7 +1,10 @@
 import type { PermissionAsked, QuestionRequest } from '@loomria/shared/opencode';
 
-export type PendingQuestion = QuestionRequest & { receivedAt: number };
-export type PendingPermission = PermissionAsked & { receivedAt: number };
+import type { ApprovalDecision } from '../agent-events.js';
+import type { OpenCodeRequestArgs } from './client.js';
+
+export type PendingQuestion = QuestionRequest & { receivedAt: number; submitting?: boolean };
+export type PendingPermission = PermissionAsked & { receivedAt: number; submitting?: boolean };
 
 export type PendingMaps = {
   questions: Record<string, PendingQuestion>;
@@ -201,12 +204,12 @@ export function applyPendingWireEvent(
 }
 
 export function pendingQuestionPayload(entry: PendingQuestion): QuestionRequest {
-  const { receivedAt: _receivedAt, ...payload } = entry;
+  const { receivedAt: _receivedAt, submitting: _submitting, ...payload } = entry;
   return payload;
 }
 
 export function pendingPermissionPayload(entry: PendingPermission): PermissionAsked {
-  const { receivedAt: _receivedAt, ...payload } = entry;
+  const { receivedAt: _receivedAt, submitting: _submitting, ...payload } = entry;
   return payload;
 }
 
@@ -223,4 +226,96 @@ export function isPendingWireEventType(type: string): type is PendingWireEventNa
     type === 'permission.replied' ||
     type === 'permission.v2.replied'
   );
+}
+
+export type OpenCodePermissionReply = 'once' | 'always' | 'reject';
+
+export function buildQuestionReplyBody(answers: string[][]): { answers: string[][] } {
+  return { answers };
+}
+
+export function buildPermissionReplyBody(
+  reply: OpenCodePermissionReply,
+  message?: string,
+): { reply: OpenCodePermissionReply; message?: string } {
+  if (message !== undefined && message.length > 0) {
+    return { reply, message };
+  }
+  return { reply };
+}
+
+export function mapApprovalDecisionToPermissionReply(
+  decision: ApprovalDecision,
+): OpenCodePermissionReply {
+  switch (decision) {
+    case 'allow_once':
+      return 'once';
+    case 'allow_always':
+      return 'always';
+    case 'deny':
+      return 'reject';
+    default: {
+      const _exhaustive: never = decision;
+      return _exhaustive;
+    }
+  }
+}
+
+export function openCodeQuestionReplyArgs(
+  paneId: string,
+  requestId: string,
+  answers: string[][],
+): OpenCodeRequestArgs {
+  return {
+    pane_id: paneId,
+    method: 'POST',
+    path: `/question/${requestId}/reply`,
+    body: buildQuestionReplyBody(answers),
+  };
+}
+
+export function openCodeQuestionRejectArgs(paneId: string, requestId: string): OpenCodeRequestArgs {
+  return {
+    pane_id: paneId,
+    method: 'POST',
+    path: `/question/${requestId}/reject`,
+  };
+}
+
+export function openCodePermissionReplyArgs(
+  paneId: string,
+  requestId: string,
+  reply: OpenCodePermissionReply,
+  message?: string,
+): OpenCodeRequestArgs {
+  return {
+    pane_id: paneId,
+    method: 'POST',
+    path: `/permission/${requestId}/reply`,
+    body: buildPermissionReplyBody(reply, message),
+  };
+}
+
+export function setQuestionSubmitting(
+  questions: Record<string, PendingQuestion>,
+  requestId: string,
+  submitting: boolean,
+): Record<string, PendingQuestion> {
+  const entry = questions[requestId];
+  if (!entry) return questions;
+  return { ...questions, [requestId]: { ...entry, submitting } };
+}
+
+export function setPermissionSubmitting(
+  permissions: Record<string, PendingPermission>,
+  requestId: string,
+  submitting: boolean,
+): Record<string, PendingPermission> {
+  const entry = permissions[requestId];
+  if (!entry) return permissions;
+  return { ...permissions, [requestId]: { ...entry, submitting } };
+}
+
+export function formatOpenCodeRequestError(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }

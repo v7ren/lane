@@ -9,7 +9,8 @@ import type {
 } from '@loomria/shared/opencode';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
-import { getServerInfo, opencodeClient } from './client.js';
+import { getServerInfo, openCodeRequest, opencodeClient } from './client.js';
+import type { OpenCodeRequestArgs } from './client.js';
 import { sortMessageIds, sortPartIdsForMessage } from './ordering.js';
 import {
   applyPendingWireEvent,
@@ -18,6 +19,13 @@ import {
   isPendingWireEventType,
   type PendingPermission,
   type PendingQuestion,
+  formatOpenCodeRequestError,
+  openCodePermissionReplyArgs,
+  openCodeQuestionRejectArgs,
+  openCodeQuestionReplyArgs,
+  setPermissionSubmitting,
+  setQuestionSubmitting,
+  type OpenCodePermissionReply,
 } from './pending-requests.js';
 import {
   applyParsedSessionStatus,
@@ -69,6 +77,7 @@ export type OpenCodeStoreState = {
   lastFileEdits: string[];
   vcsBranch: string | null;
   seenEventIds: Set<string>;
+  lastRequestError: string | null;
 };
 
 export function createEmptyOpenCodeStore(paneId: string): OpenCodeStoreState {
@@ -96,6 +105,7 @@ export function createEmptyOpenCodeStore(paneId: string): OpenCodeStoreState {
     lastFileEdits: [],
     vcsBranch: null,
     seenEventIds: new Set(),
+    lastRequestError: null,
   };
 }
 
@@ -477,8 +487,78 @@ export type OpenCodeStore = {
   refreshSessionStatus: () => Promise<void>;
   markSessionOptimisticBusy: (sessionId: string) => void;
   ensureSessionMessages: (sessionId: string) => Promise<void>;
+  replyQuestion: (requestId: string, answers: string[][]) => Promise<void>;
+  rejectQuestion: (requestId: string) => Promise<void>;
+  replyPermission: (requestId: string, reply: OpenCodePermissionReply) => Promise<void>;
   dispose: () => void;
 };
+
+export type OpenCodePendingActionDeps = {
+  paneId: string;
+  getState: () => OpenCodeStoreState;
+  setState: (updater: (prev: OpenCodeStoreState) => OpenCodeStoreState) => void;
+  request: (args: OpenCodeRequestArgs) => Promise<unknown>;
+};
+
+export function createOpenCodePendingActions(deps: OpenCodePendingActionDeps) {
+  const { paneId, getState, setState, request } = deps;
+
+  const replyQuestion = async (requestId: string, answers: string[][]) => {
+    if (!getState().questions[requestId]) return;
+    setState((prev) => ({
+      ...prev,
+      lastRequestError: null,
+      questions: setQuestionSubmitting(prev.questions, requestId, true),
+    }));
+    try {
+      await request(openCodeQuestionReplyArgs(paneId, requestId, answers));
+    } catch (err) {
+      setState((prev) => ({
+        ...prev,
+        lastRequestError: formatOpenCodeRequestError(err),
+        questions: setQuestionSubmitting(prev.questions, requestId, false),
+      }));
+    }
+  };
+
+  const rejectQuestion = async (requestId: string) => {
+    if (!getState().questions[requestId]) return;
+    setState((prev) => ({
+      ...prev,
+      lastRequestError: null,
+      questions: setQuestionSubmitting(prev.questions, requestId, true),
+    }));
+    try {
+      await request(openCodeQuestionRejectArgs(paneId, requestId));
+    } catch (err) {
+      setState((prev) => ({
+        ...prev,
+        lastRequestError: formatOpenCodeRequestError(err),
+        questions: setQuestionSubmitting(prev.questions, requestId, false),
+      }));
+    }
+  };
+
+  const replyPermission = async (requestId: string, reply: OpenCodePermissionReply) => {
+    if (!getState().permissions[requestId]) return;
+    setState((prev) => ({
+      ...prev,
+      lastRequestError: null,
+      permissions: setPermissionSubmitting(prev.permissions, requestId, true),
+    }));
+    try {
+      await request(openCodePermissionReplyArgs(paneId, requestId, reply));
+    } catch (err) {
+      setState((prev) => ({
+        ...prev,
+        lastRequestError: formatOpenCodeRequestError(err),
+        permissions: setPermissionSubmitting(prev.permissions, requestId, false),
+      }));
+    }
+  };
+
+  return { replyQuestion, rejectQuestion, replyPermission };
+}
 
 export function createOpenCodeStore(paneId: string): OpenCodeStore {
   let state = createEmptyOpenCodeStore(paneId);
@@ -568,6 +648,13 @@ export function createOpenCodeStore(paneId: string): OpenCodeStore {
     }
   };
 
+  const pendingActions = createOpenCodePendingActions({
+    paneId,
+    getState: () => state,
+    setState,
+    request: openCodeRequest,
+  });
+
   return {
     getState: () => state,
     subscribe: (listener) => {
@@ -610,6 +697,9 @@ export function createOpenCodeStore(paneId: string): OpenCodeStore {
       });
       loadedMessageSessions.add(sessionId);
     },
+    replyQuestion: pendingActions.replyQuestion,
+    rejectQuestion: pendingActions.rejectQuestion,
+    replyPermission: pendingActions.replyPermission,
     dispose: () => {
       unlisten?.();
       unlisten = null;

@@ -35,7 +35,7 @@ async function tauriRequest<T = unknown>(args: OpenCodeRequestArgs): Promise<T> 
 
 export { setOpenCodeTransport, getOpenCodeTransport } from './transport.js';
 
-async function request<T = unknown>(args: OpenCodeRequestArgs): Promise<T> {
+export async function openCodeRequest<T = unknown>(args: OpenCodeRequestArgs): Promise<T> {
   const openCodeTransport = getOpenCodeTransport();
   if (openCodeTransport) {
     return openCodeTransport(args) as Promise<T>;
@@ -54,59 +54,59 @@ export async function selectTuiSession(paneId: string, sessionId: string): Promi
 /** OpenCode 1.18+ returns `{ all, default, connected }` from `/provider`. */
 export async function fetchProviderCatalog(paneId: string): Promise<unknown> {
   try {
-    return await request<unknown>({ pane_id: paneId, method: 'GET', path: '/provider' });
+    return await openCodeRequest<unknown>({ pane_id: paneId, method: 'GET', path: '/provider' });
   } catch {
-    return request<unknown>({ pane_id: paneId, method: 'GET', path: '/config/providers' });
+    return openCodeRequest<unknown>({ pane_id: paneId, method: 'GET', path: '/config/providers' });
   }
 }
 
 export const opencodeClient = {
-  listSessions: (paneId: string) => request<Session[]>({ pane_id: paneId, method: 'GET', path: '/session' }),
+  listSessions: (paneId: string) => openCodeRequest<Session[]>({ pane_id: paneId, method: 'GET', path: '/session' }),
   getSession: (paneId: string, sessionId: string) =>
-    request<Session>({ pane_id: paneId, method: 'GET', path: `/session/${sessionId}` }),
+    openCodeRequest<Session>({ pane_id: paneId, method: 'GET', path: `/session/${sessionId}` }),
   createSession: (paneId: string, body: { title?: string }) =>
-    request<Session>({ pane_id: paneId, method: 'POST', path: '/session', body }),
+    openCodeRequest<Session>({ pane_id: paneId, method: 'POST', path: '/session', body }),
   patchSession: (paneId: string, sessionId: string, body: Record<string, unknown>) =>
-    request<Session>({ pane_id: paneId, method: 'PATCH', path: `/session/${sessionId}`, body }),
+    openCodeRequest<Session>({ pane_id: paneId, method: 'PATCH', path: `/session/${sessionId}`, body }),
   deleteSession: (paneId: string, sessionId: string) =>
-    request<null>({ pane_id: paneId, method: 'DELETE', path: `/session/${sessionId}` }),
+    openCodeRequest<null>({ pane_id: paneId, method: 'DELETE', path: `/session/${sessionId}` }),
   listMessages: (paneId: string, sessionId: string) =>
-    request<Message[]>({ pane_id: paneId, method: 'GET', path: `/session/${sessionId}/message` }),
+    openCodeRequest<Message[]>({ pane_id: paneId, method: 'GET', path: `/session/${sessionId}/message` }),
   getMessage: (paneId: string, sessionId: string, messageId: string) =>
-    request<Message>({
+    openCodeRequest<Message>({
       pane_id: paneId,
       method: 'GET',
       path: `/session/${sessionId}/message/${messageId}`,
     }),
   promptAsync: (paneId: string, sessionId: string, body: Record<string, unknown>) =>
-    request<null>({ pane_id: paneId, method: 'POST', path: `/session/${sessionId}/prompt_async`, body }),
+    openCodeRequest<null>({ pane_id: paneId, method: 'POST', path: `/session/${sessionId}/prompt_async`, body }),
   sessionCommand: (paneId: string, sessionId: string, body: Record<string, unknown>) =>
-    request<unknown>({ pane_id: paneId, method: 'POST', path: `/session/${sessionId}/command`, body }),
+    openCodeRequest<unknown>({ pane_id: paneId, method: 'POST', path: `/session/${sessionId}/command`, body }),
   sessionShell: (paneId: string, sessionId: string, body: Record<string, unknown>) =>
-    request<unknown>({ pane_id: paneId, method: 'POST', path: `/session/${sessionId}/shell`, body }),
+    openCodeRequest<unknown>({ pane_id: paneId, method: 'POST', path: `/session/${sessionId}/shell`, body }),
   abortSession: (paneId: string, sessionId: string) =>
-    request<null>({ pane_id: paneId, method: 'POST', path: `/session/${sessionId}/abort` }),
-  listPermissions: (paneId: string) => request<PermissionAsked[]>({ pane_id: paneId, method: 'GET', path: '/permission' }),
+    openCodeRequest<null>({ pane_id: paneId, method: 'POST', path: `/session/${sessionId}/abort` }),
+  listPermissions: (paneId: string) => openCodeRequest<PermissionAsked[]>({ pane_id: paneId, method: 'GET', path: '/permission' }),
   replyPermission: (paneId: string, requestId: string, body: Record<string, unknown>) =>
-    request<null>({ pane_id: paneId, method: 'POST', path: `/permission/${requestId}/reply`, body }),
+    openCodeRequest<null>({ pane_id: paneId, method: 'POST', path: `/permission/${requestId}/reply`, body }),
   listQuestions: (paneId: string) =>
-    request<QuestionRequest[]>({ pane_id: paneId, method: 'GET', path: '/question' }),
+    openCodeRequest<QuestionRequest[]>({ pane_id: paneId, method: 'GET', path: '/question' }),
   replyQuestion: (paneId: string, requestId: string, body: Record<string, unknown>) =>
-    request<null>({ pane_id: paneId, method: 'POST', path: `/question/${requestId}/reply`, body }),
+    openCodeRequest<null>({ pane_id: paneId, method: 'POST', path: `/question/${requestId}/reply`, body }),
   rejectQuestion: (paneId: string, requestId: string, body?: Record<string, unknown>) =>
-    request<null>({ pane_id: paneId, method: 'POST', path: `/question/${requestId}/reject`, body }),
-  listAgents: (paneId: string) => request<Agent[]>({ pane_id: paneId, method: 'GET', path: '/agent' }),
-  listCommands: (paneId: string) => request<Command[]>({ pane_id: paneId, method: 'GET', path: '/command' }),
-  listProviders: (paneId: string) => request<unknown>({ pane_id: paneId, method: 'GET', path: '/provider' }),
+    openCodeRequest<null>({ pane_id: paneId, method: 'POST', path: `/question/${requestId}/reject`, body }),
+  listAgents: (paneId: string) => openCodeRequest<Agent[]>({ pane_id: paneId, method: 'GET', path: '/agent' }),
+  listCommands: (paneId: string) => openCodeRequest<Command[]>({ pane_id: paneId, method: 'GET', path: '/command' }),
+  listProviders: (paneId: string) => openCodeRequest<unknown>({ pane_id: paneId, method: 'GET', path: '/provider' }),
   listConfigProviders: (paneId: string) =>
-    request<unknown>({ pane_id: paneId, method: 'GET', path: '/config/providers' }),
-  getConfig: (paneId: string) => request<Record<string, unknown>>({ pane_id: paneId, method: 'GET', path: '/config' }),
+    openCodeRequest<unknown>({ pane_id: paneId, method: 'GET', path: '/config/providers' }),
+  getConfig: (paneId: string) => openCodeRequest<Record<string, unknown>>({ pane_id: paneId, method: 'GET', path: '/config' }),
   patchConfig: (paneId: string, body: Record<string, unknown>) =>
-    request<Record<string, unknown>>({ pane_id: paneId, method: 'PATCH', path: '/config', body }),
+    openCodeRequest<Record<string, unknown>>({ pane_id: paneId, method: 'PATCH', path: '/config', body }),
   listFiles: (paneId: string, query?: Record<string, string>) =>
-    request<FileNode[]>({ pane_id: paneId, method: 'GET', path: '/file', query }),
+    openCodeRequest<FileNode[]>({ pane_id: paneId, method: 'GET', path: '/file', query }),
   findFiles: async (paneId: string, query: Record<string, string>) => {
-    const raw = await request<unknown>({
+    const raw = await openCodeRequest<unknown>({
       pane_id: paneId,
       method: 'GET',
       path: '/find/file',
@@ -118,15 +118,15 @@ export const opencodeClient = {
     );
   },
   getProjectCurrent: (paneId: string) =>
-    request<Record<string, unknown>>({ pane_id: paneId, method: 'GET', path: '/project/current' }),
+    openCodeRequest<Record<string, unknown>>({ pane_id: paneId, method: 'GET', path: '/project/current' }),
   getVcsStatus: (paneId: string) =>
-    request<Record<string, unknown>>({ pane_id: paneId, method: 'GET', path: '/vcs/status' }),
+    openCodeRequest<Record<string, unknown>>({ pane_id: paneId, method: 'GET', path: '/vcs/status' }),
   getSessionTodos: (paneId: string, sessionId: string) =>
-    request<Todo[]>({ pane_id: paneId, method: 'GET', path: `/session/${sessionId}/todo` }),
+    openCodeRequest<Todo[]>({ pane_id: paneId, method: 'GET', path: `/session/${sessionId}/todo` }),
   getSessionStatus: (paneId: string) =>
-    request<Record<string, unknown>>({ pane_id: paneId, method: 'GET', path: '/session/status' }),
+    openCodeRequest<Record<string, unknown>>({ pane_id: paneId, method: 'GET', path: '/session/status' }),
   getSessionParts: (paneId: string, sessionId: string, messageId: string) =>
-    request<Part[]>({
+    openCodeRequest<Part[]>({
       pane_id: paneId,
       method: 'GET',
       path: `/session/${sessionId}/message/${messageId}`,
