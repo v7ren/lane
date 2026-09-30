@@ -94,7 +94,12 @@ export default function App() {
   };
 
   const handleNewSession = async (agent: AgentId) => {
-    const id = await registry.spawnPane({ agent_type: agent, cwd: projectPath ?? undefined });
+    // Claude chat runs headless (stream-json) so the GUI composer works; "Open in TUI" resumes it in a terminal.
+    const id = await registry.spawnPane({
+      agent_type: agent,
+      cwd: projectPath ?? undefined,
+      surface: agent === 'claude' ? 'headless' : undefined,
+    });
     if (id) {
       setSelectedPaneId(id);
       setShowTui(false);
