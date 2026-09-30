@@ -11,6 +11,11 @@ import { AnchoredPopover } from '../shell/AnchoredPopover';
 import { ArrowUp, Paperclip, Plus, Square } from 'lucide-react';
 import type { Capabilities } from '../../lib/agent-events';
 import {
+  OPENCODE_CAPABILITIES,
+  NO_AGENT_CAPABILITIES,
+  type AgentCapabilities,
+} from '../../lib/agent-capabilities';
+import {
   abortOpenCodeSession,
   composerFeaturesForCapabilities,
   composerFeaturesOpenCode,
@@ -65,6 +70,7 @@ export function AgentComposerPanel({
   sessionId,
   openCode,
   capabilities,
+  agentCapabilities,
   disabled,
   disabledReason,
   busy,
@@ -78,6 +84,8 @@ export function AgentComposerPanel({
   sessionId: string | null;
   openCode: boolean;
   capabilities: Capabilities;
+  /** Static per-agent declaration; defaults to OpenCode for OpenCode panes, else nothing extra. */
+  agentCapabilities?: AgentCapabilities;
   disabled: boolean;
   disabledReason?: string;
   busy: boolean;
@@ -89,7 +97,18 @@ export function AgentComposerPanel({
 }) {
   const demo = useDemoFixtures();
   const shell = useShellSelection();
-  const features = openCode ? composerFeaturesOpenCode() : composerFeaturesForCapabilities(capabilities);
+  const caps = agentCapabilities ?? (openCode ? OPENCODE_CAPABILITIES : NO_AGENT_CAPABILITIES);
+  const baseFeatures = openCode ? composerFeaturesOpenCode() : composerFeaturesForCapabilities(capabilities);
+  const features = {
+    ...baseFeatures,
+    attach: baseFeatures.attach && caps.attachments,
+    modelPicker: baseFeatures.modelPicker && caps.models,
+    permissionPicker: baseFeatures.permissionPicker && caps.permissionModes,
+    mentions: baseFeatures.mentions && caps.fileMentions,
+    slashCommands: baseFeatures.slashCommands && caps.slashCommands,
+    shellMode: baseFeatures.shellMode && caps.shellMode,
+    stop: baseFeatures.stop && caps.abort,
+  };
   const [draft, setDraft] = useState('');
   const [mode, setMode] = useState<ComposerMode>('chat');
   const [agent, setAgent] = useState('build');
@@ -257,7 +276,7 @@ export function AgentComposerPanel({
   }, [demo, openCode, paneId, sessionId]);
 
   useEffect(() => {
-    if (picker !== 'mention' || !openCode) return;
+    if (picker !== 'mention' || !openCode || !features.mentions) return;
     const q = mentionQuery.trim();
     if (demo) {
       const hits = demoMentionFiles.filter((f) =>
@@ -276,7 +295,7 @@ export function AgentComposerPanel({
       );
     }, 120);
     return () => window.clearTimeout(id);
-  }, [demo, mentionQuery, openCode, paneId, picker]);
+  }, [demo, features.mentions, mentionQuery, openCode, paneId, picker]);
 
   const submit = useCallback(async () => {
     const raw = draft.trim();
@@ -364,11 +383,11 @@ export function AgentComposerPanel({
       historyIdx.current = Math.min(idx, historyRef.current.length - 1);
       setDraft(historyRef.current[historyIdx.current] ?? '');
     }
-    if (e.key === '@') {
+    if (e.key === '@' && features.mentions) {
       setPicker('mention');
       setMentionQuery('');
     }
-    if (e.key === '/') {
+    if (e.key === '/' && features.slashCommands) {
       setPicker('slash');
     }
   };
@@ -405,6 +424,12 @@ export function AgentComposerPanel({
       ? (model?.modelName ?? modelPillPrimary ?? 'Select model')
       : (configPillLabel ?? 'Default');
 
+  const hintSegments = [
+    features.shellMode ? '! for shell' : null,
+    features.slashCommands ? '/ for commands' : null,
+    features.mentions ? '@ for files' : null,
+  ].filter((s): s is string => s !== null);
+
   const modelPickerEmptyMessage = modelsLoading
     ? 'Loading models…'
     : modelsError
@@ -434,7 +459,7 @@ export function AgentComposerPanel({
       <div className="px-3 pb-2">
         <div
           className="rounded-lg border border-border-subtle bg-canvas focus-within:ring-2 focus-within:ring-accent/50"
-          title={focused ? '! for shell · / for commands · @ for files' : undefined}
+          title={focused ? hintSegments.join(' · ') || undefined : undefined}
         >
           <textarea
             ref={(el) => {
@@ -453,7 +478,7 @@ export function AgentComposerPanel({
             onChange={(e) => {
               setDraft(e.target.value);
               const at = e.target.value.lastIndexOf('@');
-              if (at >= 0) {
+              if (at >= 0 && features.mentions) {
                 setPicker('mention');
                 setMentionQuery(e.target.value.slice(at + 1));
               }
@@ -656,8 +681,8 @@ export function AgentComposerPanel({
         />
         {focused && (
           <p className="text-[11px] text-text-3 mt-1 px-0.5">
-            Enter send · Shift+Enter newline · ! for shell · / for commands · @ for files
-            {openCode && (
+            {['Enter send', 'Shift+Enter newline', ...hintSegments].join(' · ')}
+            {openCode && features.shellMode && (
               <>
                 {' · '}
                 <button
