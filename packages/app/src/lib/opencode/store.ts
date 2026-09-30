@@ -9,7 +9,8 @@ import type {
 } from '@loomria/shared/opencode';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
-import { getServerInfo, openCodeRequest, opencodeClient } from './client.js';
+import { emitFileEdited, fileEditedPathsFromProps } from '../editor/file-edited-bus.js';
+import { getServerInfo,openCodeRequest, opencodeClient } from './client.js';
 import type { OpenCodeRequestArgs } from './client.js';
 import { sortMessageIds, sortPartIdsForMessage } from './ordering.js';
 import {
@@ -654,6 +655,9 @@ export function createOpenCodeStore(paneId: string): OpenCodeStore {
     if (!unlisten) {
       unlisten = await listen<OpenCodeEventEnvelope>('opencode://event', (ev) => {
         setState((prev) => applyOpenCodeEnvelope(prev, ev.payload));
+        if (ev.payload.pane_id === paneId && ev.payload.event.type === 'file.edited') {
+          emitFileEdited(fileEditedPathsFromProps(propsOf(ev.payload.event)));
+        }
         if (ev.payload.event.type === 'loomria.opencode.connected') {
           void hydratePendingFromServer();
         }

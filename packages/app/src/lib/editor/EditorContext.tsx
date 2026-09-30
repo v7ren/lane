@@ -22,7 +22,9 @@ import {
   tryCloseTab,
   type EditorTab,
 } from './tabs';
+import { subscribeFileEdited } from './file-edited-bus';
 import {
+  decideFileEdited,
   keepMine,
   onDiskChange,
   openCompare,
@@ -109,50 +111,75 @@ export function EditorProvider({
   const conflictRef = useRef(conflict);
   conflictRef.current = conflict;
 
+  const handleExternalEdit = useCallback(
+    (path: string) => {
+      const decision = decideFileEdited(path, tabsRef.current, root);
+      switch (decision.action) {
+        case 'ignore':
+          return;
+        case 'conflict':
+        case 'reload':
+          break;
+        default: {
+          const unreachable: never = decision.action;
+          return unreachable;
+        }
+      }
+      const tabPath = decision.tabPath;
+      const tab = tabsRef.current.find((t) => t.path === tabPath);
+      if (!tab || !tabPath) return;
+      void (async () => {
+        try {
+          const disk = await fsReadFile(root, tabPath);
+          const { state, reload } = onDiskChange(
+            conflictRef.current,
+            tab.dirty,
+            disk.content,
+            disk.mtimeMs,
+            tab.content,
+          );
+          setConflict(state);
+          if (reload) {
+            setTabs((prev) =>
+              prev.map((t) =>
+                t.path === tabPath
+                  ? {
+                      ...t,
+                      content: disk.content,
+                      savedContent: disk.content,
+                      dirty: false,
+                      mtimeMs: disk.mtimeMs,
+                    }
+                  : t,
+              ),
+            );
+          }
+        } catch {
+          /* ignore missing */
+        }
+      })();
+    },
+    [root],
+  );
+
   useEffect(() => {
     if (!root || !isTauriRuntime()) return;
     let unlisten: (() => void) | undefined;
     void listen<{ root: string; paths: string[] }>('fs://changed', (event) => {
       if (event.payload.root !== root) return;
-      for (const rel of event.payload.paths) {
-        const tab = tabsRef.current.find((t) => t.path === rel);
-        if (!tab) continue;
-        void (async () => {
-          try {
-            const disk = await fsReadFile(root, rel);
-            const { state, reload } = onDiskChange(
-              conflictRef.current,
-              tab.dirty,
-              disk.content,
-              disk.mtimeMs,
-              tab.content,
-            );
-            setConflict(state);
-            if (reload) {
-              setTabs((prev) =>
-                prev.map((t) =>
-                  t.path === rel
-                    ? {
-                        ...t,
-                        content: disk.content,
-                        savedContent: disk.content,
-                        dirty: false,
-                        mtimeMs: disk.mtimeMs,
-                      }
-                    : t,
-                ),
-              );
-            }
-          } catch {
-            /* ignore missing */
-          }
-        })();
-      }
+      for (const rel of event.payload.paths) handleExternalEdit(rel);
     }).then((fn) => {
       unlisten = fn;
     });
     return () => unlisten?.();
-  }, [root]);
+  }, [root, handleExternalEdit]);
+
+  useEffect(() => {
+    if (!root) return;
+    return subscribeFileEdited((paths) => {
+      for (const p of paths) handleExternalEdit(p);
+    });
+  }, [root, handleExternalEdit]);
 
   const openFile = useCallback(
     async (path: string, opts?: { preview?: boolean; line?: number }) => {
