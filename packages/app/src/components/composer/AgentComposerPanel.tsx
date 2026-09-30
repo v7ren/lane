@@ -42,6 +42,10 @@ import {
   getUserPickedSessionModel,
   setSessionComposerModel,
 } from '../../lib/opencode/session-model-prefs';
+import {
+  getUserPickedSessionPermissionMode,
+  setSessionComposerPermissionMode,
+} from '../../lib/opencode/session-permission-prefs';
 import { isTauriRuntime } from '../../lib/is-tauri';
 import { ADD_TO_COMPOSER_EVENT, type AddToComposerDetail } from '../../lib/editor/add-to-composer';
 import { useShellSelection } from '../../lib/shell-selection-context';
@@ -240,6 +244,12 @@ export function AgentComposerPanel({
   }, [demo, models, openCode, paneId, sessionId]);
 
   useEffect(() => {
+    if (!openCode || demo || !sessionId) return;
+    const stored = getUserPickedSessionPermissionMode(paneId, sessionId);
+    if (stored) setPermissionMode(stored);
+  }, [demo, openCode, paneId, sessionId]);
+
+  useEffect(() => {
     if (picker !== 'mention' || !openCode) return;
     const q = mentionQuery.trim();
     if (demo) {
@@ -284,6 +294,8 @@ export function AgentComposerPanel({
         } else {
           const explicit =
             sessionId != null ? getUserPickedSessionModel(paneId, sessionId) : null;
+          const permissionExplicit =
+            sessionId != null ? getUserPickedSessionPermissionMode(paneId, sessionId) : null;
           await sendOpenCodePrompt({
             paneId,
             sessionId,
@@ -293,6 +305,8 @@ export function AgentComposerPanel({
             model: explicit
               ? { providerID: explicit.providerID, modelID: explicit.modelID }
               : undefined,
+            permissionModeUserPicked: permissionExplicit != null,
+            permissionMode: permissionExplicit,
           });
         }
       } else {
@@ -580,7 +594,11 @@ export function AgentComposerPanel({
             { id: 'ask', label: 'Ask' },
           ]}
           onPick={(id) => {
-            setPermissionMode(id === 'ask' ? 'ask' : 'allow');
+            const mode = id === 'ask' ? 'ask' : 'allow';
+            setPermissionMode(mode);
+            if (sessionId) {
+              setSessionComposerPermissionMode(paneId, sessionId, { mode, userPicked: true });
+            }
             setPicker(null);
           }}
         />

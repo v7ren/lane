@@ -1,5 +1,7 @@
 import type { Capabilities } from '../agent-events';
 import { opencodeClient } from '../opencode/client.js';
+import type { ComposerPermissionMode } from '../opencode/session-permission-mode.js';
+import { sessionPermissionPatchBody } from '../opencode/session-permission-mode.js';
 import { getOpenCodeStore } from '../opencode/store.js';
 import type { OpenCodePermissionReply } from '../opencode/pending-requests.js';
 import { findProjectFiles } from '../transcript/opencode-actions.js';
@@ -18,14 +20,30 @@ export async function sendOpenCodePrompt(args: {
   messageId: string;
   agent?: string;
   model?: { providerID: string; modelID: string };
+  /** When true, PATCH session permission ruleset before prompt (OpenCode session.update). */
+  permissionModeUserPicked?: boolean;
+  permissionMode?: ComposerPermissionMode | null;
 }) {
+  if (args.permissionModeUserPicked && args.permissionMode) {
+    await opencodeClient.patchSession(
+      args.paneId,
+      args.sessionId,
+      sessionPermissionPatchBody(args.permissionMode),
+    );
+  }
   getOpenCodeStore(args.paneId).markSessionOptimisticBusy(args.sessionId);
-  await opencodeClient.promptAsync(args.paneId, args.sessionId, {
+  const promptBody: {
+    messageID: string;
+    parts: PromptPart[];
+    agent?: string;
+    model?: { providerID: string; modelID: string };
+  } = {
     messageID: args.messageId,
     parts: args.parts,
     agent: args.agent,
     model: args.model,
-  });
+  };
+  await opencodeClient.promptAsync(args.paneId, args.sessionId, promptBody);
 }
 
 export async function sendOpenCodeShell(args: {
