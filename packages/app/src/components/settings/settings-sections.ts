@@ -18,7 +18,7 @@ export const SETTINGS_SECTIONS: SettingsSectionDef[] = [
   { id: 'providers', label: 'Providers', implemented: false },
   { id: 'mcp', label: 'MCP', implemented: false },
   { id: 'config', label: 'Config', implemented: false },
-  { id: 'theme', label: 'Theme', implemented: false },
-  { id: 'keybinds', label: 'Keybinds', implemented: false },
+  { id: 'theme', label: 'Theme', implemented: true },
+  { id: 'keybinds', label: 'Keybinds', implemented: true },
   { id: 'agents', label: 'Agents', implemented: true },
 ];

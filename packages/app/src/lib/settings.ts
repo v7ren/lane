@@ -18,6 +18,10 @@ import {
 
 import { toPublicSettings } from './bridge-settings';
 
+import { applyKeybinds } from './keybinds';
+
+import { applyAccent } from './theme-accent';
+
 import { tauri } from './tauri';
 
 
@@ -136,6 +140,18 @@ export function applyTheme(theme: AppTheme): void {
   if (typeof document === 'undefined') return;
 
   document.documentElement.dataset.theme = theme;
+
+}
+
+
+
+/** Applies accent colour and keyboard bindings from settings to the running app. */
+
+export function applyRuntimeSettings(s: Settings): void {
+
+  applyAccent(s.accent_color);
+
+  applyKeybinds(s.keybinds);
 
 }
 
@@ -349,6 +365,8 @@ export async function loadSettings(): Promise<Settings> {
 
       applyTheme(merged.theme ?? 'dark');
 
+      applyRuntimeSettings(merged);
+
       return merged;
 
     } catch {
@@ -376,6 +394,8 @@ async function persistSettingsMerged(next: Settings): Promise<Settings> {
   const normalized = normalizeSettings(next);
 
   applyTheme(normalized.theme ?? 'dark');
+
+  applyRuntimeSettings(normalized);
 
   await store().set(SETTINGS_KEY, normalized);
 
