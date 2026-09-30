@@ -14,7 +14,7 @@ const portFiles = [
   join(repoRoot, 'loomria.bridge.port'),
   join(repoRoot, 'puppet-master.bridge.port'),
 ];
-const VITE_PORT = 1420;
+const VITE_PORT = Number(process.env.LOOMRIA_DEV_PORT) || 1420;
 const VITE_URL = `http://127.0.0.1:${VITE_PORT}`;
 
 ensureWorkspaceBuilt(repoRoot);

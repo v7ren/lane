@@ -13,7 +13,7 @@ export default defineConfig({
   },
   clearScreen: false,
   server: {
-    port: 1420,
+    port: Number(process.env.LOOMRIA_DEV_PORT) || 1420,
     strictPort: true,
     host: true,
     allowedHosts: true,

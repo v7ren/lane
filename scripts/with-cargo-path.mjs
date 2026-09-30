@@ -8,6 +8,7 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pickDevPort, PREFERRED_DEV_PORT } from './dev-port.mjs';
 import { ensureWorkspaceBuilt } from './ensure-workspace-built.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -38,6 +39,22 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
 if (args[0] === 'dev') {
   ensureWorkspaceBuilt(repoRoot);
+  const devPort = env.LOOMRIA_DEV_PORT ? Number(env.LOOMRIA_DEV_PORT) : await pickDevPort();
+  env.LOOMRIA_DEV_PORT = String(devPort);
+  // Tauri merges TAURI_CONFIG over tauri.conf.json, so the window loads the port Vite gets.
+  let override = {};
+  try {
+    override = env.TAURI_CONFIG ? JSON.parse(env.TAURI_CONFIG) : {};
+  } catch {
+    override = {};
+  }
+  env.TAURI_CONFIG = JSON.stringify({
+    ...override,
+    build: { ...override.build, devUrl: `http://127.0.0.1:${devPort}` },
+  });
+  if (devPort !== PREFERRED_DEV_PORT) {
+    console.error(`[loomria] port ${PREFERRED_DEV_PORT} is busy; using dev port ${devPort}`);
+  }
   console.error('[loomria] starting dev stack (vite + tauri + embedded bridge)…');
 }
 
