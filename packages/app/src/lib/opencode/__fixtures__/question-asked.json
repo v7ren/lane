@@ -1,0 +1,24 @@
+{
+  "id": "evt_question_asked_001",
+  "type": "question.asked",
+  "properties": {
+    "id": "req_question_001",
+    "sessionID": "sess_demo_001",
+    "questions": [
+      {
+        "question": "Proceed with deployment?",
+        "header": "Deploy",
+        "options": [
+          { "label": "Yes", "description": "Continue with deploy" },
+          { "label": "No", "description": "Cancel" }
+        ],
+        "multiple": false,
+        "custom": true
+      }
+    ],
+    "tool": {
+      "messageID": "msg_asst_001",
+      "callID": "call_tool_002"
+    }
+  }
+}

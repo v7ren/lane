@@ -1,0 +1,9 @@
+{
+  "id": "evt_perm_replied_001",
+  "type": "permission.replied",
+  "properties": {
+    "sessionID": "sess_demo_001",
+    "requestID": "req_perm_001",
+    "reply": "once"
+  }
+}

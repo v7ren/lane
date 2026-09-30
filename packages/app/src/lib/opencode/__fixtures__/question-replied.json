@@ -1,0 +1,9 @@
+{
+  "id": "evt_question_replied_001",
+  "type": "question.replied",
+  "properties": {
+    "sessionID": "sess_demo_001",
+    "requestID": "req_question_001",
+    "answers": [["Yes"]]
+  }
+}

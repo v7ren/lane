@@ -1,0 +1,16 @@
+{
+  "id": "evt_perm_asked_001",
+  "type": "permission.asked",
+  "properties": {
+    "id": "req_perm_001",
+    "sessionID": "sess_demo_001",
+    "permission": "bash",
+    "patterns": ["echo hello"],
+    "metadata": {},
+    "always": [],
+    "tool": {
+      "messageID": "msg_asst_001",
+      "callID": "call_tool_001"
+    }
+  }
+}

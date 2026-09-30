@@ -1,0 +1,8 @@
+{
+  "id": "evt_question_rejected_001",
+  "type": "question.rejected",
+  "properties": {
+    "sessionID": "sess_demo_001",
+    "requestID": "req_question_001"
+  }
+}
