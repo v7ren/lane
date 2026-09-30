@@ -197,18 +197,58 @@ impl ProtocolHub {
         }
 
         if let AgentEvent::MessageDelta { message_id, .. } = &event {
+            let message_id = message_id.clone();
             let mut inner = self.inner.lock();
-            inner
-                .coalesce
-                .entry(pane_id.to_string())
-                .or_default()
-                .insert(message_id.clone(), event);
+            let slot = inner.coalesce.entry(pane_id.to_string()).or_default();
+            let merged = match slot.remove(&message_id) {
+                Some(prev) => Self::merge_delta(prev, event),
+                None => event,
+            };
+            slot.insert(message_id, merged);
             drop(inner);
             self.schedule_flush(pane_id);
             return;
         }
 
         self.commit_event(pane_id, event);
+    }
+
+    /// Combine two pending deltas for the same message: `Replace` supersedes everything
+    /// before it, `Append` adds its text onto the pending one (never drops chunks).
+    fn merge_delta(prev: AgentEvent, next: AgentEvent) -> AgentEvent {
+        use crate::protocol::MessageTextMode;
+        match (prev, next) {
+            (
+                AgentEvent::MessageDelta { text: prev_text, text_mode: prev_mode, .. },
+                AgentEvent::MessageDelta {
+                    turn_id,
+                    message_id,
+                    role,
+                    text,
+                    content_kind,
+                    text_mode,
+                },
+            ) => match text_mode {
+                MessageTextMode::Replace => AgentEvent::MessageDelta {
+                    turn_id,
+                    message_id,
+                    role,
+                    text,
+                    content_kind,
+                    text_mode,
+                },
+                MessageTextMode::Append => AgentEvent::MessageDelta {
+                    turn_id,
+                    message_id,
+                    role,
+                    text: format!("{prev_text}{text}"),
+                    content_kind,
+                    // A pending Replace base stays a Replace so the consumer resets first.
+                    text_mode: prev_mode,
+                },
+            },
+            (_, next) => next,
+        }
     }
 
     fn schedule_flush(self: &Arc<Self>, pane_id: &str) {
@@ -382,7 +422,7 @@ mod tests {
                 role: crate::protocol::MessageRole::Assistant,
                 text: text.to_string(),
                 content_kind: crate::protocol::MessageContentKind::Text,
-                text_mode: crate::protocol::MessageTextMode::Append,
+                text_mode: crate::protocol::MessageTextMode::Replace,
             })
             .ok();
             thread::sleep(Duration::from_millis(5));
@@ -397,6 +437,48 @@ mod tests {
         if let AgentEvent::MessageDelta { text, .. } = &deltas[0].event {
             assert_eq!(text, "abc");
         }
+    }
+
+    #[test]
+    fn append_deltas_are_concatenated_not_dropped() {
+        let hub = ProtocolHub::new();
+        let (tx, _rx) = tokio::sync::broadcast::channel(16);
+        let adapter = Arc::new(FakeAdapter { tx: tx.clone() });
+        hub.register(
+            "p-append".into(),
+            adapter,
+            Endpoint {
+                url: "http://127.0.0.1:1".into(),
+                session_id: None,
+                cwd: None,
+                codex: None,
+                connect_pane_id: None,
+            },
+        )
+        .expect("register");
+
+        for text in ["I", "'ll", " run"] {
+            tx.send(AgentEvent::MessageDelta {
+                turn_id: "t1".into(),
+                message_id: "m1".into(),
+                role: crate::protocol::MessageRole::Assistant,
+                text: text.to_string(),
+                content_kind: crate::protocol::MessageContentKind::Text,
+                text_mode: crate::protocol::MessageTextMode::Append,
+            })
+            .ok();
+            thread::sleep(Duration::from_millis(5));
+        }
+        thread::sleep(Duration::from_millis(80));
+        let history = hub.history("p-append");
+        let joined: String = history
+            .iter()
+            .filter_map(|e| match &e.event {
+                AgentEvent::MessageDelta { text, .. } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(joined, "I'll run");
     }
 
     #[test]
