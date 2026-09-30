@@ -17,6 +17,23 @@ type TurnBuilder = {
   messageIds: Set<string>;
 };
 
+type ToolRecord = {
+  builderKey: string;
+  name: string;
+  rawInput: string;
+};
+
+type BuildState = {
+  builders: Map<string, TurnBuilder>;
+  order: string[];
+  tools: Map<string, ToolRecord>;
+  globalFilePaths: string[];
+  turnActive: boolean;
+  lastError?: string;
+  rateLimit?: TranscriptViewModel['rateLimit'];
+  errorSeq: number;
+};
+
 function emptyTurn(id: string, role: 'user' | 'assistant'): TurnBuilder {
   return {
     id,
@@ -25,6 +42,59 @@ function emptyTurn(id: string, role: 'user' | 'assistant'): TurnBuilder {
     meta: {},
     messageIds: new Set(),
   };
+}
+
+function userKey(messageId: string): string {
+  return `user:${messageId}`;
+}
+
+function getOrCreateBuilder(
+  state: BuildState,
+  key: string,
+  id: string,
+  role: 'user' | 'assistant',
+): TurnBuilder {
+  const existing = state.builders.get(key);
+  if (existing) return existing;
+  const created = emptyTurn(id, role);
+  state.builders.set(key, created);
+  state.order.push(key);
+  return created;
+}
+
+/** Assistant turns are keyed by turn_id and created lazily so they order after the user prompt. */
+function assistantBuilder(state: BuildState, turnId: string): TurnBuilder {
+  return getOrCreateBuilder(state, turnId, turnId, 'assistant');
+}
+
+function lastAssistantBuilder(state: BuildState): TurnBuilder | undefined {
+  for (let i = state.order.length - 1; i >= 0; i -= 1) {
+    const tb = state.builders.get(state.order[i]!);
+    if (tb?.role === 'assistant') return tb;
+  }
+  return undefined;
+}
+
+function upsertUserPrompt(
+  state: BuildState,
+  messageId: string,
+  text: string,
+  mode: 'append' | 'replace',
+) {
+  const tb = getOrCreateBuilder(state, userKey(messageId), messageId, 'user');
+  tb.messageIds.add(messageId);
+  const prompt = tb.items.find((i) => i.kind === 'user_prompt');
+  if (prompt?.kind === 'user_prompt') {
+    prompt.text = mode === 'replace' ? text : prompt.text + text;
+    return;
+  }
+  tb.items.push({
+    kind: 'user_prompt',
+    id: messageId,
+    text,
+    files: [],
+    collapsedDefault: true,
+  });
 }
 
 function upsertAssistantText(turn: TurnBuilder, messageId: string, text: string, streaming: boolean) {
@@ -67,190 +137,17 @@ function upsertReasoning(
   });
 }
 
-function applyEnvelope(
-  turns: TranscriptTurn[],
-  turnBuilders: Map<string, TurnBuilder>,
-  turnOrder: string[],
-  globalFilePaths: string[],
-  vmFlags: { turnActive: boolean; lastError?: string; rateLimit?: TranscriptViewModel['rateLimit'] },
-  event: AgentEvent,
-) {
-  switch (event.type) {
-    case 'turn_started':
-      vmFlags.turnActive = true;
-      if (!turnBuilders.has(event.turn_id)) {
-        const tb = emptyTurn(event.turn_id, 'assistant');
-        turnBuilders.set(event.turn_id, tb);
-        turnOrder.push(event.turn_id);
+function pushError(tb: TurnBuilder, id: string, message: string) {
+  if (tb.items.some((i) => i.kind === 'error' && i.message === message)) return;
+  tb.items.push({ kind: 'error', id, message });
+}
+
+function finalizeStreaming(state: BuildState) {
+  for (const tb of state.builders.values()) {
+    for (const item of tb.items) {
+      if (item.kind === 'assistant_text' || item.kind === 'reasoning') {
+        item.streaming = false;
       }
-      break;
-    case 'message_delta': {
-      const kind = event.content_kind ?? 'text';
-      const tb =
-        turnBuilders.get(event.turn_id) ??
-        (() => {
-          const created = emptyTurn(event.turn_id, event.role === 'user' ? 'user' : 'assistant');
-          turnBuilders.set(event.turn_id, created);
-          turnOrder.push(event.turn_id);
-          return created;
-        })();
-      tb.role = event.role;
-      tb.messageIds.add(event.message_id);
-      if (event.role === 'user') {
-        const prompt = tb.items.find((i) => i.kind === 'user_prompt');
-        if (prompt?.kind === 'user_prompt') {
-          prompt.text =
-            event.text_mode === 'replace' ? event.text : prompt.text + event.text;
-        } else {
-          tb.items.push({
-            kind: 'user_prompt',
-            id: event.message_id,
-            text: event.text,
-            files: [],
-          });
-        }
-      } else if (kind === 'reasoning') {
-        const existing = tb.items.find((i) => i.kind === 'reasoning' && i.id.startsWith(event.message_id));
-        const prev = existing?.kind === 'reasoning' ? existing.text : '';
-        const text = event.text_mode === 'replace' ? event.text : prev + event.text;
-        upsertReasoning(tb, event.message_id, text, true);
-      } else {
-        const existing = tb.items.find(
-          (i) => i.kind === 'assistant_text' && i.id.startsWith(event.message_id),
-        );
-        const prev = existing?.kind === 'assistant_text' ? existing.markdown : '';
-        const text = event.text_mode === 'replace' ? event.text : prev + event.text;
-        upsertAssistantText(tb, event.message_id, text, true);
-      }
-      break;
-    }
-    case 'message_completed': {
-      const kind = event.content_kind ?? 'text';
-      const tb =
-        turnBuilders.get(event.turn_id) ??
-        (() => {
-          const created = emptyTurn(event.turn_id, event.role === 'user' ? 'user' : 'assistant');
-          turnBuilders.set(event.turn_id, created);
-          turnOrder.push(event.turn_id);
-          return created;
-        })();
-      tb.role = event.role;
-      if (event.role === 'user') {
-        const prompt = tb.items.find((i) => i.kind === 'user_prompt');
-        if (prompt?.kind === 'user_prompt') {
-          prompt.text = event.text;
-        } else {
-          tb.items.push({
-            kind: 'user_prompt',
-            id: event.message_id,
-            text: event.text,
-            files: [],
-            collapsedDefault: true,
-          });
-        }
-        tb.id = event.message_id;
-      } else if (kind === 'reasoning') {
-        upsertReasoning(tb, event.message_id, event.text, false, event.duration_ms);
-      } else {
-        upsertAssistantText(tb, event.message_id, event.text, false);
-      }
-      break;
-    }
-    case 'message_meta': {
-      const tb = turnBuilders.get(event.turn_id);
-      if (!tb) break;
-      tb.meta = {
-        ...tb.meta,
-        agent: event.agent ?? tb.meta.agent,
-        model: event.model ?? tb.meta.model,
-        provider: event.provider ?? tb.meta.provider,
-        durationMs: event.duration_ms ?? tb.meta.durationMs,
-      };
-      break;
-    }
-    case 'tool_started': {
-      const tb = turnBuilders.get(event.turn_id);
-      if (!tb) break;
-      const normalized = normalizeToolPayload(event.name, event.input_summary, undefined);
-      tb.items.push({
-        kind: 'tool_call',
-        id: event.tool_id,
-        name: event.name,
-        title: event.title,
-        status: mapAgentToolStatus(mapToolPhase(event.tool_state)),
-        input: normalized.input ?? event.input_summary,
-        output: normalized.output,
-      });
-      break;
-    }
-    case 'tool_completed': {
-      const tb = turnBuilders.get(event.turn_id);
-      if (!tb) break;
-      const idx = tb.items.findIndex((i) => i.kind === 'tool_call' && i.id === event.tool_id);
-      const normalized = normalizeToolPayload(
-        event.title ?? 'tool',
-        idx >= 0 && tb.items[idx]?.kind === 'tool_call' ? tb.items[idx].input : '',
-        event.output_summary,
-      );
-      if (idx >= 0 && tb.items[idx]?.kind === 'tool_call') {
-        const tool = tb.items[idx];
-        tool.status = event.status === 'ok' ? 'completed' : 'error';
-        tool.output = normalized.output ?? event.output_summary;
-        tool.title = event.title ?? tool.title;
-      } else {
-        tb.items.push({
-          kind: 'tool_call',
-          id: event.tool_id,
-          name: event.title ?? 'tool',
-          title: event.title,
-          status: event.status === 'ok' ? 'completed' : 'error',
-          input: normalized.input,
-          output: normalized.output ?? event.output_summary,
-        });
-      }
-      break;
-    }
-    case 'files_changed':
-      for (const p of event.paths) {
-        if (!globalFilePaths.includes(p)) globalFilePaths.push(p);
-      }
-      break;
-    case 'usage': {
-      const tb = [...turnBuilders.values()].reverse().find((t) => t.role === 'assistant');
-      if (!tb) break;
-      tb.meta = {
-        ...tb.meta,
-        inputTokens: event.input_tokens,
-        outputTokens: event.output_tokens,
-        costUsd: event.cost_usd,
-      };
-      tb.items.push({
-        kind: 'step_usage',
-        id: `usage-${tb.id}`,
-        inputTokens: event.input_tokens,
-        outputTokens: event.output_tokens,
-        costUsd: event.cost_usd,
-      });
-      break;
-    }
-    case 'rate_limited':
-      vmFlags.rateLimit = { message: event.message, retryAtMs: event.retry_at_ms };
-      break;
-    case 'turn_completed':
-      vmFlags.turnActive = event.status !== 'ok' ? vmFlags.turnActive : false;
-      if (event.status === 'error') {
-        vmFlags.lastError = event.error ?? 'Turn failed';
-      }
-      break;
-    case 'error':
-      vmFlags.lastError = event.message;
-      break;
-    case 'approval_requested':
-    case 'approval_resolved':
-      break;
-    default: {
-      const _never: never = event;
-      return _never;
     }
   }
 }
@@ -265,10 +162,189 @@ function mapToolPhase(state?: string): 'pending' | 'running' | 'ok' | 'error' | 
   return 'running';
 }
 
-function buildersToTurns(turnOrder: string[], turnBuilders: Map<string, TurnBuilder>): TranscriptTurn[] {
+function applyEvent(state: BuildState, event: AgentEvent): void {
+  switch (event.type) {
+    case 'turn_started':
+      state.turnActive = true;
+      break;
+    case 'message_delta': {
+      const kind = event.content_kind ?? 'text';
+      const mode = event.text_mode ?? 'append';
+      if (event.role === 'user') {
+        upsertUserPrompt(state, event.message_id, event.text, mode);
+        break;
+      }
+      const tb = assistantBuilder(state, event.turn_id);
+      tb.messageIds.add(event.message_id);
+      if (kind === 'reasoning') {
+        const existing = tb.items.find(
+          (i) => i.kind === 'reasoning' && i.id.startsWith(event.message_id),
+        );
+        const prev = existing?.kind === 'reasoning' ? existing.text : '';
+        upsertReasoning(tb, event.message_id, mode === 'replace' ? event.text : prev + event.text, true);
+      } else {
+        const existing = tb.items.find(
+          (i) => i.kind === 'assistant_text' && i.id.startsWith(event.message_id),
+        );
+        const prev = existing?.kind === 'assistant_text' ? existing.markdown : '';
+        upsertAssistantText(
+          tb,
+          event.message_id,
+          mode === 'replace' ? event.text : prev + event.text,
+          true,
+        );
+      }
+      break;
+    }
+    case 'message_completed': {
+      const kind = event.content_kind ?? 'text';
+      if (event.role === 'user') {
+        upsertUserPrompt(state, event.message_id, event.text, 'replace');
+        break;
+      }
+      const tb = assistantBuilder(state, event.turn_id);
+      tb.messageIds.add(event.message_id);
+      if (kind === 'reasoning') {
+        upsertReasoning(tb, event.message_id, event.text, false, event.duration_ms);
+      } else {
+        upsertAssistantText(tb, event.message_id, event.text, false);
+      }
+      break;
+    }
+    case 'message_meta': {
+      const tb = assistantBuilder(state, event.turn_id);
+      tb.meta = {
+        ...tb.meta,
+        agent: event.agent ?? tb.meta.agent,
+        model: event.model ?? tb.meta.model,
+        provider: event.provider ?? tb.meta.provider,
+        durationMs: event.duration_ms ?? tb.meta.durationMs,
+      };
+      break;
+    }
+    case 'tool_started': {
+      const normalized = normalizeToolPayload(event.name, event.input_summary, undefined);
+      const item: TranscriptItem = {
+        kind: 'tool_call',
+        id: event.tool_id,
+        name: event.name,
+        title: event.title,
+        status: mapAgentToolStatus(mapToolPhase(event.tool_state)),
+        input: normalized.input ?? event.input_summary,
+        output: normalized.output,
+      };
+      const prior = state.tools.get(event.tool_id);
+      const priorBuilder = prior ? state.builders.get(prior.builderKey) : undefined;
+      const idx = priorBuilder?.items.findIndex((i) => i.kind === 'tool_call' && i.id === event.tool_id) ?? -1;
+      if (prior && priorBuilder && idx >= 0) {
+        priorBuilder.items[idx] = item;
+        state.tools.set(event.tool_id, {
+          builderKey: prior.builderKey,
+          name: event.name,
+          rawInput: event.input_summary,
+        });
+        break;
+      }
+      assistantBuilder(state, event.turn_id).items.push(item);
+      state.tools.set(event.tool_id, {
+        builderKey: event.turn_id,
+        name: event.name,
+        rawInput: event.input_summary,
+      });
+      break;
+    }
+    case 'tool_completed': {
+      const record = state.tools.get(event.tool_id);
+      const builderKey = record?.builderKey ?? event.turn_id;
+      const tb = assistantBuilder(state, builderKey);
+      const name = record?.name ?? event.title ?? 'tool';
+      const rawInput = record?.rawInput ?? '';
+      const normalized = normalizeToolPayload(name, rawInput, event.output_summary);
+      const status = event.status === 'ok' ? 'completed' : 'error';
+      const tool = tb.items.find((i) => i.kind === 'tool_call' && i.id === event.tool_id);
+      if (tool?.kind === 'tool_call') {
+        tool.status = status;
+        tool.input = normalized.input ?? rawInput;
+        tool.output = normalized.output ?? event.output_summary;
+        tool.title = event.title ?? tool.title;
+      } else {
+        tb.items.push({
+          kind: 'tool_call',
+          id: event.tool_id,
+          name,
+          title: event.title,
+          status,
+          input: normalized.input ?? rawInput,
+          output: normalized.output ?? event.output_summary,
+        });
+        state.tools.set(event.tool_id, { builderKey, name, rawInput });
+      }
+      break;
+    }
+    case 'files_changed':
+      for (const p of event.paths) {
+        if (!state.globalFilePaths.includes(p)) state.globalFilePaths.push(p);
+      }
+      break;
+    case 'usage': {
+      const tb = lastAssistantBuilder(state);
+      if (!tb) break;
+      const existing = tb.items.find((i) => i.kind === 'step_usage');
+      const prior = existing?.kind === 'step_usage' ? existing : undefined;
+      const inputTokens = event.input_tokens ?? prior?.inputTokens;
+      const outputTokens = event.output_tokens ?? prior?.outputTokens;
+      const costUsd = event.cost_usd ?? prior?.costUsd;
+      tb.meta = { ...tb.meta, inputTokens, outputTokens, costUsd };
+      if (prior) {
+        prior.inputTokens = inputTokens;
+        prior.outputTokens = outputTokens;
+        prior.costUsd = costUsd;
+        break;
+      }
+      const firstMessageId = tb.messageIds.values().next().value;
+      tb.items.push({
+        kind: 'step_usage',
+        id: firstMessageId ? `${firstMessageId}-usage` : `usage-${tb.id}`,
+        inputTokens,
+        outputTokens,
+        costUsd,
+      });
+      break;
+    }
+    case 'rate_limited':
+      state.rateLimit = { message: event.message, retryAtMs: event.retry_at_ms };
+      break;
+    case 'turn_completed':
+      state.turnActive = false;
+      finalizeStreaming(state);
+      if (event.status === 'error') {
+        const message = event.error ?? 'Turn failed';
+        state.lastError = message;
+        pushError(assistantBuilder(state, event.turn_id), `error-${event.turn_id}`, message);
+      }
+      break;
+    case 'error': {
+      state.lastError = event.message;
+      state.errorSeq += 1;
+      const id = `error-${state.errorSeq}`;
+      const tb = lastAssistantBuilder(state) ?? getOrCreateBuilder(state, id, id, 'assistant');
+      pushError(tb, id, event.message);
+      break;
+    }
+    case 'approval_requested':
+    case 'approval_resolved':
+      break;
+    default: {
+      const _never: never = event;
+      return _never;
+    }
+  }
+}
+
+function buildersToTurns(state: BuildState): TranscriptTurn[] {
   const out: TranscriptTurn[] = [];
-  for (const turnId of turnOrder) {
-    const tb = turnBuilders.get(turnId);
+  for (const key of state.order) {
+    const tb = state.builders.get(key);
     if (!tb || tb.items.length === 0) continue;
     if (tb.role === 'user') {
       out.push({ id: tb.id, role: 'user', items: tb.items });
@@ -286,25 +362,37 @@ function buildersToTurns(turnOrder: string[], turnBuilders: Map<string, TurnBuil
 
 export function fromAgentEventEnvelopes(envelopes: AgentEventEnvelope[]): TranscriptViewModel {
   const sorted = [...envelopes].sort((a, b) => a.seq - b.seq);
-  const turnBuilders = new Map<string, TurnBuilder>();
-  const turnOrder: string[] = [];
-  const globalFilePaths: string[] = [];
-  const vmFlags = { turnActive: false, lastError: undefined as string | undefined, rateLimit: undefined as TranscriptViewModel['rateLimit'] };
+  const state: BuildState = {
+    builders: new Map(),
+    order: [],
+    tools: new Map(),
+    globalFilePaths: [],
+    turnActive: false,
+    errorSeq: 0,
+  };
 
   for (const env of sorted) {
-    applyEnvelope([], turnBuilders, turnOrder, globalFilePaths, vmFlags, env.event);
+    applyEvent(state, env.event);
   }
 
-  const turns = buildersToTurns(turnOrder, turnBuilders);
+  // files_changed is session-wide: surface one patch item on the last assistant turn (as the legacy bridge does).
+  if (state.globalFilePaths.length > 0) {
+    const tb = lastAssistantBuilder(state);
+    if (tb) {
+      tb.items.push({ kind: 'patch', id: 'files-changed', paths: [...state.globalFilePaths] });
+    }
+  }
+
+  const turns = buildersToTurns(state);
 
   return {
     turns,
     flatItems: flattenTranscriptTurns(turns),
-    sessionBusy: vmFlags.turnActive,
-    turnActive: vmFlags.turnActive,
-    rateLimit: vmFlags.rateLimit,
-    lastError: vmFlags.lastError,
-    globalFilePaths,
+    sessionBusy: state.turnActive,
+    turnActive: state.turnActive,
+    rateLimit: state.rateLimit,
+    lastError: state.lastError,
+    globalFilePaths: state.globalFilePaths,
   };
 }
 
