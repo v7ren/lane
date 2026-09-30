@@ -3,9 +3,9 @@ import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import type { TranscriptItem, TranscriptToolCall } from '../../lib/transcript';
 import { formatDuration } from '../../lib/transcript';
 import { MarkdownBody } from './MarkdownBody';
+import { PartFallback } from './PartFallback';
 import {
   displayPathChip,
-  formatJsonFallback,
   KNOWN_TOOL_NAMES,
   resolveToolFields,
   toolDisplayLabel,
@@ -35,7 +35,7 @@ function GlobGrepOutput({
       : [];
 
   if (paths.length === 0) {
-    return <p className="text-text-3 font-mono">{formatJsonFallback(output)}</p>;
+    return <PartFallback title="Details" value={output} />;
   }
 
   return (
@@ -206,13 +206,14 @@ function ToolCard({
               ))}
             </ul>
           )}
-          {name === 'task' && (
-            <TruncatedMono text={formatJsonFallback(input)} max={600} />
-          )}
+          {name === 'task' && <PartFallback title="Details" value={input} />}
           {!KNOWN_TOOL_NAMES.has(name) && (
             <div className="grid gap-2 md:grid-cols-2">
-              <TruncatedMono text={formatJsonFallback(input)} max={600} />
-              {output != null && <TruncatedMono text={formatJsonFallback(output)} max={600} />}
+              <PartFallback
+                title={`Unknown tool: ${tool.name?.trim() || name}`}
+                value={input}
+              />
+              {output != null && <PartFallback title="Details" value={output} />}
             </div>
           )}
         </div>

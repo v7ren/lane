@@ -72,4 +72,24 @@ describe('TranscriptItemView glob tool', () => {
     expect(container.textContent).toContain('hello.txt');
     expect(container.textContent).not.toContain('\\\\Users');
   });
+
+  it('uses PartFallback for empty match output without showing JSON until expanded', () => {
+    act(() => {
+      root.render(
+        <TranscriptItemView
+          item={{
+            ...globTool,
+            output: { matches: [], count: 0 },
+          }}
+        />,
+      );
+    });
+    expect(container.querySelector('[data-testid="part-fallback"]')).not.toBeNull();
+    expect(container.textContent).not.toContain('{"');
+    const showBtn = [...container.querySelectorAll('button')].find(
+      (b) => b.textContent === 'Show details',
+    ) as HTMLButtonElement;
+    act(() => showBtn.click());
+    expect(container.textContent).toContain('matches');
+  });
 });
