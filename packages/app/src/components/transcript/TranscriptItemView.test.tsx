@@ -92,3 +92,93 @@ describe('TranscriptItemView glob tool', () => {
     expect(container.querySelector('[data-testid="tool-glob-count"]')?.textContent).toBe('0 files');
   });
 });
+
+describe('TranscriptItemView part types', () => {
+  it('renders patch paths without raw JSON', () => {
+    act(() => {
+      root.render(
+        <TranscriptItemView
+          item={{
+            kind: 'patch',
+            id: 'p1',
+            paths: ['src/a.ts', 'src/b.ts'],
+          }}
+        />,
+      );
+    });
+    expect(container.querySelector('[data-testid="transcript-patch"]')).not.toBeNull();
+    const paths = container.querySelectorAll('[data-testid="transcript-patch-path"]');
+    expect(paths.length).toBe(2);
+    expect(container.textContent).toContain('src/a.ts');
+    expect(container.textContent).not.toContain('{"');
+  });
+
+  it('renders retry with attempt and API error message', () => {
+    act(() => {
+      root.render(
+        <TranscriptItemView
+          item={{
+            kind: 'retry',
+            id: 'r1',
+            attempt: 2,
+            message: 'upstream timeout',
+          }}
+        />,
+      );
+    });
+    const el = container.querySelector('[data-testid="transcript-retry"]');
+    expect(el?.textContent).toContain('Retry attempt 2');
+    expect(el?.textContent).toContain('upstream timeout');
+  });
+
+  it('renders error with status class', () => {
+    act(() => {
+      root.render(
+        <TranscriptItemView
+          item={{
+            kind: 'error',
+            id: 'e1',
+            message: 'Something failed',
+          }}
+        />,
+      );
+    });
+    const el = container.querySelector('[data-testid="transcript-error"]');
+    expect(el?.textContent).toContain('Something failed');
+    expect(el?.className).toContain('text-status-error');
+  });
+
+  it('renders file attachment chip with filename', () => {
+    act(() => {
+      root.render(
+        <TranscriptItemView
+          item={{
+            kind: 'file',
+            id: 'f1',
+            filename: 'notes.md',
+            mime: 'text/markdown',
+            url: 'https://example.test/notes.md',
+          }}
+        />,
+      );
+    });
+    expect(container.querySelector('[data-testid="transcript-file"]')).not.toBeNull();
+    expect(container.textContent).toContain('notes.md');
+  });
+
+  it('renders compaction divider text', () => {
+    act(() => {
+      root.render(
+        <TranscriptItemView
+          item={{
+            kind: 'compaction',
+            id: 'c1',
+            auto: true,
+          }}
+        />,
+      );
+    });
+    const el = container.querySelector('[data-testid="transcript-compaction"]');
+    expect(el?.textContent?.trim()).toBe('Context compacted');
+  });
+});

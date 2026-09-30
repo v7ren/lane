@@ -1,4 +1,4 @@
-import type { Message, Part } from '@loomria/shared/opencode';
+import type { FilePart, Message, Part } from '@loomria/shared/opencode';
 
 import { sortPartIdsForMessage } from '../opencode/ordering.js';
 import { assembleMessageText, selectMessages, selectSessionStatus, selectTodos } from '../opencode/selectors.js';
@@ -26,6 +26,14 @@ function messageDurationMs(message: Message): number | undefined {
 function partIdsForMessage(state: OpenCodeStoreState, messageId: string): string[] {
   const ids = state.partsByMessage[messageId] ?? [];
   return sortPartIdsForMessage(state, messageId, ids);
+}
+
+function pathFromFilePartSource(source: FilePart['source']): string | undefined {
+  if (!source || typeof source !== 'object') return undefined;
+  if ('path' in source && typeof (source as { path?: unknown }).path === 'string') {
+    return (source as { path: string }).path;
+  }
+  return undefined;
 }
 
 function buildUserTurn(state: OpenCodeStoreState, message: Message): TranscriptTurn {
@@ -151,19 +159,16 @@ function mapPartToItem(
         title: (part as { description?: string }).description,
       };
     case 'retry': {
-      const retryPart = part as {
-        message?: string;
-        retryAt?: number;
-        retry_at?: number;
-        retry_at_ms?: number;
-      };
-      const retryAtMs =
-        retryPart.retryAt ?? retryPart.retry_at ?? retryPart.retry_at_ms ?? undefined;
+      const legacy = part as { message?: string };
+      const message =
+        part.error?.data?.message ??
+        (typeof legacy.message === 'string' ? legacy.message : undefined);
+      const retryAtMs = part.time?.created;
       return {
         kind: 'retry',
         id: part.id,
         attempt: part.attempt ?? 1,
-        message: retryPart.message,
+        message,
         retryAtMs,
       };
     }
@@ -176,14 +181,31 @@ function mapPartToItem(
         reasoningTokens: part.tokens?.reasoning,
         costUsd: part.cost,
       };
-    case 'agent':
+    case 'file': {
+      const path = pathFromFilePartSource(part.source);
+      return {
+        kind: 'file',
+        id: part.id,
+        filename: part.filename,
+        mime: part.mime,
+        url: part.url,
+        path,
+      };
+    }
     case 'compaction':
+      return {
+        kind: 'compaction',
+        id: part.id,
+        auto: part.auto,
+      };
+    case 'agent':
     case 'snapshot':
     case 'step-start':
-    case 'file':
       return null;
-    default:
-      return null;
+    default: {
+      const _never: never = part;
+      return _never;
+    }
   }
 }
 

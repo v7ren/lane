@@ -269,4 +269,129 @@ describe('fromOpenCode adapter', () => {
     const textItem = assistant?.items.find((i) => i.kind === 'assistant_text');
     expect(textItem?.kind === 'assistant_text' ? textItem.markdown : '').toBe('ok');
   });
+
+  it('maps file and compaction parts instead of dropping them', () => {
+    let state = createEmptyOpenCodeStore('pane-test');
+    const sessionId = 'sess_parts';
+    const messageId = 'msg_asst_parts';
+    state = applyOpenCodeWireEvent(state, {
+      id: 'm1',
+      type: 'message.updated',
+      properties: {
+        info: { id: messageId, sessionID: sessionId, role: 'assistant', time: { created: 1 } },
+      },
+    } as OpenCodeWireEvent);
+    state = applyOpenCodeWireEvent(state, {
+      id: 'p_file',
+      type: 'message.part.updated',
+      properties: {
+        messageID: messageId,
+        part: {
+          id: 'part_file',
+          messageID: messageId,
+          type: 'file',
+          mime: 'text/plain',
+          filename: 'readme.txt',
+          url: 'https://example.test/readme.txt',
+        },
+      },
+    } as OpenCodeWireEvent);
+    state = applyOpenCodeWireEvent(state, {
+      id: 'p_compact',
+      type: 'message.part.updated',
+      properties: {
+        messageID: messageId,
+        part: {
+          id: 'part_compact',
+          messageID: messageId,
+          type: 'compaction',
+          auto: true,
+        },
+      },
+    } as OpenCodeWireEvent);
+
+    const vm = fromOpenCode(state, sessionId);
+    const assistant = vm.turns.find((t) => t.role === 'assistant');
+    expect(assistant?.items.some((i) => i.kind === 'file')).toBe(true);
+    expect(assistant?.items.some((i) => i.kind === 'compaction')).toBe(true);
+    const fileItem = assistant?.items.find((i) => i.kind === 'file');
+    if (fileItem?.kind === 'file') {
+      expect(fileItem.filename).toBe('readme.txt');
+    }
+  });
+
+  it('maps retry message from APIError.data.message', () => {
+    let state = createEmptyOpenCodeStore('pane-test');
+    const sessionId = 'sess_retry';
+    const messageId = 'msg_retry';
+    state = applyOpenCodeWireEvent(state, {
+      id: 'm1',
+      type: 'message.updated',
+      properties: {
+        info: { id: messageId, sessionID: sessionId, role: 'assistant', time: { created: 1 } },
+      },
+    } as OpenCodeWireEvent);
+    state = applyOpenCodeWireEvent(state, {
+      id: 'p_retry',
+      type: 'message.part.updated',
+      properties: {
+        messageID: messageId,
+        part: {
+          id: 'part_retry',
+          messageID: messageId,
+          type: 'retry',
+          attempt: 3,
+          error: {
+            name: 'APIError',
+            data: { message: 'rate limited', isRetryable: true },
+          },
+          time: { created: 1_700_000_000_000 },
+        },
+      },
+    } as OpenCodeWireEvent);
+
+    const vm = fromOpenCode(state, sessionId);
+    const retry = vm.turns
+      .find((t) => t.role === 'assistant')
+      ?.items.find((i) => i.kind === 'retry');
+    expect(retry?.kind).toBe('retry');
+    if (retry?.kind === 'retry') {
+      expect(retry.attempt).toBe(3);
+      expect(retry.message).toBe('rate limited');
+    }
+  });
+
+  it('puts step-finish tokens and cost on assistant turn meta', () => {
+    let state = createEmptyOpenCodeStore('pane-test');
+    const sessionId = 'sess_usage';
+    const messageId = 'msg_usage';
+    state = applyOpenCodeWireEvent(state, {
+      id: 'm1',
+      type: 'message.updated',
+      properties: {
+        info: { id: messageId, sessionID: sessionId, role: 'assistant', time: { created: 1 } },
+      },
+    } as OpenCodeWireEvent);
+    state = applyOpenCodeWireEvent(state, {
+      id: 'p_step',
+      type: 'message.part.updated',
+      properties: {
+        messageID: messageId,
+        part: {
+          id: 'part_step',
+          messageID: messageId,
+          type: 'step-finish',
+          reason: 'stop',
+          cost: 0.0123,
+          tokens: { input: 100, output: 50, reasoning: 0, cache: { read: 0, write: 0 } },
+        },
+      },
+    } as OpenCodeWireEvent);
+
+    const vm = fromOpenCode(state, sessionId);
+    const assistant = vm.turns.find((t) => t.role === 'assistant');
+    expect(assistant?.meta?.inputTokens).toBe(100);
+    expect(assistant?.meta?.outputTokens).toBe(50);
+    expect(assistant?.meta?.costUsd).toBe(0.0123);
+  });
 });

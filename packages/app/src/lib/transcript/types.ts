@@ -88,6 +88,21 @@ export type TranscriptStepUsage = {
   costUsd?: number;
 };
 
+export type TranscriptFile = {
+  kind: 'file';
+  id: string;
+  filename?: string;
+  mime?: string;
+  url?: string;
+  path?: string;
+};
+
+export type TranscriptCompaction = {
+  kind: 'compaction';
+  id: string;
+  auto?: boolean;
+};
+
 export type TranscriptItem =
   | TranscriptUserPrompt
   | TranscriptAssistantText
@@ -98,7 +113,9 @@ export type TranscriptItem =
   | TranscriptSubtask
   | TranscriptRetry
   | TranscriptError
-  | TranscriptStepUsage;
+  | TranscriptStepUsage
+  | TranscriptFile
+  | TranscriptCompaction;
 
 export type AssistantMessageMeta = {
   agent?: string;
