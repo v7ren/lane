@@ -399,6 +399,47 @@ describe('ToolCard', () => {
     expect(container.textContent).not.toMatch(/\{"todos"/);
   });
 
+  it('task tool shows description and child session id', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'task-1',
+      name: 'task',
+      status: 'completed',
+      input: { description: 'Research foo', sessionID: 'ses_abc' },
+      output: undefined,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.querySelector('[data-testid="tool-task-description"]')?.textContent).toBe(
+      'Research foo',
+    );
+    expect(container.querySelector('[data-testid="tool-task-session"]')?.textContent).toBe(
+      'ses_abc',
+    );
+    expect(container.textContent).not.toContain('[object Object]');
+    expect(container.textContent).not.toContain('Unknown tool');
+    expect(container.textContent).toContain('Task');
+  });
+
+  it('task tool without session id omits session line', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'task-2',
+      name: 'task',
+      status: 'completed',
+      input: { description: 'Research foo' },
+      output: undefined,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.querySelector('[data-testid="tool-task-description"]')?.textContent).toBe(
+      'Research foo',
+    );
+    expect(container.querySelector('[data-testid="tool-task-session"]')).toBeNull();
+  });
+
   it('shows different status chip labels for pending vs error', () => {
     const pending: TranscriptToolCall = {
       ...bashCompleted,

@@ -403,6 +403,79 @@ function todoStatusDisplayText(rawStatus: string): string {
   return rawStatus;
 }
 
+function isTaskToolName(name: string): boolean {
+  return name === 'task' || name === 'subtask';
+}
+
+function taskDescriptionText(input: unknown): string {
+  if (typeof input === 'string') return input;
+  if (input && typeof input === 'object') {
+    const rec = input as Record<string, unknown>;
+    if (typeof rec.description === 'string') return rec.description;
+    if (typeof rec.prompt === 'string') return rec.prompt;
+  }
+  return '';
+}
+
+type TaskSessionIdKey = 'sessionID' | 'sessionId' | 'session_id' | 'id';
+
+function taskSessionIdFromRecord(
+  rec: Record<string, unknown>,
+  key: TaskSessionIdKey,
+): string | undefined {
+  switch (key) {
+    case 'sessionID': {
+      const val = rec.sessionID;
+      return typeof val === 'string' && val.length > 0 ? val : undefined;
+    }
+    case 'sessionId': {
+      const val = rec.sessionId;
+      return typeof val === 'string' && val.length > 0 ? val : undefined;
+    }
+    case 'session_id': {
+      const val = rec.session_id;
+      return typeof val === 'string' && val.length > 0 ? val : undefined;
+    }
+    case 'id': {
+      const val = rec.id;
+      return typeof val === 'string' && val.length > 0 ? val : undefined;
+    }
+    default: {
+      const _never: never = key;
+      return _never;
+    }
+  }
+}
+
+function taskChildSessionId(input: unknown): string | undefined {
+  if (!input || typeof input !== 'object') return undefined;
+  const rec = input as Record<string, unknown>;
+  const keys: TaskSessionIdKey[] = ['sessionID', 'sessionId', 'session_id', 'id'];
+  for (const key of keys) {
+    const sessionId = taskSessionIdFromRecord(rec, key);
+    if (sessionId != null) return sessionId;
+  }
+  return undefined;
+}
+
+function TaskToolBody({ input }: { input: unknown }) {
+  const description = taskDescriptionText(input);
+  const sessionId = taskChildSessionId(input);
+
+  return (
+    <div className="space-y-1 text-[12px] text-text-2">
+      {description !== '' && (
+        <p data-testid="tool-task-description">{description}</p>
+      )}
+      {sessionId != null && (
+        <p className="font-mono text-link break-all" data-testid="tool-task-session">
+          {sessionId}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function TodoToolBody({ input, output }: { input: unknown; output: unknown }) {
   const items = todoItemsFromInputOutput(input, output);
   return (
@@ -560,7 +633,7 @@ export function ToolCard({
             <WebfetchToolBody input={input} output={output} />
           )}
           {isTodoToolName(name) && <TodoToolBody input={input} output={output} />}
-          {name === 'task' && <PartFallback title="Details" value={input} />}
+          {isTaskToolName(name) && <TaskToolBody input={input} />}
           {!KNOWN_TOOL_NAMES.has(name) && (
             <div className="grid gap-2 md:grid-cols-2">
               <PartFallback
