@@ -118,6 +118,32 @@ impl ProtocolAdapter for ClaudeStreamJsonAdapter {
     }
 }
 
+/// Claude never echoes the user's prompt on stdout, so the transcript would have no
+/// user turn. Emit `TurnStarted` followed by a role=user message (same `turn_id`) so
+/// the view-model can render the prompt before the assistant reply.
+pub fn emit_user_prompt_events(tx: &broadcast::Sender<AgentEvent>, turn_id: &str, text: &str) {
+    let message_id = format!("user-{turn_id}-{}", Uuid::new_v4());
+    let _ = tx.send(AgentEvent::TurnStarted {
+        turn_id: turn_id.to_string(),
+    });
+    let _ = tx.send(AgentEvent::MessageDelta {
+        turn_id: turn_id.to_string(),
+        message_id: message_id.clone(),
+        role: MessageRole::User,
+        text: text.to_string(),
+        content_kind: MessageContentKind::Text,
+        text_mode: MessageTextMode::Append,
+    });
+    let _ = tx.send(AgentEvent::MessageCompleted {
+        turn_id: turn_id.to_string(),
+        message_id,
+        role: MessageRole::User,
+        text: text.to_string(),
+        content_kind: MessageContentKind::Text,
+        duration_ms: None,
+    });
+}
+
 struct ClaudeStreamJsonSession {
     session_id: String,
     stdin: Mutex<std::process::ChildStdin>,
@@ -146,9 +172,7 @@ impl ProtocolSession for ClaudeStreamJsonSession {
     fn send_prompt(&self, text: String) -> Result<(), AgentError> {
         let turn_id = next_turn(&self.turn_counter);
         self.mapper.lock().begin_turn();
-        let _ = self.events_tx.send(AgentEvent::TurnStarted {
-            turn_id: turn_id.clone(),
-        });
+        emit_user_prompt_events(&self.events_tx, &turn_id, &text);
         let payload = serde_json::json!({
             "type": "user",
             "message": { "role": "user", "content": text },
