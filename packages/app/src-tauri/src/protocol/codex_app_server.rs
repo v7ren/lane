@@ -30,7 +30,7 @@ impl ProtocolAdapter for CodexAppServerAdapter {
         let client = if let Some(thread_id) = endpoint.session_id.clone() {
             CodexWsClient::spawn_with_thread(endpoint.url, thread_id, cwd, thread_options)?
         } else {
-            CodexWsClient::spawn(endpoint.url)?
+            CodexWsClient::spawn_new_thread(endpoint.url, cwd, thread_options)?
         };
         Ok(Box::new(CodexAppServerSession { client }))
     }

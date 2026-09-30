@@ -58,8 +58,6 @@ pub fn spawn_dual_pane(
         }
     }
 
-    let thread_id = Uuid::new_v4().to_string();
-
     let port_cfg = crate::ports::load_config();
     let spawned = match spawn_manifest_server(
         &codex_exe,
@@ -98,6 +96,27 @@ pub fn spawn_dual_pane(
     let http_base = spawned.base_url.clone();
     let mut serve_child = spawned.child;
     let serve_pid = serve_child.id();
+
+    // Thread identity: real Codex (0.159) rejects a client-supplied thread id; the
+    // server allocates it in the `thread/start` response. So the thread is created
+    // FIRST, over a short-lived WS client, and the TUI is then spawned with
+    // `codex --remote ws://... resume <real id>`. The protocol hub later connects with
+    // the same id (`thread/resume`), so the TUI and the WS client share ONE thread.
+    // A brand new thread has no rollout until its first turn and `resume` would fail
+    // ("no rollout found"), so `start_thread_blocking` also sends `thread/name/set`,
+    // which persists the rollout without spending a model turn (verified live, 0.159).
+    let thread_id = match crate::protocol::CodexWsClient::start_thread_blocking(
+        ws_url.clone(),
+        cwd.clone(),
+        crate::protocol::CodexThreadOptions::default(),
+        std::time::Duration::from_secs(25),
+    ) {
+        Ok((_bootstrap, id)) => id,
+        Err(err) => {
+            let _ = serve_child.kill();
+            return Err(format!("codex thread/start failed: {err}"));
+        }
+    };
 
     let pty_system = native_pty_system();
     let pair = pty_system
