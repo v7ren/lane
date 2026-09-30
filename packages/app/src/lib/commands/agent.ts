@@ -3,7 +3,10 @@ import { opencodeClient } from '../opencode/client.js';
 import type { ComposerPermissionMode } from '../opencode/session-permission-mode.js';
 import { sessionPermissionPatchBody } from '../opencode/session-permission-mode.js';
 import { getOpenCodeStore } from '../opencode/store.js';
-import type { OpenCodePermissionReply } from '../opencode/pending-requests.js';
+import {
+  pendingPermissionSessionId,
+  type OpenCodePermissionReply,
+} from '../opencode/pending-requests.js';
 import { findProjectFiles } from '../transcript/opencode-actions.js';
 import type { CommandRegistry } from './index';
 
@@ -68,6 +71,23 @@ export async function sendOpenCodeSlashCommand(args: {
 
 export async function abortOpenCodeSession(paneId: string, sessionId: string) {
   await opencodeClient.abortSession(paneId, sessionId);
+  await rejectPendingForSession(paneId, sessionId);
+}
+
+/** An aborted turn leaves its question/permission asks pending server-side; reject them so the docks clear. */
+async function rejectPendingForSession(paneId: string, sessionId: string) {
+  const store = getOpenCodeStore(paneId);
+  const { questions, permissions } = store.getState();
+  const jobs: Promise<void>[] = [];
+  for (const [id, entry] of Object.entries(questions)) {
+    if (entry.sessionID === sessionId) jobs.push(store.rejectQuestion(id));
+  }
+  for (const [id, entry] of Object.entries(permissions)) {
+    if (pendingPermissionSessionId(entry) === sessionId) {
+      jobs.push(store.replyPermission(id, 'reject'));
+    }
+  }
+  await Promise.allSettled(jobs);
 }
 
 export async function replyOpenCodePermission(
