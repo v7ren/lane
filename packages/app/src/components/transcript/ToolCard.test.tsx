@@ -283,6 +283,42 @@ describe('ToolCard', () => {
     );
   });
 
+  it('webfetch tool shows url and HTTP status without [object Object]', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'webfetch-1',
+      name: 'webfetch',
+      status: 'completed',
+      input: { url: 'https://example.com' },
+      output: { status: 200 },
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.textContent).not.toContain('[object Object]');
+    expect(container.querySelector('[data-testid="tool-webfetch-url"]')?.textContent).toBe(
+      'https://example.com',
+    );
+    expect(container.querySelector('[data-testid="tool-webfetch-status"]')?.textContent).toBe('200');
+  });
+
+  it('webfetch tool renders string input URL', () => {
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'webfetch-str',
+      name: 'webfetch',
+      status: 'completed',
+      input: 'https://example.org/page',
+      output: undefined,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.querySelector('[data-testid="tool-webfetch-url"]')?.textContent).toBe(
+      'https://example.org/page',
+    );
+  });
+
   it('shows different status chip labels for pending vs error', () => {
     const pending: TranscriptToolCall = {
       ...bashCompleted,

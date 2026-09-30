@@ -61,6 +61,72 @@ function parseGlobGrepOutput(output: unknown): { count: number; paths: string[] 
   return { count, paths };
 }
 
+type WebfetchStatusKey = 'status' | 'statusCode' | 'code';
+
+function webfetchUrlText(input: unknown): string {
+  if (typeof input === 'string') return input;
+  if (input && typeof input === 'object') {
+    const url = (input as Record<string, unknown>).url;
+    if (typeof url === 'string') return url;
+  }
+  return '';
+}
+
+function webfetchStatusFromRecord(rec: Record<string, unknown>, key: WebfetchStatusKey): number | undefined {
+  switch (key) {
+    case 'status': {
+      const val = rec.status;
+      return typeof val === 'number' && Number.isFinite(val) ? val : undefined;
+    }
+    case 'statusCode': {
+      const val = rec.statusCode;
+      return typeof val === 'number' && Number.isFinite(val) ? val : undefined;
+    }
+    case 'code': {
+      const val = rec.code;
+      return typeof val === 'number' && Number.isFinite(val) ? val : undefined;
+    }
+    default: {
+      const _never: never = key;
+      return _never;
+    }
+  }
+}
+
+function webfetchHttpStatus(output: unknown): number | undefined {
+  if (output == null || typeof output !== 'object') return undefined;
+  const rec = output as Record<string, unknown>;
+  const keys: WebfetchStatusKey[] = ['status', 'statusCode', 'code'];
+  for (const key of keys) {
+    const status = webfetchStatusFromRecord(rec, key);
+    if (status != null) return status;
+  }
+  return undefined;
+}
+
+function WebfetchToolBody({ input, output }: { input: unknown; output: unknown }) {
+  const url = webfetchUrlText(input);
+  const httpStatus = webfetchHttpStatus(output);
+
+  return (
+    <div className="space-y-1 text-[12px] text-text-2">
+      {url !== '' && (
+        <p
+          className="font-mono text-link break-all"
+          data-testid="tool-webfetch-url"
+        >
+          {url}
+        </p>
+      )}
+      {httpStatus != null && (
+        <span className="font-mono text-text-3" data-testid="tool-webfetch-status">
+          {String(httpStatus)}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function GlobGrepToolBody({
   kind,
   input,
@@ -378,7 +444,7 @@ export function ToolCard({
             <GlobGrepToolBody kind="glob" input={input} output={output} projectRoot={projectRoot} />
           )}
           {(name === 'webfetch' || name === 'web_fetch') && (
-            <p className="font-mono text-[12px] text-link break-all">{String(input)}</p>
+            <WebfetchToolBody input={input} output={output} />
           )}
           {(name === 'todowrite' || name === 'todo_write') && Array.isArray(output) && (
             <ul className="space-y-1 text-[12px]">
