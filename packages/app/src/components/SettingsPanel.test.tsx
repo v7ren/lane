@@ -104,4 +104,22 @@ describe('SettingsPanel sections', () => {
     });
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('agents section lists agents and red load errors', async () => {
+    await mount();
+    await act(async () => nav('agents').click());
+    expect(container.querySelectorAll('[data-testid="agents-row"]').length).toBe(1);
+    expect(container.textContent).toContain('Claude Code');
+    const err = container.querySelector('[data-testid="agents-error-row"]') as HTMLElement;
+    expect(err.textContent).toContain('bad.toml');
+    expect(err.textContent).toContain('missing id');
+    expect(err.className).toContain('text-red-400');
+  });
+
+  it('agents section shows empty state', async () => {
+    catalog.value = { agents: [], report: { errors: [] } };
+    await mount();
+    await act(async () => nav('agents').click());
+    expect(container.querySelector('[data-testid="agents-empty"]')).not.toBeNull();
+  });
 });

@@ -3,6 +3,7 @@ import type { Settings } from '@loomria/shared';
 import { findBridgeUrl } from '../lib/bridge';
 import { loadSettings, updateSettings } from '../lib/settings';
 import { SettingsTabPanel, type SettingsTabContext } from './settings/settings-tab-panels';
+import { AgentsSection } from './settings/AgentsSection';
 import { ComingSoonPanel } from './settings/ComingSoonPanel';
 import { SETTINGS_SECTIONS, type SettingsSectionId } from './settings/settings-sections';
 
@@ -88,6 +89,7 @@ export function SettingsPanel({
           </>
         );
       case 'agents':
+        return <AgentsSection />;
       case 'providers':
       case 'mcp':
       case 'config':
