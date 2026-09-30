@@ -32,6 +32,7 @@ import { useSessionActions } from '../../lib/sessions/session-actions-context';
 import { getOpenCodeStore } from '../../lib/opencode/store';
 import { useOpenCodeLastRequestError } from '../../lib/opencode/hooks';
 import { tauri } from '../../lib/tauri';
+import { getTuiCompanion, setTuiCompanion } from '../../lib/tui-companions';
 import { setSessionMuted } from '../../lib/session-notify-prefs';
 import { formatPaneSubtitle } from '../../lib/session-subtitle';
 import { DisplayStatusDot } from '../DisplayStatusDot';
@@ -273,6 +274,24 @@ export function AgentView({
     }
   }, [capabilities.cancel, openCodePane, paneId, refresh, sessionId]);
 
+  // A headless Claude pane has no terminal, so its TUI is a hidden companion pane that resumes the
+  // same session; it is created on first use and shown in this pane's TUI column.
+  const toggleClaudeTui = useCallback(async () => {
+    if (showTui) {
+      onToggleTui();
+      return;
+    }
+    setActionError(null);
+    try {
+      if (!getTuiCompanion(paneId)) {
+        setTuiCompanion(paneId, await sessionOpenInTui(paneId));
+      }
+      onToggleTui();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
+  }, [onToggleTui, paneId, showTui]);
+
   const toggleMute = useCallback(async () => {
     const next = !muted;
     await setSessionMuted(paneId, next);
@@ -346,10 +365,16 @@ export function AgentView({
         {headlessClaude && (
           <button
             type="button"
-            className="px-2 py-1 text-meta rounded-md border border-border-subtle hover:bg-hover"
-            onClick={() => void sessionOpenInTui(paneId)}
+            className="px-2 py-1 text-meta rounded-md border border-border-subtle hover:bg-hover disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!showTui && transcript.turns.length === 0}
+            title={
+              !showTui && transcript.turns.length === 0
+                ? 'Send a message first: Claude saves the session after its first reply'
+                : undefined
+            }
+            onClick={() => void toggleClaudeTui()}
           >
-            Open in TUI
+            {showTui ? 'Hide TUI' : 'Show TUI'}
           </button>
         )}
         {capabilities.attach_tui && !showTui && !headlessClaude && (

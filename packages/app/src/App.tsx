@@ -18,6 +18,7 @@ import {
   type CloseConfirmRequest,
 } from './lib/window-close-request';
 import { migrateLegacyComposerModelKeys } from './lib/opencode/session-model-prefs';
+import { clearTuiCompanion } from './lib/tui-companions';
 
 export default function App() {
   const demo = useDemoFixtures();
@@ -87,6 +88,9 @@ export default function App() {
   useSessionNotifications(sessionStates, 'agent', selectedPaneId);
 
   const handleClose = async (paneId: string) => {
+    // Closing a chat pane also closes its hidden TUI companion.
+    const tuiPaneId = clearTuiCompanion(paneId);
+    if (tuiPaneId) await registry.killPane(tuiPaneId);
     await registry.killPane(paneId);
     if (selectedPaneId === paneId) {
       setSelectedPaneId(null);
@@ -94,7 +98,7 @@ export default function App() {
   };
 
   const handleNewSession = async (agent: AgentId) => {
-    // Claude chat runs headless (stream-json) so the GUI composer works; "Open in TUI" resumes it in a terminal.
+    // Claude chat runs headless (stream-json) so the GUI composer works; "Show TUI" resumes it in a terminal beside the chat.
     const id = await registry.spawnPane({
       agent_type: agent,
       cwd: projectPath ?? undefined,

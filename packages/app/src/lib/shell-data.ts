@@ -26,6 +26,7 @@ import { getSessionReadMap } from './sessions/session-read-state';
 import { useOpenCodePaneStates, useEnsureOpenCodeStores } from './sessions/use-opencode-stores';
 import { useShellSelection } from './shell-selection-context';
 import { isTauriRuntime } from './is-tauri';
+import { companionPaneIds, useTuiCompanions } from './tui-companions';
 
 export type ShellSession = {
   id: string;
@@ -85,10 +86,13 @@ export function useSessionList(options?: { query?: string; sortMode?: SessionSor
   const query = options?.query ?? '';
   const sortMode = options?.sortMode ?? 'attention';
 
-  const panes = useMemo(
-    () => registry.paneList.filter((p) => !p.info.id.startsWith('loomria-orchestrator-')),
-    [registry.paneList],
-  );
+  const tuiCompanions = useTuiCompanions();
+  const panes = useMemo(() => {
+    const hidden = companionPaneIds(tuiCompanions);
+    return registry.paneList.filter(
+      (p) => !p.info.id.startsWith('loomria-orchestrator-') && !hidden.has(p.info.id),
+    );
+  }, [registry.paneList, tuiCompanions]);
 
   const openCodePaneIds = useMemo(
     () => panes.filter(isOpenCodePane).map((p) => p.info.id),

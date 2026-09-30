@@ -16,6 +16,7 @@ import { PaneTerminalHost } from '../PaneTerminalHost';
 import { TerminalLifecycle } from '../TerminalLifecycle';
 import { TerminalPark } from '../TerminalPark';
 import { effectivePaneStatus } from '../../lib/display-status';
+import { tuiPaneIdFor, useTuiCompanions } from '../../lib/tui-companions';
 import { PortsPanel } from '../PortsPanel';
 import { SettingsPanel } from '../SettingsPanel';
 import type { PaneRegistryApi } from '../../hooks/usePaneRegistry';
@@ -395,6 +396,7 @@ function AppShellChrome(props: {
 }) {
   const actions = useSessionActions();
   const [portsOpen, setPortsOpen] = useState(false);
+  const tuiCompanions = useTuiCompanions();
   const {
     agentCatalog,
     registry,
@@ -719,7 +721,7 @@ function AppShellChrome(props: {
                             <div className="relative flex flex-1 min-h-0 flex flex-col">
                               {!tuiSurfaceLive && <AgentTuiPlaceholder />}
                               <PaneTerminalHost
-                                paneId={selectedPaneId}
+                                paneId={tuiPaneIdFor(selectedPaneId, tuiCompanions)}
                                 className={tuiSurfaceLive ? '' : 'invisible pointer-events-none'}
                               />
                             </div>
@@ -833,7 +835,7 @@ function AppShellChrome(props: {
       <TerminalLifecycle
         panes={panes}
         bottomTab={shell.bottomTab}
-        agentPaneId={selectedPaneId}
+        agentPaneId={selectedPaneId ? tuiPaneIdFor(selectedPaneId, tuiCompanions) : null}
         showTui={showTui}
         selectedTerminalPaneId={shell.selectedTerminalPaneId}
         subscribePaneData={registry.subscribePaneData}
