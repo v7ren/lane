@@ -81,8 +81,6 @@ pub fn push_pane_resize_sse(pane_id: &str, cols: u16, rows: u16) {
 }
 
 const HOST: &str = "127.0.0.1";
-const PORT_MIN: u16 = 17321;
-const PORT_MAX: u16 = 17399;
 
 #[derive(Debug, Deserialize)]
 struct WriteInputBody {
@@ -162,13 +160,20 @@ impl BridgeHandle {
 }
 
 fn bind_listener() -> Result<(TcpListener, u16), String> {
-    for port in PORT_MIN..=PORT_MAX {
+    let cfg = crate::ports::load_config();
+    for port in cfg.bridge_min..=cfg.bridge_max {
         match TcpListener::bind((HOST, port)) {
-            Ok(listener) => return Ok((listener, port)),
+            Ok(listener) => {
+                crate::ports::register("bridge", port, None, Some(std::process::id()));
+                return Ok((listener, port));
+            }
             Err(_) => continue,
         }
     }
-    Err(format!("no free bridge port in {PORT_MIN}-{PORT_MAX}"))
+    Err(format!(
+        "no free bridge port in {}-{}; change the range on the Ports page",
+        cfg.bridge_min, cfg.bridge_max
+    ))
 }
 
 pub fn start_embedded_bridge(
@@ -285,7 +290,7 @@ fn handle_connection(
     let body =
         &buf[body_start..body_start + content_length.min(buf.len().saturating_sub(body_start))];
 
-    let port = BRIDGE_PORT.get().copied().unwrap_or(PORT_MIN);
+    let port = BRIDGE_PORT.get().copied().unwrap_or_else(|| crate::ports::load_config().bridge_min);
     let host_header = header_value(&headers_raw, "host");
     let origin_header = header_value(&headers_raw, "origin");
     let cors_origin = crate::bridge_auth::cors_allow_origin(origin_header.as_deref(), cfg!(debug_assertions));

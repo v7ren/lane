@@ -18,6 +18,7 @@ export type SessionCommandDeps = {
   onToggleSidebar: () => void;
   onToggleRightRail: () => void;
   onOpenSettings: () => void;
+  onOpenPorts?: () => void;
   onFocusComposer: () => void;
   onSwitchAgentTab: () => void;
   onSwitchTerminalTab: () => void;
@@ -158,6 +159,15 @@ export function registerSessionCommands(registry: CommandRegistry, deps: Session
     section: 'Settings',
     run: deps.onOpenSettings,
   });
+  const openPorts = deps.onOpenPorts;
+  if (openPorts) {
+    registry.register({
+      id: 'ports',
+      label: 'Open ports',
+      section: 'Settings',
+      run: openPorts,
+    });
+  }
 }
 
 export function buildPaletteCommands(deps: SessionCommandDeps) {

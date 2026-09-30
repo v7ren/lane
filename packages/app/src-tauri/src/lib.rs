@@ -10,6 +10,7 @@ mod commands;
 mod events;
 pub mod opencode;
 mod platform;
+mod ports;
 pub mod process;
 mod project_path;
 mod fs_scoped;
@@ -58,6 +59,9 @@ pub fn run() {
             commands::push_settings_event,
             commands::sync_public_settings,
             app_lifecycle::get_app_install_info,
+            ports::ports_report,
+            ports::ports_get_config,
+            ports::ports_set_config,
             app_lifecycle::open_external_url,
             app_lifecycle::launch_uninstall,
             commands::exit_app,

@@ -18,8 +18,6 @@ use tracing::{info, warn};
 use uuid::Uuid;
 
 const SCROLLBACK_CAP: usize = 10_000;
-const PORT_MIN: u16 = 4096;
-const PORT_MAX: u16 = 4199;
 
 pub fn spawn_dual_pane(
     registry: Arc<Mutex<PaneRegistry>>,
@@ -62,13 +60,14 @@ pub fn spawn_dual_pane(
 
     let thread_id = Uuid::new_v4().to_string();
 
+    let port_cfg = crate::ports::load_config();
     let spawned = match spawn_manifest_server(
         &codex_exe,
         manifest,
         server,
         std::path::Path::new(&cwd),
-        PORT_MIN,
-        PORT_MAX,
+        port_cfg.agent_min,
+        port_cfg.agent_max,
     ) {
         Ok(s) => s,
         Err(err) => {
@@ -94,6 +93,7 @@ pub fn spawn_dual_pane(
     };
 
     let port = spawned.port;
+    crate::ports::register("codex-server", port, Some(&pane_id), Some(spawned.child.id()));
     let ws_url = spawned.ws_url.clone();
     let http_base = spawned.base_url.clone();
     let mut serve_child = spawned.child;

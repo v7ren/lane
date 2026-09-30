@@ -17,8 +17,6 @@ use tracing::{error, info};
 use uuid::Uuid;
 
 const SCROLLBACK_CAP: usize = 10_000;
-const PORT_MIN: u16 = 4096;
-const PORT_MAX: u16 = 4199;
 pub fn spawn_native_pane(
     registry: Arc<Mutex<PaneRegistry>>,
     app: &AppHandle,
@@ -59,15 +57,21 @@ pub fn spawn_native_pane(
         .launch_server()
         .ok_or_else(|| "opencode_native manifest missing launch.server".to_string())?;
 
+    let port_cfg = crate::ports::load_config();
     let spawned = crate::session::spawn_manifest_server(
         &opencode_exe,
         agent_manifest,
         server,
         std::path::Path::new(&cwd),
-        PORT_MIN,
-        PORT_MAX,
+        port_cfg.agent_min,
+        port_cfg.agent_max,
     )?;
-    let _port = spawned.port;
+    crate::ports::register(
+        "opencode-server",
+        spawned.port,
+        Some(&pane_id),
+        Some(spawned.child.id()),
+    );
     let base_url = spawned.base_url;
     let mut serve_child = spawned.child;
     let serve_pid = serve_child.id();

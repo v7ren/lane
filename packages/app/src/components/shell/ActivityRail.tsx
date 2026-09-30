@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { FolderKanban, LayoutList, Settings } from 'lucide-react';
+import { FolderKanban, LayoutList, Network, Settings } from 'lucide-react';
 import type { ActivityRailSection } from '../../lib/shell-selection-context';
 
 const iconClass = 'shrink-0';
@@ -8,10 +8,12 @@ export function ActivityRail({
   section,
   onSectionChange,
   onOpenSettings,
+  onOpenPorts,
 }: {
   section: ActivityRailSection;
   onSectionChange: (section: ActivityRailSection) => void;
   onOpenSettings: () => void;
+  onOpenPorts?: () => void;
 }) {
   return (
     <nav
@@ -34,6 +36,11 @@ export function ActivityRail({
         <FolderKanban size={16} strokeWidth={1.5} className={iconClass} />
       </RailButton>
       <div className="flex-1" />
+      {onOpenPorts && (
+        <RailButton label="Ports" active={false} onClick={onOpenPorts}>
+          <Network size={16} strokeWidth={1.5} className={iconClass} />
+        </RailButton>
+      )}
       <RailButton label="Settings" active={false} onClick={onOpenSettings}>
         <Settings size={16} strokeWidth={1.5} className={iconClass} />
       </RailButton>

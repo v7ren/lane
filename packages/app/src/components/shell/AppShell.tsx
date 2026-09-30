@@ -15,6 +15,7 @@ import { AgentTuiHeader, AgentTuiPlaceholder } from '../agent/AgentTuiColumn';
 import { PaneTerminalHost } from '../PaneTerminalHost';
 import { TerminalLifecycle } from '../TerminalLifecycle';
 import { TerminalPark } from '../TerminalPark';
+import { PortsPanel } from '../PortsPanel';
 import { SettingsPanel } from '../SettingsPanel';
 import type { PaneRegistryApi } from '../../hooks/usePaneRegistry';
 import type { SessionRailState } from '../../hooks/useSessionRail';
@@ -392,6 +393,7 @@ function AppShellChrome(props: {
   markBottomPanelResized: () => void;
 }) {
   const actions = useSessionActions();
+  const [portsOpen, setPortsOpen] = useState(false);
   const {
     agentCatalog,
     registry,
@@ -463,6 +465,7 @@ function AppShellChrome(props: {
         onToggleSidebar: toggleSidebar,
         onToggleRightRail: toggleRightRail,
         onOpenSettings: () => shell.setSettingsOpen(true),
+        onOpenPorts: () => setPortsOpen(true),
         onFocusComposer: () => {
           shell.setBottomTab('agent');
           document.querySelector<HTMLElement>('[data-agent-composer]')?.focus();
@@ -556,6 +559,7 @@ function AppShellChrome(props: {
           section={shell.railSection}
           onSectionChange={handleRailSection}
           onOpenSettings={() => shell.setSettingsOpen(true)}
+          onOpenPorts={() => setPortsOpen(true)}
         />
         {showSidebarColumn && (
           <>
@@ -811,6 +815,8 @@ function AppShellChrome(props: {
         projectPath={projectPath}
         onProjectPathChange={onProjectPathChange}
       />
+
+      <PortsPanel open={portsOpen} onClose={() => setPortsOpen(false)} />
 
       <TerminalPark />
       <TerminalLifecycle

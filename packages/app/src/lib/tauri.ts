@@ -117,6 +117,45 @@ export interface AppInstallInfo {
   dataDir: string;
 }
 
+export interface PortConfig {
+  agent_min: number;
+  agent_max: number;
+  bridge_min: number;
+  bridge_max: number;
+}
+
+export interface PortOwner {
+  pid: number;
+  name: string;
+}
+
+export interface PortEntry {
+  role: string;
+  port: number;
+  pane_id: string | null;
+  pid: number | null;
+  listening: boolean;
+  owner: PortOwner | null;
+}
+
+export interface ForeignPort {
+  port: number;
+  owner: PortOwner | null;
+}
+
+export interface PortsReport {
+  config: PortConfig;
+  entries: PortEntry[];
+  foreign_in_range: ForeignPort[];
+}
+
+export const DEFAULT_PORT_CONFIG: PortConfig = {
+  agent_min: 4096,
+  agent_max: 4199,
+  bridge_min: 17321,
+  bridge_max: 17399,
+};
+
 const isTauriRuntime = (): boolean => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 const noopUnlisten: UnlistenFn = () => {};
 
@@ -409,6 +448,15 @@ export const tauri = {
       bridgeDirectUrl?: string | null;
       updatedAt: number;
     } | null>('get_mobile_tunnel_info', undefined, null, true),
+
+  portsReport: () =>
+    safeInvoke<PortsReport>(
+      'ports_report',
+      undefined,
+      { config: DEFAULT_PORT_CONFIG, entries: [], foreign_in_range: [] },
+      true,
+    ),
+  portsSetConfig: (config: PortConfig) => safeInvoke<PortConfig>('ports_set_config', { config }),
 
   getAppInstallInfo: () =>
     safeInvoke<AppInstallInfo>(
