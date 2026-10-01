@@ -17,11 +17,34 @@ const ALL: AgentCapabilities[] = [
 ];
 
 describe('agent capabilities', () => {
-  it('every object is fully populated with booleans', () => {
+  it('every object is fully populated', () => {
     const keys = Object.keys(OPENCODE_CAPABILITIES).sort();
     for (const caps of ALL) {
       expect(Object.keys(caps).sort()).toEqual(keys);
-      for (const v of Object.values(caps)) expect(typeof v).toBe('boolean');
+      for (const [k, v] of Object.entries(caps)) {
+        if (k === 'commands') continue;
+        expect(typeof v).toBe('boolean');
+      }
+      expect(typeof caps.commands.prompt).toBe('boolean');
+      expect(typeof caps.commands.terminalFallback).toBe('boolean');
+      expect(Array.isArray(caps.commands.actions)).toBe(true);
+    }
+  });
+
+  it('declares the initial command capabilities', () => {
+    expect(CLAUDE_CAPABILITIES.questions).toBe(true);
+    expect(CLAUDE_CAPABILITIES.commands.prompt).toBe(true);
+    expect(CLAUDE_CAPABILITIES.commands.actions).toEqual([
+      'model', 'mode', 'cost', 'context', 'new', 'resume', 'clear',
+    ]);
+    expect(CODEX_CAPABILITIES.commands.prompt).toBe(false);
+    expect(OPENCODE_CAPABILITIES.commands.actions).toEqual([
+      'model', 'cost', 'context', 'new', 'resume',
+    ]);
+    expect(NO_AGENT_CAPABILITIES.commands.actions).toEqual([]);
+    for (const caps of ALL) {
+      expect(caps.effort).toBe(false);
+      expect(caps.contextBar).toBe(false);
     }
   });
 

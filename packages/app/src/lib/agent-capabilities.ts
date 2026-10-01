@@ -3,6 +3,8 @@
  * Flags flip to true only as the matching adapter features land, so the UI never
  * advertises unmapped behavior. Values follow docs/phase7-recon.md section 6.
  */
+import type { LoomriaActionId } from './commands/command-model';
+
 export type AgentCapabilities = {
   /** Model picker and per-session model selection. */
   models: boolean;
@@ -26,6 +28,16 @@ export type AgentCapabilities = {
   questions: boolean;
   /** Interactive approvals. */
   permissions: boolean;
+  /** Slash menu sources: agent prompts, Loomria actions, and the terminal fallback rows. */
+  commands: {
+    prompt: boolean;
+    actions: readonly LoomriaActionId[];
+    terminalFallback: boolean;
+  };
+  /** Effort / fast-mode picker. */
+  effort: boolean;
+  /** Usage reports context tokens, so the context bar can show. */
+  contextBar: boolean;
 };
 
 export const OPENCODE_CAPABILITIES: AgentCapabilities = {
@@ -41,6 +53,9 @@ export const OPENCODE_CAPABILITIES: AgentCapabilities = {
   tuiToggle: true,
   questions: true,
   permissions: true,
+  commands: { prompt: true, actions: ['model', 'cost', 'context', 'new', 'resume'], terminalFallback: true },
+  effort: false,
+  contextBar: false,
 };
 
 export const CODEX_CAPABILITIES: AgentCapabilities = {
@@ -56,6 +71,9 @@ export const CODEX_CAPABILITIES: AgentCapabilities = {
   tuiToggle: true,
   questions: true,
   permissions: true,
+  commands: { prompt: false, actions: ['model', 'mode', 'context', 'new', 'resume', 'clear'], terminalFallback: true },
+  effort: false,
+  contextBar: false,
 };
 
 export const CLAUDE_CAPABILITIES: AgentCapabilities = {
@@ -69,8 +87,11 @@ export const CLAUDE_CAPABILITIES: AgentCapabilities = {
   fork: false,
   revert: false,
   tuiToggle: true,
-  questions: false,
+  questions: true,
   permissions: true,
+  commands: { prompt: true, actions: ['model', 'mode', 'cost', 'context', 'new', 'resume', 'clear'], terminalFallback: true },
+  effort: false,
+  contextBar: false,
 };
 
 /** Unknown agents get nothing beyond plain text send. */
@@ -87,6 +108,9 @@ export const NO_AGENT_CAPABILITIES: AgentCapabilities = {
   tuiToggle: false,
   questions: false,
   permissions: false,
+  commands: { prompt: false, actions: [], terminalFallback: false },
+  effort: false,
+  contextBar: false,
 };
 
 export type AgentFamily = 'opencode' | 'codex' | 'claude' | 'other';
