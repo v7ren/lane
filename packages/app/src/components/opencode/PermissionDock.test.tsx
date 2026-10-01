@@ -121,6 +121,46 @@ describe('buildPermissionDockItems', () => {
     expect(items[0].permissionName).toBe('Run command');
     expect(items[0].patterns).toEqual(['npm test']);
   });
+
+  it('sets alwaysCaption only for Claude family', () => {
+    const items = buildPermissionDockItems({
+      isOpenCodePane: false,
+      sessionId: null,
+      pendingPermissions: [],
+      pendingProtocolApprovals: [
+        {
+          id: 'approval-1',
+          title: 'Run command',
+          detail: 'npm test',
+          kind: 'command',
+          options: protocolOptions,
+        },
+      ],
+      family: 'claude',
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0].alwaysCaption).toBe('Saved to .claude/settings.local.json in this project');
+  });
+
+  it('does not set alwaysCaption for non-Claude families', () => {
+    const items = buildPermissionDockItems({
+      isOpenCodePane: false,
+      sessionId: null,
+      pendingPermissions: [],
+      pendingProtocolApprovals: [
+        {
+          id: 'approval-1',
+          title: 'Run command',
+          detail: 'npm test',
+          kind: 'command',
+          options: protocolOptions,
+        },
+      ],
+      family: 'codex',
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0].alwaysCaption).toBeUndefined();
+  });
 });
 
 describe('PermissionDock', () => {
@@ -209,5 +249,34 @@ describe('PermissionDock', () => {
     });
     const list = container.querySelector('[data-testid="permission-dock-always-list"]');
     expect(list?.textContent).toBe('bash, read');
+  });
+
+  it('alwaysCaption rendered under Always allow for Claude', () => {
+    renderDock({
+      permissions: [
+        {
+          ...fixtureFromPermissionAsked(),
+          alwaysCaption: 'Saved to .claude/settings.local.json in this project',
+        },
+      ],
+    });
+    const caption = container.querySelector('[data-testid="permission-dock-always-caption"]');
+    expect(caption?.textContent).toBe('Saved to .claude/settings.local.json in this project');
+  });
+
+  it('alwaysCaption shown instead of always list when both present', () => {
+    renderDock({
+      permissions: [
+        {
+          ...fixtureFromPermissionAsked(),
+          always: ['bash', 'read'],
+          alwaysCaption: 'Saved to .claude/settings.local.json in this project',
+        },
+      ],
+    });
+    const caption = container.querySelector('[data-testid="permission-dock-always-caption"]');
+    const list = container.querySelector('[data-testid="permission-dock-always-list"]');
+    expect(caption?.textContent).toBe('Saved to .claude/settings.local.json in this project');
+    expect(list).toBeNull();
   });
 });

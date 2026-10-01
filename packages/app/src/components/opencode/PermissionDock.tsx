@@ -16,6 +16,7 @@ export type PermissionDockItem = {
   always: string[];
   submitting?: boolean;
   receivedAt: number;
+  alwaysCaption?: string;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -41,8 +42,9 @@ export function buildPermissionDockItems(args: {
   sessionId: string | null;
   pendingPermissions: PendingPermission[];
   pendingProtocolApprovals: TimelineApproval[];
+  family?: string | null;
 }): PermissionDockItem[] {
-  const { isOpenCodePane, sessionId, pendingPermissions, pendingProtocolApprovals } = args;
+  const { isOpenCodePane, sessionId, pendingPermissions, pendingProtocolApprovals, family } = args;
 
   const fromStore = pendingPermissions
     .filter((entry) => !sessionId || pendingPermissionSessionId(entry) === sessionId)
@@ -56,6 +58,8 @@ export function buildPermissionDockItems(args: {
     return fromStore;
   }
 
+  const alwaysCaption = family === 'claude' ? 'Saved to .claude/settings.local.json in this project' : undefined;
+
   return pendingProtocolApprovals
     .filter((a) => a.kind !== 'question' && a.kind !== 'plan')
     .map((a, index) => ({
@@ -63,6 +67,7 @@ export function buildPermissionDockItems(args: {
       permissionName: a.title,
       patterns: a.detail ? [a.detail] : [],
       always: [],
+      alwaysCaption,
       receivedAt: index,
     }));
 }
@@ -194,7 +199,11 @@ function PermissionDockCard({
           >
             Always allow
           </button>
-          {item.always.length > 0 ? (
+          {item.alwaysCaption ? (
+            <p className="text-[11px] text-text-3 max-w-xs" data-testid="permission-dock-always-caption">
+              {item.alwaysCaption}
+            </p>
+          ) : item.always.length > 0 ? (
             <p className="text-[11px] text-text-3 max-w-xs" data-testid="permission-dock-always-list">
               {item.always.join(', ')}
             </p>
