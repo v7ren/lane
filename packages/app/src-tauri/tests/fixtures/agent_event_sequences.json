@@ -19,5 +19,12 @@
     "turn_started",
     "message_delta",
     "turn_completed"
+  ],
+  "claude_notice_and_plan": [
+    "turn_started",
+    "notice",
+    "plan_updated",
+    "message_delta",
+    "turn_completed"
   ]
 }
