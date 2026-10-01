@@ -91,4 +91,19 @@ describe('merge OpenCode and pane sessions', () => {
     expect(merged.some((s) => s.sessionId === 'oc1')).toBe(true);
     expect(merged.some((s) => s.paneId === 'pane-codex')).toBe(true);
   });
+
+  it('dedupes a session listed by two panes, preferring the selected pane', () => {
+    const row = (paneId: string) => ({
+      id: 'ses1',
+      paneId,
+      sessionId: 'ses1',
+      title: 'Shared',
+      agentLabel: 'OpenCode',
+      status: 'idle' as const,
+      updatedAt: 1,
+      unread: false,
+    });
+    expect(mergeShellSessionLists([row('a'), row('b')], [])).toHaveLength(1);
+    expect(mergeShellSessionLists([row('a'), row('b')], [], 'b')[0]?.paneId).toBe('b');
+  });
 });

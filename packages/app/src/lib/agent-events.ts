@@ -64,7 +64,7 @@ export type AgentEvent =
       approval_id: string;
       title: string;
       detail: string;
-      kind: 'command' | 'edit' | 'other';
+      kind: 'command' | 'edit' | 'question' | 'plan' | 'other';
       options: ApprovalDecision[];
     }
   | { type: 'approval_resolved'; approval_id: string; decision: ApprovalDecision }

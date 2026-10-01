@@ -19,7 +19,7 @@ export function sessionSendPromptInvokePayload(paneId: string, text: string) {
 export function sessionRespondApprovalInvokePayload(
   paneId: string,
   approvalId: string,
-  decision: ApprovalDecision,
+  decision: ApprovalDecision | string,
 ) {
   return {
     args: {
@@ -48,7 +48,7 @@ export async function sessionSendPrompt(paneId: string, text: string): Promise<v
 export async function sessionRespondApproval(
   paneId: string,
   approvalId: string,
-  decision: ApprovalDecision,
+  decision: ApprovalDecision | string,
 ): Promise<void> {
   if (!isTauriRuntime()) return;
   await invoke(
@@ -57,14 +57,24 @@ export async function sessionRespondApproval(
   );
 }
 
+export async function sessionAgentInfo(paneId: string): Promise<unknown> {
+  if (!isTauriRuntime()) return null;
+  return invoke<unknown>('session_agent_info', { paneId });
+}
+
+export async function sessionSetOption(paneId: string, key: string, value: string): Promise<void> {
+  if (!isTauriRuntime()) return;
+  await invoke('session_set_option', { args: { pane_id: paneId, key, value } });
+}
+
 export async function sessionCancelTurn(paneId: string): Promise<void> {
   if (!isTauriRuntime()) return;
   await invoke('session_cancel_turn', { paneId });
 }
 
-export async function sessionOpenInTui(paneId: string): Promise<string> {
+export async function sessionOpenInTui(paneId: string, fresh = false): Promise<string> {
   if (!isTauriRuntime()) throw new Error('session_open_in_tui unavailable outside Tauri');
-  return invoke<string>('session_open_in_tui', { paneId });
+  return invoke<string>('session_open_in_tui', { paneId, fresh });
 }
 
 export function subscribeAgentEvents(

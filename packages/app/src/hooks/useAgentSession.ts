@@ -30,6 +30,13 @@ export type SessionTimeline = AgentTimelineViewModel & {
 
 const NO_ENVELOPES: readonly AgentEventEnvelope[] = [];
 
+const CAPABILITY_RETRY_MS = 1000;
+const MAX_CAPABILITY_RETRIES = 20;
+
+function isProtocolChatAgent(agentType?: string | null): boolean {
+  return agentType === 'claude' || agentType === 'claude_code' || agentType === 'codex';
+}
+
 export function useAgentSession(
   paneId: string | null,
   active: boolean,
@@ -119,6 +126,24 @@ export function useAgentSession(
     void refreshCapabilities();
   }, [active, applyEnvelopes, applyVm, paneId, refreshCapabilities]);
 
+  // A Claude/Codex chat registers its protocol session a moment after the pane spawns. An early
+  // lookup fails like "no chat for this pane", so keep retrying instead of staying terminal-only.
+  const capabilityRetries = useRef(0);
+  const [retryTick, setRetryTick] = useState(0);
+  useEffect(() => {
+    capabilityRetries.current = 0;
+  }, [paneId]);
+  useEffect(() => {
+    if (demoSession || !paneId || !active || source !== 'native_tui') return;
+    if (!isTauriRuntime() || !isProtocolChatAgent(agentType)) return;
+    if (capabilityRetries.current >= MAX_CAPABILITY_RETRIES) return;
+    const timer = window.setTimeout(() => {
+      capabilityRetries.current += 1;
+      void refreshCapabilities().finally(() => setRetryTick((tick) => tick + 1));
+    }, CAPABILITY_RETRY_MS);
+    return () => window.clearTimeout(timer);
+  }, [active, agentType, demoSession, paneId, refreshCapabilities, retryTick, source]);
+
   useEffect(() => {
     if (demoSession || !paneId || !active || source !== 'protocol') return;
     let unlisten: (() => void) | null = null;
@@ -144,7 +169,22 @@ export function useAgentSession(
     [envelopes, source, timeline],
   );
 
+  const expectsProtocolChat =
+    !demoSession && Boolean(paneId) && active && isTauriRuntime() && isProtocolChatAgent(agentType);
+  const connecting =
+    expectsProtocolChat && source === 'native_tui' && capabilityRetries.current < MAX_CAPABILITY_RETRIES;
+  const connectFailed =
+    expectsProtocolChat && source === 'native_tui' && capabilityRetries.current >= MAX_CAPABILITY_RETRIES;
+  const retryConnect = useCallback(() => {
+    capabilityRetries.current = 0;
+    setRetryTick((tick) => tick + 1);
+    void refreshCapabilities();
+  }, [refreshCapabilities]);
+
   return {
+    connecting,
+    connectFailed,
+    retryConnect,
     capabilities,
     source,
     timeline: timelineWithEnvelopes,

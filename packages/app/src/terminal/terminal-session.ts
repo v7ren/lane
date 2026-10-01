@@ -66,6 +66,17 @@ export class TerminalSession {
     this.applyPtyDimensions();
   }
 
+  /** Text currently on screen (the visible rows only, not scrollback). */
+  readVisibleText(): string {
+    if (!this.term) return '';
+    const buffer = this.term.buffer.active;
+    const lines: string[] = [];
+    for (let row = 0; row < this.term.rows; row += 1) {
+      lines.push(buffer.getLine(buffer.viewportY + row)?.translateToString(true) ?? '');
+    }
+    return lines.join('\n');
+  }
+
   /** Returns true when the xterm instance is mounted and a reflow was scheduled. */
   nudgeReflow(): boolean {
     if (!this.term) return false;

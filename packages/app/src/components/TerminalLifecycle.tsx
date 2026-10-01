@@ -47,6 +47,7 @@ export function TerminalLifecycle({
     for (const pane of panesRef.current) {
       if (pane.info.surface === 'headless') continue;
       const paneId = pane.info.id;
+      ensureTerminalSession(paneId, pane.info.created_at, subscribePaneData);
       const isAgent = isAgentSessionPane(pane.info.agent_type);
       const isShell = isUserShellPane(pane.info.agent_type);
 

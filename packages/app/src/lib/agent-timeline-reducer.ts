@@ -30,7 +30,7 @@ export type TimelineApproval = {
   id: string;
   title: string;
   detail: string;
-  kind: 'command' | 'edit' | 'other';
+  kind: 'command' | 'edit' | 'question' | 'plan' | 'other';
   options: ApprovalDecision[];
   resolved?: ApprovalDecision;
 };

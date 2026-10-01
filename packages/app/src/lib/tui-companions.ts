@@ -8,6 +8,8 @@ import { useSyncExternalStore } from 'react';
 type CompanionMap = Readonly<Record<string, string>>;
 
 let companions: CompanionMap = {};
+/** Assistant turns of the chat that the terminal had loaded when it was opened or last synced. */
+let syncedTurns: Readonly<Record<string, number>> = {};
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -18,9 +20,43 @@ export function getTuiCompanion(chatPaneId: string): string | undefined {
   return companions[chatPaneId];
 }
 
-export function setTuiCompanion(chatPaneId: string, tuiPaneId: string): void {
+export function setTuiCompanion(chatPaneId: string, tuiPaneId: string, loadedAssistantTurns = 0): void {
   companions = { ...companions, [chatPaneId]: tuiPaneId };
+  syncedTurns = { ...syncedTurns, [chatPaneId]: loadedAssistantTurns };
   emit();
+}
+
+export function getTuiSyncedTurns(chatPaneId: string): number {
+  return syncedTurns[chatPaneId] ?? 0;
+}
+
+export function useTuiSyncedTurns(chatPaneId: string): number {
+  return useSyncExternalStore(
+    subscribe,
+    () => syncedTurns[chatPaneId] ?? 0,
+    () => 0,
+  );
+}
+
+export function countAssistantTurns(turns: ReadonlyArray<{ role: string }>): number {
+  return turns.filter((turn) => turn.role === 'assistant').length;
+}
+
+/** Claude saves a session after its first reply; only then can a terminal resume the chat. */
+export function canResumeClaudeSession(
+  turns: ReadonlyArray<{ role: string }>,
+  status: string,
+): boolean {
+  return countAssistantTurns(turns) > 0 && (status === 'done' || status === 'idle');
+}
+
+/** The chat has finished replies the terminal has not loaded (it is stale until resynced). */
+export function tuiNeedsSync(
+  turns: ReadonlyArray<{ role: string }>,
+  status: string,
+  loadedAssistantTurns: number,
+): boolean {
+  return canResumeClaudeSession(turns, status) && countAssistantTurns(turns) > loadedAssistantTurns;
 }
 
 /** Forget the companion of a chat pane and return its terminal pane id (to close it). */
@@ -29,6 +65,8 @@ export function clearTuiCompanion(chatPaneId: string): string | undefined {
   if (tuiPaneId === undefined) return undefined;
   const { [chatPaneId]: _removed, ...rest } = companions;
   companions = rest;
+  const { [chatPaneId]: _synced, ...restSynced } = syncedTurns;
+  syncedTurns = restSynced;
   emit();
   return tuiPaneId;
 }
@@ -44,6 +82,7 @@ export function companionPaneIds(map: CompanionMap): Set<string> {
 
 export function resetTuiCompanionsForTests(): void {
   companions = {};
+  syncedTurns = {};
   emit();
 }
 

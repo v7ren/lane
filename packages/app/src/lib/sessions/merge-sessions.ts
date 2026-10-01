@@ -181,9 +181,22 @@ export function nestChildSessions(flat: ShellSession[]): ShellSession[] {
   return out;
 }
 
+/** Panes of one project share stored sessions; keep one row per session id, preferring the selected pane. */
+function dedupeBySessionId(rows: ShellSession[], selectedPaneId: string | null): ShellSession[] {
+  const kept = new Map<string, ShellSession>();
+  for (const row of rows) {
+    const existing = kept.get(row.id);
+    if (!existing || (row.paneId === selectedPaneId && existing.paneId !== selectedPaneId)) {
+      kept.set(row.id, row);
+    }
+  }
+  return [...kept.values()];
+}
+
 export function mergeShellSessionLists(
   opencodeRows: ShellSession[],
   paneRows: ShellSession[],
+  selectedPaneId: string | null = null,
 ): ShellSession[] {
-  return nestChildSessions([...opencodeRows, ...paneRows]);
+  return nestChildSessions(dedupeBySessionId([...opencodeRows, ...paneRows], selectedPaneId));
 }

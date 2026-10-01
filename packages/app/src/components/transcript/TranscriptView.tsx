@@ -79,6 +79,9 @@ export function TranscriptView({
         {vm.rateLimit && (
           <p className="text-meta text-status-rate border border-border-subtle rounded-md p-2">
             {vm.rateLimit.message}
+            {vm.rateLimit.retryAtMs != null
+              ? ` Resets at ${new Date(vm.rateLimit.retryAtMs).toLocaleTimeString()}.`
+              : ''}
           </p>
         )}
         {vm.lastError && (

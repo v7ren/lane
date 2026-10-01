@@ -150,7 +150,7 @@ export function useSessionList(options?: { query?: string; sortMode?: SessionSor
       selectedSessionId,
     });
 
-    let rows = mergeShellSessionLists(ocRows, paneRows);
+    let rows = mergeShellSessionLists(ocRows, paneRows, selectedPaneId);
     if (rows.length === 0) {
       for (const [paneId, session] of sessionStates) {
         if (isUserShellPane(session.agent_type ?? '')) continue;

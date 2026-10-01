@@ -65,12 +65,12 @@ export const CLAUDE_CAPABILITIES: AgentCapabilities = {
   fileMentions: false,
   shellMode: false,
   attachments: false,
-  abort: false,
+  abort: true,
   fork: false,
   revert: false,
   tuiToggle: true,
   questions: false,
-  permissions: false,
+  permissions: true,
 };
 
 /** Unknown agents get nothing beyond plain text send. */

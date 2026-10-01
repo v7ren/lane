@@ -244,7 +244,6 @@ function AppShellInner({
   const selectedPane = panes.find((p) => p.info.id === selectedPaneId);
   const sessionForAgent = selectedPaneId ? sessionStates.get(selectedPaneId) : undefined;
   const agentPaneTitle = selectedPaneId ? (paneTitles.get(selectedPaneId) ?? null) : null;
-  const tuiSurfaceLive = isTauriRuntime() && Boolean(selectedPane && selectedPane.status !== 'error');
 
   const agentSplitActive = shell.bottomTab === 'agent' && Boolean(selectedPaneId) && showTui;
   const { chatPercent, startDrag } = useAgentChatSplit(agentSplitActive);
@@ -330,7 +329,6 @@ function AppShellInner({
           selectedPane={selectedPane}
           sessionForAgent={sessionForAgent}
           agentPaneTitle={agentPaneTitle}
-          tuiSurfaceLive={tuiSurfaceLive}
           agentSplitActive={agentSplitActive}
           chatPercent={chatPercent}
           startDrag={startDrag}
@@ -383,7 +381,6 @@ function AppShellChrome(props: {
   selectedPane: PaneData | undefined;
   sessionForAgent: SessionRailState | undefined;
   agentPaneTitle: string | null;
-  tuiSurfaceLive: boolean;
   agentSplitActive: boolean;
   chatPercent: number;
   startDrag: () => void;
@@ -432,7 +429,6 @@ function AppShellChrome(props: {
     selectedPane,
     sessionForAgent,
     agentPaneTitle,
-    tuiSurfaceLive,
     agentSplitActive,
     chatPercent,
     startDrag,
@@ -443,6 +439,22 @@ function AppShellChrome(props: {
     dragBase,
     markBottomPanelResized,
   } = props;
+
+  const tuiPaneId = selectedPaneId ? tuiPaneIdFor(selectedPaneId, tuiCompanions) : null;
+  const tuiPane = panes.find((pane) => pane.info.id === tuiPaneId);
+  // Chat errors (including rate limits) do not describe the companion PTY. Keep
+  // terminal output visible after exit as well, so its diagnostics remain readable.
+  const tuiSurfaceLive = isTauriRuntime() && Boolean(tuiPane && tuiPane.info.surface !== 'headless');
+  const previousTuiSelection = useRef(selectedPaneId);
+  useEffect(() => {
+    const changed = previousTuiSelection.current !== selectedPaneId;
+    previousTuiSelection.current = selectedPaneId;
+    // A newly selected headless chat needs its own explicit Show TUI action.
+    if (changed && showTui && selectedPane?.info.surface === 'headless' &&
+        (!tuiPane || tuiPane.info.surface === 'headless')) {
+      setShowTui(false);
+    }
+  }, [selectedPaneId, selectedPane?.info.surface, setShowTui, showTui, tuiPane]);
 
   const editor = useEditor();
   const newPaneAnchorRef = useRef<HTMLButtonElement>(null);

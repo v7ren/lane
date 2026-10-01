@@ -9,6 +9,7 @@ import {
   type RefObject,
 } from 'react';
 import { AnchoredPopover } from '../shell/AnchoredPopover';
+import { INSERT_COMPOSER_TEXT_EVENT, type InsertComposerTextDetail } from '../../lib/composer-insert';
 import { ArrowUp, Paperclip, Plus, Square } from 'lucide-react';
 import type { Capabilities } from '../../lib/agent-events';
 import {
@@ -145,6 +146,17 @@ export function AgentComposerPanel({
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [configPillLabel, setConfigPillLabel] = useState<string | null>(null);
   const sendInFlightRef = useRef(false);
+
+  useEffect(() => {
+    const onInsert = (event: Event) => {
+      const detail = (event as CustomEvent<InsertComposerTextDetail>).detail;
+      if (detail.paneId !== paneId) return;
+      setDraft(detail.text);
+      textareaRef.current?.focus();
+    };
+    window.addEventListener(INSERT_COMPOSER_TEXT_EVENT, onInsert);
+    return () => window.removeEventListener(INSERT_COMPOSER_TEXT_EVENT, onInsert);
+  }, [paneId]);
 
   useEffect(() => {
     if (openCode && isTauriRuntime() && !composerAllowlistOk()) {

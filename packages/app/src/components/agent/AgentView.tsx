@@ -13,6 +13,7 @@ import {
   sessionOpenInTui,
   sessionRespondApproval,
   sessionSendPrompt,
+  sessionSetOption,
 } from '../../lib/agent-session';
 import {
   abortOpenCodeSession,
@@ -32,7 +33,23 @@ import { useSessionActions } from '../../lib/sessions/session-actions-context';
 import { getOpenCodeStore } from '../../lib/opencode/store';
 import { useOpenCodeLastRequestError } from '../../lib/opencode/hooks';
 import { tauri } from '../../lib/tauri';
-import { getTuiCompanion, setTuiCompanion } from '../../lib/tui-companions';
+import {
+  canResumeClaudeSession,
+  clearTuiCompanion,
+  countAssistantTurns,
+  getTuiCompanion,
+  setTuiCompanion,
+  tuiNeedsSync,
+  useTuiCompanions,
+  useTuiSyncedTurns,
+} from '../../lib/tui-companions';
+import { answerClaudeTrustPrompt, useClaudeTrustPrompt } from '../../lib/claude-trust-prompt';
+import { answerDecision, questionsFromApproval } from '../../lib/protocol-questions';
+import { useClaudeInfo } from '../../lib/claude-info';
+import { insertComposerText } from '../../lib/composer-insert';
+import { ClaudeControlBar } from './ClaudeControlBar';
+import { PlanApprovalCard } from './PlanApprovalCard';
+import { disposeTerminalSession } from '../../terminal/terminal-session-registry';
 import { setSessionMuted } from '../../lib/session-notify-prefs';
 import { formatPaneSubtitle } from '../../lib/session-subtitle';
 import { DisplayStatusDot } from '../DisplayStatusDot';
@@ -46,6 +63,12 @@ import {
 import { QuestionDock, type QuestionDockItem } from '../opencode/QuestionDock';
 import { TranscriptView } from '../transcript/TranscriptView';
 import { useAgentApprovalShortcuts } from './AgentView.keyboard';
+
+/**
+ * Claude has no server to share, so a terminal is a second process on the same session and drifts from
+ * the chat. The chat is the Claude surface; the terminal toggle stays off until it can mirror the chat.
+ */
+const SHOW_CLAUDE_TUI_TOGGLE = true;
 
 export function AgentView({
   paneId,
@@ -84,7 +107,8 @@ export function AgentView({
   const shellSession = useSelectedSession();
   const sessionActions = useSessionActions();
   const railState = sessionState?.state ?? null;
-  const { capabilities, source, timeline, loading, error, refresh } = useAgentSession(
+  const { capabilities, source, timeline, loading, error, refresh, connecting, connectFailed, retryConnect } =
+    useAgentSession(
     paneId,
     true,
     sessionState?.agent_type ?? undefined,
@@ -139,16 +163,29 @@ export function AgentView({
     [openCodePane, pendingPermissions, pendingProtocol, sessionId],
   );
 
+  const protocolQuestions = useMemo(
+    () =>
+      pendingProtocol
+        .map((approval) => ({ approval, questions: questionsFromApproval(approval) }))
+        .filter((entry) => entry.questions.length > 0),
+    [pendingProtocol],
+  );
+
   const questionDockItems = useMemo((): QuestionDockItem[] => {
-    if (!ocState || !sessionId) return [];
-    return Object.values(ocState.questions)
+    const protocolItems = protocolQuestions.map(({ approval, questions }) => ({
+      id: approval.id,
+      questions,
+    }));
+    if (!ocState || !sessionId) return protocolItems;
+    const openCodeItems = Object.values(ocState.questions)
       .filter((entry) => entry.sessionID === sessionId)
       .map((entry) => ({
         id: entry.id,
         questions: entry.questions,
         submitting: Boolean(entry.submitting),
       }));
-  }, [ocState, sessionId]);
+    return [...openCodeItems, ...protocolItems];
+  }, [ocState, protocolQuestions, sessionId]);
 
   const displayStatus = useMemo(() => {
     if (openCodePane && sessionId && ocState) {
@@ -177,6 +214,18 @@ export function AgentView({
 
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const tuiCompanions = useTuiCompanions();
+  const claudeTuiPaneId = headlessClaude ? tuiCompanions[paneId] : undefined;
+  const claudeTrustPrompt = useClaudeTrustPrompt(claudeTuiPaneId);
+  const trustClaudeFolder = useCallback(async () => {
+    if (!claudeTuiPaneId) return;
+    setActionError(null);
+    try {
+      await answerClaudeTrustPrompt(claudeTuiPaneId);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
+  }, [claudeTuiPaneId]);
 
   const permissionDockBusy =
     busy || permissionDockItems.some((item) => item.submitting);
@@ -254,6 +303,60 @@ export function AgentView({
     [capabilities.approvals, paneId, pendingPermissions, refresh, source],
   );
 
+  const { info: claudeInfo, update: updateClaudeInfo } = useClaudeInfo(
+    paneId,
+    Boolean(headlessClaude) && source === 'protocol',
+  );
+  const changeClaudeOption = useCallback(
+    async (key: 'permission_mode' | 'model', value: string) => {
+      setActionError(null);
+      try {
+        await sessionSetOption(paneId, key, value);
+        updateClaudeInfo(key === 'model' ? { model: value } : { permissionMode: value });
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [paneId, updateClaudeInfo],
+  );
+
+  const pendingPlan = useMemo(
+    () => pendingProtocol.find((approval) => approval.kind === 'plan') ?? null,
+    [pendingProtocol],
+  );
+  const answerPlan = useCallback(
+    async (approvalId: string, decision: 'allow_once' | 'deny') => {
+      setBusy(true);
+      setActionError(null);
+      try {
+        await sessionRespondApproval(paneId, approvalId, decision);
+        if (decision === 'allow_once') updateClaudeInfo({ permissionMode: 'default' });
+        await refresh();
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [paneId, refresh, updateClaudeInfo],
+  );
+
+  const answerProtocolQuestion = useCallback(
+    async (approvalId: string, decision: string) => {
+      setBusy(true);
+      setActionError(null);
+      try {
+        await sessionRespondApproval(paneId, approvalId, decision);
+        await refresh();
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [paneId, refresh],
+  );
+
   const cancelTurn = useCallback(async () => {
     if (!capabilities.cancel && !(openCodePane && sessionId)) return;
     setBusy(true);
@@ -276,6 +379,27 @@ export function AgentView({
 
   // A headless Claude pane has no terminal, so its TUI is a hidden companion pane that resumes the
   // same session; it is created on first use and shown in this pane's TUI column.
+  const canResumeSession = canResumeClaudeSession(transcript.turns, displayStatus);
+  const assistantTurns = countAssistantTurns(transcript.turns);
+  const syncedAssistantTurns = useTuiSyncedTurns(paneId);
+  const claudeTuiStale =
+    Boolean(claudeTuiPaneId) && tuiNeedsSync(transcript.turns, displayStatus, syncedAssistantTurns);
+
+  // Close the terminal and reopen it resuming the saved session, so it shows this chat.
+  const syncClaudeTui = useCallback(async () => {
+    setActionError(null);
+    try {
+      const old = clearTuiCompanion(paneId);
+      if (old) {
+        await tauri.killPane(old);
+        disposeTerminalSession(old);
+      }
+      setTuiCompanion(paneId, await sessionOpenInTui(paneId, false), assistantTurns);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
+  }, [assistantTurns, paneId]);
+
   const toggleClaudeTui = useCallback(async () => {
     if (showTui) {
       onToggleTui();
@@ -283,14 +407,20 @@ export function AgentView({
     }
     setActionError(null);
     try {
-      if (!getTuiCompanion(paneId)) {
-        setTuiCompanion(paneId, await sessionOpenInTui(paneId));
+      if (getTuiCompanion(paneId)) {
+        if (claudeTuiStale) await syncClaudeTui();
+      } else {
+        setTuiCompanion(
+          paneId,
+          await sessionOpenInTui(paneId, !canResumeSession),
+          canResumeSession ? assistantTurns : 0,
+        );
       }
       onToggleTui();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : String(err));
     }
-  }, [onToggleTui, paneId, showTui]);
+  }, [assistantTurns, canResumeSession, claudeTuiStale, onToggleTui, paneId, showTui, syncClaudeTui]);
 
   const toggleMute = useCallback(async () => {
     const next = !muted;
@@ -311,7 +441,11 @@ export function AgentView({
   );
 
   const composerDisabled = !capabilities.send_prompt && !openCodePane;
-  const composerReason = nativeTuiOnly
+  const composerReason = connecting
+    ? 'Starting the chat...'
+    : connectFailed
+      ? 'The chat could not connect.'
+      : nativeTuiOnly
     ? undefined
     : composerDisabled
       ? 'This session cannot accept prompts from the composer.'
@@ -362,16 +496,10 @@ export function AgentView({
               : formatPaneSubtitle(paneId, agentLabel, paneCwd)}
           </div>
         </div>
-        {headlessClaude && (
+        {headlessClaude && SHOW_CLAUDE_TUI_TOGGLE && (
           <button
             type="button"
-            className="px-2 py-1 text-meta rounded-md border border-border-subtle hover:bg-hover disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!showTui && transcript.turns.length === 0}
-            title={
-              !showTui && transcript.turns.length === 0
-                ? 'Send a message first: Claude saves the session after its first reply'
-                : undefined
-            }
+            className="px-2 py-1 text-meta rounded-md border border-border-subtle hover:bg-hover"
             onClick={() => void toggleClaudeTui()}
           >
             {showTui ? 'Hide TUI' : 'Show TUI'}
@@ -408,6 +536,58 @@ export function AgentView({
       <div
         className={`flex flex-1 flex-col min-h-0 overflow-hidden w-full mx-auto ${showTui ? '' : 'max-w-[52rem]'}`}
       >
+        {showTui && headlessClaude && claudeTuiStale && (
+          <div
+            className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-border-subtle bg-elevated"
+            data-testid="claude-tui-sync-banner"
+          >
+            <p className="text-meta flex-1 min-w-0">
+              The terminal does not have the latest chat replies yet.
+            </p>
+            <button
+              type="button"
+              className="shrink-0 text-meta px-2 py-1 rounded-md bg-accent text-white hover:opacity-90"
+              onClick={() => void syncClaudeTui()}
+            >
+              Sync terminal
+            </button>
+          </div>
+        )}
+        {connectFailed && (
+          <div
+            className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-status-error/30"
+            data-testid="agent-connect-failed"
+          >
+            <p className="text-meta text-status-error flex-1 min-w-0">
+              This agent chat could not connect. You can retry, or use Show TUI.
+            </p>
+            <button
+              type="button"
+              className="shrink-0 text-meta px-2 py-0.5 rounded border border-border-subtle hover:bg-hover"
+              onClick={retryConnect}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {claudeTrustPrompt && (
+          <div
+            className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-border-subtle bg-elevated"
+            data-testid="claude-trust-banner"
+          >
+            <p className="text-meta flex-1 min-w-0">
+              Claude asks whether you trust this folder{paneCwd ? `: ${paneCwd}` : ''}. It can read, edit and
+              run files here.
+            </p>
+            <button
+              type="button"
+              className="shrink-0 text-meta px-2 py-1 rounded-md bg-accent text-white hover:opacity-90"
+              onClick={() => void trustClaudeFolder()}
+            >
+              Trust folder
+            </button>
+          </div>
+        )}
         {(loading || messagesLoading || error || actionError || ocLastRequestError) && (
           <div className="shrink-0">
             {(loading || messagesLoading) && (
@@ -462,12 +642,37 @@ export function AgentView({
               busy={questionDockBusy}
               lastRequestError={ocLastRequestError}
               onReply={(id, answers) => {
+                const protocol = protocolQuestions.find((entry) => entry.approval.id === id);
+                if (protocol) {
+                  void answerProtocolQuestion(id, answerDecision(protocol.questions, answers));
+                  return;
+                }
                 void replyOpenCodeQuestion(paneId, id, answers).then(() => refresh());
               }}
               onReject={(id) => {
+                if (protocolQuestions.some((entry) => entry.approval.id === id)) {
+                  void answerProtocolQuestion(id, 'deny');
+                  return;
+                }
                 void rejectOpenCodeQuestion(paneId, id).then(() => refresh());
               }}
             />
+            {pendingPlan && (
+              <PlanApprovalCard
+                plan={pendingPlan.detail}
+                busy={busy}
+                onApprove={() => void answerPlan(pendingPlan.id, 'allow_once')}
+                onKeepPlanning={() => void answerPlan(pendingPlan.id, 'deny')}
+              />
+            )}
+            {headlessClaude && source === 'protocol' && (
+              <ClaudeControlBar
+                info={claudeInfo}
+                onSetMode={(mode) => void changeClaudeOption('permission_mode', mode)}
+                onSetModel={(model) => void changeClaudeOption('model', model)}
+                onPickCommand={(name) => insertComposerText({ paneId, text: `/${name} ` })}
+              />
+            )}
             <AgentComposerPanel
               paneId={paneId}
               sessionId={sessionId}

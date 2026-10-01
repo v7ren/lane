@@ -56,13 +56,15 @@ export function buildPermissionDockItems(args: {
     return fromStore;
   }
 
-  return pendingProtocolApprovals.map((a, index) => ({
-    id: a.id,
-    permissionName: a.title,
-    patterns: a.detail ? [a.detail] : [],
-    always: [],
-    receivedAt: index,
-  }));
+  return pendingProtocolApprovals
+    .filter((a) => a.kind !== 'question' && a.kind !== 'plan')
+    .map((a, index) => ({
+      id: a.id,
+      permissionName: a.title,
+      patterns: a.detail ? [a.detail] : [],
+      always: [],
+      receivedAt: index,
+    }));
 }
 
 export function pendingPermissionToDockItem(entry: PendingPermission): PermissionDockItem {

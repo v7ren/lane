@@ -106,6 +106,7 @@ export default function App() {
     });
     if (id) {
       setSelectedPaneId(id);
+      setSelectedSessionId(null);
       setShowTui(false);
     }
   };

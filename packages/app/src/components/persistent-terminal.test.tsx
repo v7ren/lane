@@ -129,9 +129,11 @@ function shellProvider(ui: ReactNode, bottomTab: 'agent' | 'terminal' = 'agent')
 function Harness({
   bottomTab,
   showTui,
+  panes: paneData = panes,
 }: {
   bottomTab: 'agent' | 'terminal';
   showTui: boolean;
+  panes?: PaneData[];
 }) {
   return (
     <>
@@ -139,7 +141,7 @@ function Harness({
       {showTui && bottomTab === 'agent' && <PaneTerminalHost paneId="pane-a" />}
       {bottomTab === 'terminal' && <PaneTerminalHost paneId="pane-shell" />}
       <TerminalLifecycle
-        panes={panes}
+        panes={paneData}
         bottomTab={bottomTab}
         agentPaneId="pane-a"
         showTui={showTui}
@@ -176,6 +178,46 @@ afterEach(() => {
 });
 
 describe('TerminalLifecycle (in-flow reparent)', () => {
+  it('mounts visible terminals in their host on first render and reparents appended companions immediately', () => {
+    const headlessOriginal: PaneData = {
+      info: { ...panes[0].info, id: 'claude-headless', surface: 'headless' },
+      status: 'idle',
+    };
+    const companion: PaneData = {
+      info: { ...panes[0].info, id: 'claude-companion', created_at: 2 },
+      status: 'idle',
+    };
+
+    act(() => {
+      root.render(shellProvider(<Harness bottomTab="terminal" showTui={false} />, 'terminal'));
+    });
+    const initialShellTerminal = getTerminalSessionEntry('pane-shell')!.session.getTerminalElement()!;
+    expect(container.querySelector('[data-terminal-host="pane-shell"]')!.contains(initialShellTerminal)).toBe(true);
+
+    act(() => {
+      root.render(
+        shellProvider(
+          <>
+            <TerminalPark />
+            <PaneTerminalHost paneId="claude-companion" />
+            <TerminalLifecycle
+              panes={[headlessOriginal, companion]}
+              bottomTab="agent"
+              agentPaneId="claude-companion"
+              showTui
+              selectedTerminalPaneId={null}
+              subscribePaneData={() => () => {}}
+            />
+          </>,
+        ),
+      );
+    });
+
+    const companionTerminal = getTerminalSessionEntry('claude-companion')!.session.getTerminalElement()!;
+    expect(container.querySelector('[data-terminal-host="claude-companion"]')!.contains(companionTerminal)).toBe(true);
+    expect(getTerminalSessionEntry('claude-headless')).toBeUndefined();
+  });
+
   it('does not dispose terminal session when switching AGENT ↔ TERMINAL tab', () => {
     act(() => {
       root.render(shellProvider(<Harness bottomTab="agent" showTui={false} />));
