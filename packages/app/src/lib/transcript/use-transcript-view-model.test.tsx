@@ -6,6 +6,7 @@ import { emptyTimelineViewModel, reduceAgentTimeline } from '../agent-timeline-r
 import { mergeEnvelopeLog } from '../agent-session';
 import type { SessionTimeline } from '../../hooks/useAgentSession';
 import type { TranscriptViewModel } from './types';
+import { pushLocalNotice } from '../local-notices';
 import { useTranscriptViewModel } from './use-transcript-view-model';
 
 vi.mock('../is-tauri', () => ({ isTauriRuntime: () => true }));
@@ -57,13 +58,22 @@ let root: ReturnType<typeof createRoot> | null = null;
 let host: HTMLElement | null = null;
 
 function renderHook(args: {
+  paneId?: string;
   openCodePane: boolean;
   source: 'protocol' | 'native_tui' | 'opencode_fallback';
   timeline: SessionTimeline;
+  openCodeSessionId?: string | null;
 }): TranscriptViewModel {
   let result: TranscriptViewModel | null = null;
   function Host() {
-    result = useTranscriptViewModel('p1', true, args.openCodePane, args.source, args.timeline, null);
+    result = useTranscriptViewModel(
+      args.paneId ?? 'p1',
+      true,
+      args.openCodePane,
+      args.source,
+      args.timeline,
+      args.openCodeSessionId ?? null,
+    );
     return null;
   }
   host = document.createElement('div');
@@ -117,6 +127,93 @@ describe('useTranscriptViewModel protocol path', () => {
       timeline: timelineWith(PROTOCOL_EVENTS),
     });
     expect(vm.turns).toEqual([]);
+  });
+
+  it('places a local notice directly after its referenced transcript turn', () => {
+    const paneId = 'notice-after-turn';
+    const noticeId = pushLocalNotice(paneId, {
+      level: 'warning',
+      text: 'Local command finished',
+      afterTurnId: 't1',
+    });
+
+    const vm = renderHook({
+      paneId,
+      openCodePane: false,
+      source: 'protocol',
+      timeline: { ...emptyTimelineViewModel(), envelopes: PROTOCOL_EVENTS },
+    });
+
+    const turnIndex = vm.turns.findIndex((turn) => turn.id === 't1');
+    const noticeTurnIndex = vm.turns.findIndex((turn) =>
+      turn.items.some((item) => item.kind === 'notice' && item.id === noticeId),
+    );
+    expect(turnIndex).toBeGreaterThanOrEqual(0);
+    expect(noticeTurnIndex).toBe(turnIndex + 1);
+    expect(vm.flatItems).toContainEqual({
+      kind: 'notice',
+      id: noticeId,
+      level: 'warning',
+      text: 'Local command finished',
+    });
+  });
+
+  it('renders local notices on an empty OpenCode store view', () => {
+    const paneId = 'notice-opencode-empty';
+    const noticeId = pushLocalNotice(paneId, { level: 'info', text: 'OpenCode notice' });
+
+    const vm = renderHook({
+      paneId,
+      openCodePane: true,
+      source: 'opencode_fallback',
+      timeline: emptyTimelineViewModel(),
+      openCodeSessionId: null,
+    });
+
+    expect(vm.turns).toHaveLength(1);
+    expect(vm.flatItems).toEqual([
+      { kind: 'notice', id: noticeId, level: 'info', text: 'OpenCode notice' },
+    ]);
+  });
+
+  it('anchors a new local notice to the last transcript turn when no anchor is supplied', () => {
+    const paneId = 'notice-current-turn-anchor';
+    const rendered = { currentVm: null as TranscriptViewModel | null };
+    function Host() {
+      rendered.currentVm = useTranscriptViewModel(
+        paneId,
+        true,
+        false,
+        'protocol',
+        { ...emptyTimelineViewModel(), envelopes: PROTOCOL_EVENTS },
+        null,
+      );
+      return null;
+    }
+
+    host = document.createElement('div');
+    root = createRoot(host);
+    act(() => root?.render(<Host />));
+
+    let noticeId = '';
+    act(() => {
+      noticeId = pushLocalNotice(paneId, { level: 'info', text: 'Current turn result' });
+    });
+
+    const currentVm = rendered.currentVm;
+    if (!currentVm) throw new Error('hook did not render');
+
+    const turnIndex = currentVm.turns.findIndex((turn) => turn.id === 't1');
+    const noticeTurnIndex = currentVm.turns.findIndex((turn) =>
+      turn.items.some((item) => item.kind === 'notice' && item.id === noticeId),
+    );
+    expect(currentVm.flatItems).toContainEqual({
+      kind: 'notice',
+      id: noticeId,
+      level: 'info',
+      text: 'Current turn result',
+    });
+    expect(noticeTurnIndex).toBe(turnIndex + 1);
   });
 });
 

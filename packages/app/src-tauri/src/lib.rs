@@ -87,6 +87,7 @@ pub fn run() {
             commands::session_set_option,
             commands::session_open_in_tui,
             commands::session_claude_to_chat,
+            commands::session_post_notice,
             commands::claude_list_sessions,
             commands::read_opencode_messages,
             commands::list_opencode_permissions,

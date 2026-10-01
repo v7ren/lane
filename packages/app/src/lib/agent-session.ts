@@ -84,6 +84,18 @@ export async function sessionClaudeToChat(paneId: string, tuiPaneId?: string): P
   await invoke('session_claude_to_chat', { paneId, tuiPaneId: tuiPaneId ?? null });
 }
 
+/** Post a local notice to a pane's transcript via the hub. */
+export async function sessionPostNotice(
+  paneId: string,
+  level: 'info' | 'warning' | 'error',
+  text: string,
+): Promise<void> {
+  if (!isTauriRuntime()) return;
+  await invoke('session_post_notice', {
+    args: { pane_id: paneId, level, text },
+  });
+}
+
 export function subscribeAgentEvents(
   onEnvelope: (envelope: AgentEventEnvelope) => void,
 ): Promise<() => void> {

@@ -8,9 +8,15 @@ import {
   fromOpenCode,
   type TranscriptViewModel,
 } from './index.js';
-import { emptyTranscriptViewModel } from './types.js';
+import {
+  emptyTranscriptViewModel,
+  flattenTranscriptTurns,
+  type TranscriptNotice,
+  type TranscriptTurn,
+} from './types.js';
 import { demoTranscriptForPane } from '../demo/transcript-fixtures.js';
 import type { AgentSessionSource, SessionTimeline } from '../../hooks/useAgentSession';
+import { setLocalNoticeAnchor, useLocalNotices, type LocalNotice } from '../local-notices';
 
 export function useTranscriptViewModel(
   paneId: string,
@@ -20,6 +26,7 @@ export function useTranscriptViewModel(
   timeline: SessionTimeline,
   openCodeSessionId?: string | null,
 ): TranscriptViewModel {
+  const localNotices = useLocalNotices(paneId);
   const demo = useDemoFixtures();
   const demoVm = demo ? demoTranscriptForPane(demo.variant, paneId) : null;
 
@@ -39,7 +46,7 @@ export function useTranscriptViewModel(
     () => null,
   );
 
-  return useMemo(() => {
+  const transcript = useMemo(() => {
     if (demoVm) return demoVm;
     if (preferOpenCodeStore) {
       if (!sessionId || !storeState) {
@@ -49,6 +56,54 @@ export function useTranscriptViewModel(
     }
     return transcriptFromTimeline(source, timeline);
   }, [demoVm, preferOpenCodeStore, sessionId, source, storeState, timeline]);
+
+  useEffect(() => {
+    setLocalNoticeAnchor(paneId, transcript.turns.at(-1)?.id);
+  }, [paneId, transcript.turns]);
+
+  return useMemo(() => mergeLocalNotices(transcript, localNotices), [localNotices, transcript]);
+}
+
+function mergeLocalNotices(
+  transcript: TranscriptViewModel,
+  localNotices: readonly LocalNotice[],
+): TranscriptViewModel {
+  if (localNotices.length === 0) return transcript;
+
+  const existingTurnIds = new Set(transcript.turns.map((turn) => turn.id));
+  const noticesByTurn = new Map<string, TranscriptTurn[]>();
+  const unanchoredNotices: TranscriptTurn[] = [];
+
+  for (const localNotice of localNotices) {
+    const notice: TranscriptNotice = {
+      kind: 'notice',
+      id: localNotice.id,
+      level: localNotice.level,
+      text: localNotice.text,
+    };
+    const noticeTurn: TranscriptTurn = {
+      id: `local-notice-turn-${localNotice.id}`,
+      role: 'assistant',
+      items: [notice],
+    };
+    const afterTurnId = localNotice.afterTurnId;
+
+    if (afterTurnId && existingTurnIds.has(afterTurnId)) {
+      const anchoredNotices = noticesByTurn.get(afterTurnId) ?? [];
+      noticesByTurn.set(afterTurnId, [...anchoredNotices, noticeTurn]);
+    } else {
+      unanchoredNotices.push(noticeTurn);
+    }
+  }
+
+  const turns = transcript.turns.flatMap((turn) => [turn, ...(noticesByTurn.get(turn.id) ?? [])]);
+  turns.push(...unanchoredNotices);
+
+  return {
+    ...transcript,
+    turns,
+    flatItems: flattenTranscriptTurns(turns),
+  };
 }
 
 /**

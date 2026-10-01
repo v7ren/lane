@@ -7,7 +7,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::agents::AgentsListResponse;
-use crate::protocol::{AgentEventEnvelope, Capabilities};
+use crate::protocol::{AgentEvent, AgentEventEnvelope, Capabilities, NoticeLevel};
 use crate::session::ProtocolHub;
 use crate::pty::{
     registry_get_project_path, registry_kill_all, registry_kill_pane, registry_read_buffer,
@@ -517,6 +517,31 @@ pub async fn session_claude_to_chat(
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     register_claude_headless_protocol(&state, &pane_id)?;
     let _ = app.emit("pty://panes-changed", ());
+    Ok(())
+}
+
+#[derive(Deserialize)]
+pub struct PostNoticeArgs {
+    pub pane_id: String,
+    pub level: NoticeLevel,
+    pub text: String,
+}
+
+#[tauri::command]
+pub async fn session_post_notice(
+    state: State<'_, AppState>,
+    args: PostNoticeArgs,
+) -> Result<(), String> {
+    let event = AgentEvent::Notice {
+        id: format!("loomria-notice-{}", uuid::Uuid::new_v4()),
+        level: args.level,
+        text: args.text,
+        source: Some("loomria".to_string()),
+        action: None,
+        sticky: false,
+        cleared: false,
+    };
+    state.protocol_hub.emit_local(&args.pane_id, event);
     Ok(())
 }
 

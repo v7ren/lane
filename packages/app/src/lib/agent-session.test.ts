@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
   mergeEnvelopeLog,
   sessionCancelTurn,
+  sessionPostNotice,
   sessionRespondApprovalInvokePayload,
   sessionSendPrompt,
   sessionSendPromptInvokePayload,
@@ -47,6 +48,24 @@ describe('agent-session invoke contract', () => {
   it('session_cancel_turn uses flat paneId (not nested args)', async () => {
     await sessionCancelTurn('pane-xyz');
     expect(invokeMock).toHaveBeenCalledWith('session_cancel_turn', { paneId: 'pane-xyz' });
+  });
+
+  it('session_post_notice uses snake_case fields inside args struct', async () => {
+    await sessionPostNotice('pane-1', 'info', 'test message');
+    expect(invokeMock).toHaveBeenCalledWith('session_post_notice', {
+      args: { pane_id: 'pane-1', level: 'info', text: 'test message' },
+    });
+  });
+
+  it('session_post_notice supports all notice levels', async () => {
+    await sessionPostNotice('pane-1', 'warning', 'warning msg');
+    await sessionPostNotice('pane-1', 'error', 'error msg');
+    expect(invokeMock).toHaveBeenNthCalledWith(1, 'session_post_notice', {
+      args: { pane_id: 'pane-1', level: 'warning', text: 'warning msg' },
+    });
+    expect(invokeMock).toHaveBeenNthCalledWith(2, 'session_post_notice', {
+      args: { pane_id: 'pane-1', level: 'error', text: 'error msg' },
+    });
   });
 });
 
