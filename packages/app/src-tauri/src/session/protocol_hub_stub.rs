@@ -139,6 +139,25 @@ impl ProtocolHub {
             .map_err(|e| e.to_string())
     }
 
+    pub fn agent_info(self: &Arc<Self>, pane_id: &str) -> Option<serde_json::Value> {
+        let session = self
+            .panes
+            .lock()
+            .get(pane_id)
+            .map(|p| Arc::clone(&p.session))?;
+        session.agent_info()
+    }
+
+    pub fn set_option(self: &Arc<Self>, pane_id: &str, key: &str, value: &str) -> Result<(), String> {
+        let session = self
+            .panes
+            .lock()
+            .get(pane_id)
+            .map(|p| Arc::clone(&p.session))
+            .ok_or_else(|| format!("no protocol session for pane {pane_id}"))?;
+        session.set_option(key, value).map_err(|e| e.to_string())
+    }
+
     pub fn cancel_turn(self: &Arc<Self>, pane_id: &str) -> Result<(), String> {
         let session = self
             .panes

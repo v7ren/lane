@@ -23,7 +23,7 @@ impl ProtocolAdapter for CodexAppServerAdapter {
             .unwrap_or_else(|| std::env::temp_dir().to_string_lossy().to_string());
         let thread_options = endpoint.codex.clone().unwrap_or_else(|| {
             crate::protocol::CodexThreadOptions {
-                approval_policy: Some(serde_json::json!("never")),
+                approval_policy: Some(serde_json::json!("on-request")),
                 sandbox_policy: Some(serde_json::json!("workspace-write")),
             }
         });

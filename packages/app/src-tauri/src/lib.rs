@@ -80,6 +80,8 @@ pub fn run() {
             commands::session_send_prompt,
             commands::session_respond_approval,
             commands::session_cancel_turn,
+            commands::session_agent_info,
+            commands::session_set_option,
             commands::session_open_in_tui,
             commands::read_opencode_messages,
             commands::list_opencode_permissions,

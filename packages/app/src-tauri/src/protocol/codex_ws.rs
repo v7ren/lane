@@ -273,9 +273,18 @@ impl CodexWsClient {
         };
         self.send_rpc(json!({
             "jsonrpc": "2.0",
-            "id": request_id,
+            "id": rpc_id_from_approval_id(request_id),
             "result": { "decision": codex_decision }
         }))
+    }
+}
+
+/// Codex numbers its server requests. The approval id is that id as a string, but a JSON-RPC
+/// reply must echo the original type or the server ignores it, so integers go back as numbers.
+fn rpc_id_from_approval_id(approval_id: &str) -> Value {
+    match approval_id.parse::<i64>() {
+        Ok(n) if n.to_string() == approval_id => json!(n),
+        _ => json!(approval_id),
     }
 }
 
@@ -374,10 +383,7 @@ fn run_ws_loop(
             Ok(Message::Text(text)) => handle_text(&state, &text),
             Ok(Message::Close(_)) => break,
             Ok(_) => {}
-            Err(tungstenite::Error::Io(ref e))
-                if e.kind() == std::io::ErrorKind::WouldBlock
-                    || e.kind() == std::io::ErrorKind::TimedOut =>
-            {
+            Err(tungstenite::Error::Io(ref e)) if is_read_timeout(e) => {
                 std::thread::sleep(Duration::from_millis(10));
             }
             Err(e) => return Err(format!("read: {e}")),
@@ -410,10 +416,7 @@ fn wait_for_response(ws: &mut Ws, state: &LoopState, id: &str) -> Result<(), Str
             }
             Ok(Message::Close(_)) => return Err("codex ws closed during handshake".into()),
             Ok(_) => {}
-            Err(tungstenite::Error::Io(ref e))
-                if e.kind() == std::io::ErrorKind::WouldBlock
-                    || e.kind() == std::io::ErrorKind::TimedOut =>
-            {
+            Err(tungstenite::Error::Io(ref e)) if is_read_timeout(e) => {
                 std::thread::sleep(Duration::from_millis(10));
             }
             Err(e) => return Err(format!("read: {e}")),
@@ -503,6 +506,12 @@ fn tcp_from_maybe_tls(stream: &MaybeTlsStream<TcpStream>) -> Result<&TcpStream, 
     }
 }
 
+/// A 50ms read timeout surfaces as WouldBlock/TimedOut, or on Windows as ERROR_IO_PENDING (997).
+fn is_read_timeout(e: &std::io::Error) -> bool {
+    matches!(e.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut)
+        || e.raw_os_error() == Some(997)
+}
+
 fn set_read_timeout(ws: &mut Ws) -> Result<(), String> {
     tcp_from_maybe_tls(ws.get_ref())?
         .set_read_timeout(Some(Duration::from_millis(50)))
@@ -517,6 +526,13 @@ fn send_json(ws: &mut Ws, value: Value) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn approval_reply_echoes_numeric_server_request_ids_as_numbers() {
+        assert_eq!(rpc_id_from_approval_id("7"), json!(7));
+        assert_eq!(rpc_id_from_approval_id("req-7"), json!("req-7"));
+        assert_eq!(rpc_id_from_approval_id("07"), json!("07"));
+    }
 
     #[test]
     fn start_thread_blocking_persists_thread_before_returning() {

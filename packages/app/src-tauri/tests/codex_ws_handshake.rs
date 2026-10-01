@@ -229,6 +229,6 @@ fn existing_thread_is_resumed_not_started() {
     // Overrides must not ride on resume (regression: "no rollout found"); they go on turn/start.
     assert!(log[2]["params"].get("approvalPolicy").is_none());
     assert!(log[2]["params"].get("sandbox").is_none());
-    assert_eq!(log[3]["params"]["approvalPolicy"], "never");
+    assert_eq!(log[3]["params"]["approvalPolicy"], "on-request");
     assert_eq!(log[3]["params"]["sandboxPolicy"]["type"], "workspaceWrite");
 }

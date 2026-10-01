@@ -190,6 +190,10 @@ pub enum ToolStatus {
 pub enum ApprovalKind {
     Command,
     Edit,
+    /// The agent is asking the user to choose; `detail` holds the questions as JSON.
+    Question,
+    /// The agent finished planning; `detail` holds the plan as markdown.
+    Plan,
     Other,
 }
 
@@ -247,6 +251,15 @@ pub trait ProtocolSession: Send + Sync {
     fn cancel_turn(&self) -> Result<(), AgentError>;
     fn child_pid(&self) -> Option<u32> {
         None
+    }
+    /// Settings and lists the agent reports about itself (models, slash commands, current
+    /// permission mode); `None` when unsupported or not reported yet.
+    fn agent_info(&self) -> Option<serde_json::Value> {
+        None
+    }
+    /// Change a session setting (`model` or `permission_mode`).
+    fn set_option(&self, key: &str, _value: &str) -> Result<(), AgentError> {
+        Err(AgentError::Unsupported(format!("unsupported option {key}")))
     }
 }
 

@@ -236,6 +236,32 @@ pub async fn session_respond_approval(
 }
 
 #[tauri::command]
+pub async fn session_agent_info(
+    state: State<'_, AppState>,
+    pane_id: String,
+) -> Result<Option<serde_json::Value>, String> {
+    Ok(state.protocol_hub.agent_info(&pane_id))
+}
+
+#[derive(Deserialize)]
+pub struct SessionSetOptionArgs {
+    pub pane_id: String,
+    pub key: String,
+    pub value: String,
+}
+
+#[tauri::command]
+pub async fn session_set_option(
+    state: State<'_, AppState>,
+    args: SessionSetOptionArgs,
+) -> Result<(), String> {
+    info!(pane_id = %args.pane_id, key = %args.key, value = %args.value, "session_set_option");
+    state
+        .protocol_hub
+        .set_option(&args.pane_id, &args.key, &args.value)
+}
+
+#[tauri::command]
 pub async fn session_cancel_turn(
     state: State<'_, AppState>,
     pane_id: String,
@@ -344,6 +370,7 @@ pub async fn session_open_in_tui(
     app: AppHandle,
     state: State<'_, AppState>,
     pane_id: String,
+    fresh: Option<bool>,
 ) -> Result<String, String> {
     let session_id =
         crate::session::claude_headless::claude_session_id(&state.registry, &pane_id)?;
@@ -361,7 +388,13 @@ pub async fn session_open_in_tui(
     let resume = manifest
         .launch_resume_args()
         .ok_or_else(|| "claude manifest missing launch.resume".to_string())?;
-    let extra_args = crate::session::substitute_args(resume, 0, "", &session_id, &cwd);
+    // Claude only saves a session after its first reply, so an empty chat has nothing to resume:
+    // the terminal starts a session under the same id instead.
+    let extra_args = if fresh.unwrap_or(false) {
+        vec!["--session-id".to_string(), session_id.clone()]
+    } else {
+        crate::session::substitute_args(resume, 0, "", &session_id, &cwd)
+    };
     let new_pane_id = registry_spawn_pane(
         &state.registry,
         &state.agents,
