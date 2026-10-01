@@ -8,7 +8,9 @@
 //!      `result.thread.id`, which is the only id that may be used for `turn/start`.
 //!      (or `thread/resume {threadId}` when attaching to an already created thread)
 
-use crate::protocol::codex_notifications::{map_codex_notification, map_codex_server_request};
+use crate::protocol::codex_notifications::{
+    map_codex_notification, map_codex_server_request, server_request_key,
+};
 use crate::protocol::{
     AgentError, AgentEvent, CodexThreadOptions, MessageContentKind, MessageRole, MessageTextMode,
 };
@@ -47,7 +49,13 @@ struct LoopState {
     turn_counter: Arc<AtomicU64>,
     /// `turn/start` request id -> prompt text, consumed when the response carries the turn id.
     pending_prompts: Arc<parking_lot::Mutex<HashMap<String, String>>>,
+    /// Approval id -> the server request waiting for our answer (method and params).
+    pending_requests: PendingRequests,
+    /// Lets the read loop answer a server request without going through the client.
+    reply_tx: std::sync::mpsc::Sender<Value>,
 }
+
+type PendingRequests = Arc<parking_lot::Mutex<HashMap<String, (String, Value)>>>;
 
 pub struct CodexWsClient {
     events_tx: broadcast::Sender<AgentEvent>,
@@ -55,6 +63,7 @@ pub struct CodexWsClient {
     thread_id: Arc<parking_lot::Mutex<Option<String>>>,
     active_turn_id: Arc<parking_lot::Mutex<Option<String>>>,
     pending_prompts: Arc<parking_lot::Mutex<HashMap<String, String>>>,
+    pending_requests: PendingRequests,
     request_seq: AtomicU64,
     materialized: Arc<AtomicBool>,
     startup_error: Arc<parking_lot::Mutex<Option<String>>>,
@@ -129,6 +138,7 @@ impl CodexWsClient {
         let active_turn_id = Arc::new(parking_lot::Mutex::new(None));
         let turn_counter = Arc::new(AtomicU64::new(1));
         let pending_prompts = Arc::new(parking_lot::Mutex::new(HashMap::new()));
+        let pending_requests: PendingRequests = Arc::new(parking_lot::Mutex::new(HashMap::new()));
         let startup_error = Arc::new(parking_lot::Mutex::new(None));
         let materialized = Arc::new(AtomicBool::new(false));
         let client = Arc::new(Self {
@@ -137,6 +147,7 @@ impl CodexWsClient {
             thread_id: Arc::clone(&thread_slot),
             active_turn_id: Arc::clone(&active_turn_id),
             pending_prompts: Arc::clone(&pending_prompts),
+            pending_requests: Arc::clone(&pending_requests),
             request_seq: AtomicU64::new(1),
             materialized: Arc::clone(&materialized),
             startup_error: Arc::clone(&startup_error),
@@ -148,6 +159,8 @@ impl CodexWsClient {
             active_turn_id,
             turn_counter,
             pending_prompts,
+            pending_requests,
+            reply_tx: client.request_tx.clone(),
         };
         std::thread::Builder::new()
             .name("codex-ws".into())
@@ -261,22 +274,98 @@ impl CodexWsClient {
         request_id: &str,
         decision: &str,
     ) -> Result<(), AgentError> {
-        let codex_decision = match decision {
-            "allow_once" => "accept",
-            "allow_always" => "acceptForSession",
-            "deny" => "decline",
-            other => {
-                return Err(AgentError::Protocol(format!(
-                    "unsupported codex approval decision {other}"
-                )));
-            }
-        };
+        let (method, params) = self
+            .pending_requests
+            .lock()
+            .remove(request_id)
+            .unwrap_or_else(|| (String::new(), Value::Null));
+        let result = approval_reply(&method, &params, decision)?;
         self.send_rpc(json!({
             "jsonrpc": "2.0",
             "id": rpc_id_from_approval_id(request_id),
-            "result": { "decision": codex_decision }
+            "result": result
         }))
     }
+}
+
+/// JSON-RPC error for a server request we do not implement.
+fn unsupported_request_reply(request: &Value) -> Value {
+    json!({
+        "jsonrpc": "2.0",
+        "id": request.get("id").cloned().unwrap_or(Value::Null),
+        "error": { "code": -32601, "message": "not supported by Loomria" }
+    })
+}
+
+/// The `result` that answers a pending server request. The reply shape depends on the method
+/// (see docs/codex-protocol-notes.md); `decision` is the UI decision or an `answer:{...}` payload.
+fn approval_reply(method: &str, params: &Value, decision: &str) -> Result<Value, AgentError> {
+    if method == "item/tool/requestUserInput" {
+        return question_reply(params, decision);
+    }
+    let allow = match decision {
+        "allow_once" => Some(false),
+        "allow_always" => Some(true),
+        "deny" => None,
+        other => {
+            return Err(AgentError::Protocol(format!(
+                "unsupported codex approval decision {other}"
+            )));
+        }
+    };
+    Ok(match method {
+        "execCommandApproval" | "applyPatchApproval" => json!({
+            "decision": match allow {
+                Some(true) => "approved_for_session",
+                Some(false) => "approved",
+                None => "denied",
+            }
+        }),
+        "item/permissions/requestApproval" => match allow {
+            Some(always) => json!({
+                "permissions": params.get("permissions").cloned().unwrap_or_else(|| json!({})),
+                "scope": if always { "session" } else { "turn" },
+            }),
+            None => json!({ "permissions": {} }),
+        },
+        _ => json!({
+            "decision": match allow {
+                Some(true) => "acceptForSession",
+                Some(false) => "accept",
+                None => "decline",
+            }
+        }),
+    })
+}
+
+/// Answers to `item/tool/requestUserInput`: the dock sends `answer:{<question text>: <answer>}`;
+/// Codex wants `{answers: {<question id>: {answers: [<answer>]}}}`.
+fn question_reply(params: &Value, decision: &str) -> Result<Value, AgentError> {
+    let questions = params
+        .get("questions")
+        .and_then(|q| q.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let mut answers = serde_json::Map::new();
+    if let Some(raw) = decision.strip_prefix(crate::protocol::claude_stream_json::ANSWER_PREFIX) {
+        let given: serde_json::Map<String, Value> = serde_json::from_str::<Value>(raw)
+            .ok()
+            .and_then(|v| v.as_object().cloned())
+            .ok_or_else(|| AgentError::Protocol("question answers must be a JSON object".into()))?;
+        for q in &questions {
+            let (Some(id), Some(text)) = (
+                q.get("id").and_then(|v| v.as_str()),
+                q.get("question").and_then(|v| v.as_str()),
+            ) else {
+                continue;
+            };
+            if let Some(answer) = given.get(text).and_then(|v| v.as_str()) {
+                answers.insert(id.to_string(), json!({ "answers": [answer] }));
+            }
+        }
+    }
+    // Declining (or an answer we could not match) sends empty answers so the turn carries on.
+    Ok(json!({ "answers": answers }))
 }
 
 /// Codex numbers its server requests. The approval id is that id as a string, but a JSON-RPC
@@ -469,7 +558,22 @@ fn handle_value(state: &LoopState, value: &Value) {
         && value.get("result").is_none()
         && value.get("error").is_none();
     let events = if is_server_request {
-        map_codex_server_request(value, &state.turn_counter)
+        let events = map_codex_server_request(value, &state.turn_counter);
+        let method = value.get("method").and_then(|m| m.as_str()).unwrap_or("");
+        if events.is_empty() {
+            // A request nobody answers hangs the turn: say "not supported" instead.
+            tracing::warn!(method, "codex server request not supported; replying with an error");
+            let _ = state.reply_tx.send(unsupported_request_reply(value));
+        } else {
+            state.pending_requests.lock().insert(
+                server_request_key(value),
+                (
+                    method.to_string(),
+                    value.get("params").cloned().unwrap_or(Value::Null),
+                ),
+            );
+        }
+        events
     } else {
         map_codex_notification(value, &state.turn_counter, &state.active_turn_id)
     };
@@ -568,6 +672,120 @@ mod tests {
             *seen.lock(),
             vec!["initialize", "initialized", "thread/start", "thread/name/set"]
         );
+        drop(client);
+    }
+
+    #[test]
+    fn replies_match_each_request_kind() {
+        let none = Value::Null;
+        assert_eq!(
+            approval_reply("item/commandExecution/requestApproval", &none, "allow_always").unwrap(),
+            json!({"decision": "acceptForSession"})
+        );
+        assert_eq!(
+            approval_reply("item/fileChange/requestApproval", &none, "deny").unwrap(),
+            json!({"decision": "decline"})
+        );
+        assert_eq!(
+            approval_reply("execCommandApproval", &none, "allow_once").unwrap(),
+            json!({"decision": "approved"})
+        );
+        assert_eq!(
+            approval_reply("applyPatchApproval", &none, "deny").unwrap(),
+            json!({"decision": "denied"})
+        );
+        assert!(approval_reply("execCommandApproval", &none, "maybe").is_err());
+    }
+
+    #[test]
+    fn permission_request_is_granted_by_echoing_what_was_asked() {
+        let params = json!({"permissions": {"network": {"enabled": true}}, "reason": "needs net"});
+        assert_eq!(
+            approval_reply("item/permissions/requestApproval", &params, "allow_once").unwrap(),
+            json!({"permissions": {"network": {"enabled": true}}, "scope": "turn"})
+        );
+        assert_eq!(
+            approval_reply("item/permissions/requestApproval", &params, "allow_always").unwrap(),
+            json!({"permissions": {"network": {"enabled": true}}, "scope": "session"})
+        );
+        assert_eq!(
+            approval_reply("item/permissions/requestApproval", &params, "deny").unwrap(),
+            json!({"permissions": {}})
+        );
+    }
+
+    #[test]
+    fn question_answers_are_keyed_by_question_id() {
+        let params = json!({"questions": [
+            {"id": "q1", "question": "Which color?", "header": "Color"},
+            {"id": "q2", "question": "Name?", "header": "Name"}
+        ]});
+        let reply = approval_reply(
+            "item/tool/requestUserInput",
+            &params,
+            r#"answer:{"Which color?":"Blue","Name?":"a, b"}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            reply,
+            json!({"answers": {"q1": {"answers": ["Blue"]}, "q2": {"answers": ["a, b"]}}})
+        );
+        // declining still answers, with nothing, so the turn is not left waiting
+        assert_eq!(
+            approval_reply("item/tool/requestUserInput", &params, "deny").unwrap(),
+            json!({"answers": {}})
+        );
+    }
+
+    #[test]
+    fn unsupported_server_request_gets_a_method_not_found_error() {
+        let reply = unsupported_request_reply(&json!({"id": 99, "method": "future/thing"}));
+        assert_eq!(reply["id"], json!(99));
+        assert_eq!(reply["error"]["code"], json!(-32601));
+    }
+
+    #[test]
+    fn unknown_server_request_is_answered_over_the_socket() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let (got_tx, got_rx) = std::sync::mpsc::channel::<Value>();
+        std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut ws = tungstenite::accept(stream).unwrap();
+            let mut asked = false;
+            while let Ok(msg) = ws.read() {
+                let Message::Text(t) = msg else { continue };
+                let v: Value = serde_json::from_str(&t).unwrap();
+                if v.get("method").is_none() {
+                    let _ = got_tx.send(v);
+                    break;
+                }
+                let reply = match v["method"].as_str().unwrap_or("") {
+                    "initialize" => json!({"id": v["id"], "result": {}}),
+                    "thread/start" => json!({"id": v["id"], "result": {"thread": {"id": "t"}}}),
+                    "thread/name/set" => json!({"id": v["id"], "result": {}}),
+                    _ => continue,
+                };
+                ws.send(Message::Text(reply.to_string())).unwrap();
+                if v["method"] == "thread/name/set" && !asked {
+                    asked = true;
+                    ws.send(Message::Text(
+                        json!({"id": 99, "method": "future/thing", "params": {}}).to_string(),
+                    ))
+                    .unwrap();
+                }
+            }
+        });
+        let (client, _) = CodexWsClient::start_thread_blocking(
+            format!("ws://127.0.0.1:{port}"),
+            ".".into(),
+            CodexThreadOptions::default(),
+            Duration::from_secs(10),
+        )
+        .unwrap();
+        let reply = got_rx.recv_timeout(Duration::from_secs(10)).expect("error reply");
+        assert_eq!(reply["id"], json!(99));
+        assert_eq!(reply["error"]["code"], json!(-32601));
         drop(client);
     }
 }

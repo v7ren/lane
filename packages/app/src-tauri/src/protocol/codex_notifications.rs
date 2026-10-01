@@ -6,18 +6,20 @@ use parking_lot::Mutex;
 use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+/// The approval id of a server request: its JSON-RPC id as a string.
+pub fn server_request_key(value: &Value) -> String {
+    value
+        .get("id")
+        .map(|v| match v.as_str() {
+            Some(s) => s.to_string(),
+            None => v.to_string(),
+        })
+        .unwrap_or_else(|| "approval".into())
+}
+
 pub fn map_codex_server_request(value: &Value, turn_counter: &AtomicU64) -> Vec<AgentEvent> {
     let method = value.get("method").and_then(|m| m.as_str()).unwrap_or("");
-    let request_id = value
-        .get("id")
-        .map(|v| {
-            if let Some(s) = v.as_str() {
-                s.to_string()
-            } else {
-                v.to_string()
-            }
-        })
-        .unwrap_or_else(|| "approval".into());
+    let request_id = server_request_key(value);
     let params = value.get("params").cloned().unwrap_or(Value::Null);
     let _turn_id = turn_counter.load(Ordering::SeqCst).to_string();
     match method {
@@ -49,6 +51,75 @@ pub fn map_codex_server_request(value: &Value, turn_counter: &AtomicU64) -> Vec<
                     ApprovalDecision::AllowAlways,
                     ApprovalDecision::Deny,
                 ],
+            }]
+        }
+        "execCommandApproval" => {
+            let detail = match params.get("command") {
+                Some(Value::Array(parts)) => parts
+                    .iter()
+                    .filter_map(|p| p.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                Some(Value::String(s)) => s.clone(),
+                _ => params.to_string(),
+            };
+            vec![AgentEvent::ApprovalRequested {
+                approval_id: request_id,
+                title: "Command approval".to_string(),
+                detail,
+                kind: ApprovalKind::Command,
+                options: vec![
+                    ApprovalDecision::AllowOnce,
+                    ApprovalDecision::AllowAlways,
+                    ApprovalDecision::Deny,
+                ],
+            }]
+        }
+        "applyPatchApproval" => {
+            let detail = params
+                .get("fileChanges")
+                .and_then(|c| c.as_object())
+                .map(|files| files.keys().cloned().collect::<Vec<_>>().join("\n"))
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| params.to_string());
+            vec![AgentEvent::ApprovalRequested {
+                approval_id: request_id,
+                title: "File change approval".to_string(),
+                detail,
+                kind: ApprovalKind::Edit,
+                options: vec![
+                    ApprovalDecision::AllowOnce,
+                    ApprovalDecision::AllowAlways,
+                    ApprovalDecision::Deny,
+                ],
+            }]
+        }
+        "item/tool/requestUserInput" => {
+            // Same shape the Claude question dock reads; `id` lets the reply find the question again.
+            let questions: Vec<Value> = params
+                .get("questions")
+                .and_then(|q| q.as_array())
+                .map(|qs| {
+                    qs.iter()
+                        .map(|q| {
+                            serde_json::json!({
+                                "id": q.get("id").cloned().unwrap_or(Value::Null),
+                                "header": q.get("header").cloned().unwrap_or(Value::Null),
+                                "question": q.get("question").cloned().unwrap_or(Value::Null),
+                                "options": q.get("options").cloned().unwrap_or_else(|| serde_json::json!([])),
+                                "multiSelect": false,
+                                "isSecret": q.get("isSecret").cloned().unwrap_or(Value::Bool(false)),
+                            })
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            vec![AgentEvent::ApprovalRequested {
+                approval_id: request_id,
+                title: "Question".to_string(),
+                detail: Value::Array(questions).to_string(),
+                kind: ApprovalKind::Question,
+                options: vec![ApprovalDecision::AllowOnce, ApprovalDecision::Deny],
             }]
         }
         _ => Vec::new(),
@@ -476,5 +547,51 @@ mod tests {
         let active: Mutex<Option<String>> = Mutex::new(None);
         let value = json!({ "method": "some/future/thing", "params": 7 });
         assert!(map_codex_notification(&value, &counter, &active).is_empty());
+    }
+
+    #[test]
+    fn legacy_exec_and_patch_approvals_are_not_dropped() {
+        let counter = AtomicU64::new(1);
+        let exec = map_codex_server_request(
+            &json!({"id": 5, "method": "execCommandApproval", "params": {"command": ["git", "status"]}}),
+            &counter,
+        );
+        assert!(matches!(
+            &exec[0],
+            AgentEvent::ApprovalRequested { approval_id, detail, kind: ApprovalKind::Command, .. }
+                if approval_id == "5" && detail == "git status"
+        ));
+        let patch = map_codex_server_request(
+            &json!({"id": 6, "method": "applyPatchApproval", "params": {"fileChanges": {"a.txt": {}}}}),
+            &counter,
+        );
+        assert!(matches!(
+            &patch[0],
+            AgentEvent::ApprovalRequested { detail, kind: ApprovalKind::Edit, .. } if detail == "a.txt"
+        ));
+    }
+
+    #[test]
+    fn user_input_request_becomes_a_question_with_ids() {
+        let counter = AtomicU64::new(1);
+        let events = map_codex_server_request(
+            &json!({"id": 8, "method": "item/tool/requestUserInput", "params": {"questions": [
+                {"id": "q1", "header": "Color", "question": "Pick one", "options": [{"label": "Red", "description": "r"}]}
+            ]}}),
+            &counter,
+        );
+        let AgentEvent::ApprovalRequested { detail, kind: ApprovalKind::Question, .. } = &events[0] else {
+            panic!("expected a question");
+        };
+        let parsed: Value = serde_json::from_str(detail).unwrap();
+        assert_eq!(parsed[0]["id"], "q1");
+        assert_eq!(parsed[0]["question"], "Pick one");
+        assert_eq!(parsed[0]["options"][0]["label"], "Red");
+    }
+
+    #[test]
+    fn unknown_server_request_maps_to_nothing() {
+        let counter = AtomicU64::new(1);
+        assert!(map_codex_server_request(&json!({"id": 1, "method": "future/thing"}), &counter).is_empty());
     }
 }

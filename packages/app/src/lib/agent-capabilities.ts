@@ -54,7 +54,7 @@ export const CODEX_CAPABILITIES: AgentCapabilities = {
   fork: false,
   revert: false,
   tuiToggle: true,
-  questions: false,
+  questions: true,
   permissions: true,
 };
 
