@@ -12,7 +12,7 @@ use crate::protocol::codex_notifications::{
     map_codex_notification, map_codex_server_request, server_request_key,
 };
 use crate::protocol::{
-    AgentError, AgentEvent, CodexThreadOptions, MessageContentKind, MessageRole, MessageTextMode,
+    AgentError, AgentEvent, CodexThreadOptions, MessageContentKind, MessageRole, MessageTextMode, NoticeLevel,
 };
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -571,6 +571,15 @@ fn handle_value(state: &LoopState, value: &Value) {
         if events.is_empty() {
             // A request nobody answers hangs the turn: say "not supported" instead.
             tracing::warn!(method, "codex server request not supported; replying with an error");
+            let _ = state.events_tx.send(AgentEvent::Notice {
+                id: format!("codex-unsupported-{method}"),
+                level: NoticeLevel::Warning,
+                text: format!("Codex asked for \"{method}\", which Loomria does not support yet."),
+                source: Some("codex".into()),
+                action: None,
+                sticky: false,
+                cleared: false,
+            });
             let _ = state.reply_tx.send(unsupported_request_reply(value));
         } else {
             state.pending_requests.lock().insert(
@@ -777,6 +786,7 @@ mod tests {
                 ws.send(Message::Text(reply.to_string())).unwrap();
                 if v["method"] == "thread/name/set" && !asked {
                     asked = true;
+                    std::thread::sleep(Duration::from_millis(400));
                     ws.send(Message::Text(
                         json!({"id": 99, "method": "future/thing", "params": {}}).to_string(),
                     ))
@@ -791,9 +801,17 @@ mod tests {
             Duration::from_secs(10),
         )
         .unwrap();
+        let mut events = client.subscribe();
         let reply = got_rx.recv_timeout(Duration::from_secs(10)).expect("error reply");
         assert_eq!(reply["id"], json!(99));
         assert_eq!(reply["error"]["code"], json!(-32601));
+        match events.try_recv() {
+            Ok(AgentEvent::Notice { id, level, .. }) => {
+                assert_eq!(id, "codex-unsupported-future/thing");
+                assert_eq!(level, NoticeLevel::Warning);
+            }
+            other => panic!("expected an unsupported-request notice, got {other:?}"),
+        }
         drop(client);
     }
 }

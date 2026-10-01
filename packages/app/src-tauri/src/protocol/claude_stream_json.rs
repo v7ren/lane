@@ -3,7 +3,7 @@
 use super::event_contract::is_claude_auth_failure_text;
 use super::types::{
     AgentError, AgentEvent, ApprovalDecision, ApprovalKind, Capabilities, Endpoint, MessageContentKind,
-    MessageRole, MessageTextMode, ProtocolAdapter, ProtocolSession, ToolStatus, TurnStatus,
+    MessageRole, MessageTextMode, NoticeLevel, ProtocolAdapter, ProtocolSession, ToolStatus, TurnStatus,
 };
 use crate::agents::ProtocolKind;
 use crate::opencode::event_map::next_turn;
@@ -11,7 +11,7 @@ use parking_lot::Mutex;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, BufReader, Write};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 use std::thread;
@@ -98,6 +98,8 @@ impl ProtocolAdapter for ClaudeStreamJsonAdapter {
         writeln!(stdin, "{init}")
             .and_then(|()| stdin.flush())
             .map_err(|e| AgentError::Connect(format!("claude initialize: {e}")))?;
+        let stdin = Arc::new(Mutex::new(stdin));
+        let stdin_reader = Arc::clone(&stdin);
         let stderr = child.stderr.take();
 
         let tx_reader = tx.clone();
@@ -112,6 +114,11 @@ impl ProtocolAdapter for ClaudeStreamJsonAdapter {
                     let mut map = mapper_reader.lock();
                     for event in map.push_line(&line, &turn_for_reader) {
                         let _ = tx_reader.send(event);
+                    }
+                    // Control requests Loomria cannot serve still need an answer, or Claude waits forever.
+                    for reply in map.take_replies() {
+                        let mut stdin = stdin_reader.lock();
+                        let _ = writeln!(stdin, "{reply}").and_then(|()| stdin.flush());
                     }
                 }
                 let ended = mapper_reader.lock().process_ended(&turn_for_reader);
@@ -138,7 +145,7 @@ impl ProtocolAdapter for ClaudeStreamJsonAdapter {
 
         Ok(Box::new(ClaudeStreamJsonSession {
             session_id,
-            stdin: Mutex::new(stdin),
+            stdin,
             child: Mutex::new(child),
             events_tx: tx,
             turn_counter,
@@ -175,7 +182,7 @@ pub fn emit_user_prompt_events(tx: &broadcast::Sender<AgentEvent>, turn_id: &str
 
 struct ClaudeStreamJsonSession {
     session_id: String,
-    stdin: Mutex<std::process::ChildStdin>,
+    stdin: Arc<Mutex<ChildStdin>>,
     child: Mutex<Child>,
     events_tx: broadcast::Sender<AgentEvent>,
     turn_counter: Arc<AtomicU64>,
@@ -376,6 +383,8 @@ pub struct ClaudeStreamMapper {
     pending_approvals: HashMap<String, Value>,
     interrupt_requested: bool,
     agent_info: Option<Value>,
+    /// `control_response` lines the reader thread must write to Claude's stdin.
+    replies: Vec<Value>,
 }
 
 type BlockKindKey = u8;
@@ -445,21 +454,59 @@ impl ClaudeStreamMapper {
         out
     }
 
+    /// Take the replies queued for Claude's stdin (see `unsupported_control_request`).
+    pub fn take_replies(&mut self) -> Vec<Value> {
+        std::mem::take(&mut self.replies)
+    }
+
+    /// A control request other than `can_use_tool` is answered with an error and surfaced as a
+    /// warning notice. Returns true when the request was handled here.
+    fn unsupported_control_request(&mut self, value: &Value, out: &mut Vec<AgentEvent>) -> bool {
+        let Some(request_id) = value.get("request_id").and_then(|v| v.as_str()) else {
+            return false;
+        };
+        let subtype = value
+            .pointer("/request/subtype")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+        if subtype == "can_use_tool" {
+            return false;
+        }
+        self.replies.push(serde_json::json!({
+            "type": "control_response",
+            "response": {
+                "subtype": "error",
+                "request_id": request_id,
+                "error": "not supported by Loomria",
+            },
+        }));
+        out.push(AgentEvent::Notice {
+            id: format!("claude-unsupported-{subtype}"),
+            level: NoticeLevel::Warning,
+            text: format!("Claude asked for \"{subtype}\", which Loomria does not support yet."),
+            source: Some("claude".into()),
+            action: None,
+            sticky: false,
+            cleared: false,
+        });
+        true
+    }
+
     /// Remove and return the `can_use_tool` request stored for an approval id.
     pub fn take_approval(&mut self, approval_id: &str) -> Option<Value> {
         self.pending_approvals.remove(approval_id)
     }
 
     fn map_control_request(&mut self, value: &Value, out: &mut Vec<AgentEvent>) {
+        if self.unsupported_control_request(value, out) {
+            return;
+        }
         let Some(request_id) = value.get("request_id").and_then(|v| v.as_str()) else {
             return;
         };
         let Some(request) = value.get("request") else {
             return;
         };
-        if request.get("subtype").and_then(|v| v.as_str()) != Some("can_use_tool") {
-            return;
-        }
         let tool = request
             .get("display_name")
             .or_else(|| request.get("tool_name"))
@@ -485,7 +532,7 @@ impl ClaudeStreamMapper {
                 detail: questions.to_string(),
                 kind: ApprovalKind::Question,
                 options: vec![ApprovalDecision::AllowOnce, ApprovalDecision::Deny],
-                payload: None,
+                payload: Some(questions_payload(&questions)),
             });
             return;
         }
@@ -500,10 +547,10 @@ impl ClaudeStreamMapper {
             out.push(AgentEvent::ApprovalRequested {
                 approval_id: request_id.to_string(),
                 title: "Plan".to_string(),
+                payload: Some(plan_payload(input, &plan)),
                 detail: plan,
                 kind: ApprovalKind::Plan,
                 options: vec![ApprovalDecision::AllowOnce, ApprovalDecision::Deny],
-                payload: None,
             });
             return;
         }
@@ -512,6 +559,7 @@ impl ClaudeStreamMapper {
             Some("Edit") | Some("Write") | Some("MultiEdit") | Some("NotebookEdit") => ApprovalKind::Edit,
             _ => ApprovalKind::Other,
         };
+        let payload = tool_payload(request);
         self.pending_approvals
             .insert(request_id.to_string(), request.clone());
         out.push(AgentEvent::ApprovalRequested {
@@ -524,7 +572,7 @@ impl ClaudeStreamMapper {
                 ApprovalDecision::AllowAlways,
                 ApprovalDecision::Deny,
             ],
-            payload: None,
+            payload,
         });
     }
 
@@ -572,7 +620,12 @@ impl ClaudeStreamMapper {
             return Vec::new();
         }
         if self.turn_finished {
-            return Vec::new();
+            // Even after the turn ended, an unknown control request must still get its reply.
+            let mut out = Vec::new();
+            if value.get("type").and_then(|t| t.as_str()) == Some("control_request") {
+                self.unsupported_control_request(&value, &mut out);
+            }
+            return out;
         }
         let turn_id = turn_counter.load(std::sync::atomic::Ordering::SeqCst).to_string();
         let mut out = Vec::new();
@@ -865,6 +918,117 @@ impl ClaudeStreamMapper {
     }
 }
 
+fn str_field<'a>(input: Option<&'a Value>, key: &str) -> Option<&'a str> {
+    input.and_then(|i| i.get(key)).and_then(|v| v.as_str())
+}
+
+/// `ApprovalRequested.payload` for a Bash/PowerShell/Edit/MultiEdit/Write request (spec 2.3).
+fn tool_payload(request: &Value) -> Option<Value> {
+    let input = request.get("input");
+    match request.get("tool_name").and_then(|v| v.as_str()) {
+        Some("Bash") | Some("PowerShell") => {
+            let mut payload = serde_json::json!({
+                "type": "command",
+                "command": str_field(input, "command").unwrap_or_default(),
+            });
+            if let Some(cwd) = str_field(input, "cwd") {
+                payload["cwd"] = Value::String(cwd.to_string());
+            }
+            let reason = request
+                .get("description")
+                .and_then(|v| v.as_str())
+                .or_else(|| str_field(input, "description"));
+            if let Some(reason) = reason {
+                payload["reason"] = Value::String(reason.to_string());
+            }
+            Some(payload)
+        }
+        Some("Edit") => Some(serde_json::json!({
+            "type": "edit",
+            "path": str_field(input, "file_path").unwrap_or_default(),
+            "edits": [{
+                "old_text": str_field(input, "old_string").unwrap_or_default(),
+                "new_text": str_field(input, "new_string").unwrap_or_default(),
+            }],
+        })),
+        Some("MultiEdit") => {
+            let edits: Vec<Value> = input
+                .and_then(|i| i.get("edits"))
+                .and_then(|v| v.as_array())
+                .map(|list| {
+                    list.iter()
+                        .map(|e| {
+                            serde_json::json!({
+                                "old_text": e.get("old_string").and_then(|v| v.as_str()).unwrap_or_default(),
+                                "new_text": e.get("new_string").and_then(|v| v.as_str()).unwrap_or_default(),
+                            })
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            Some(serde_json::json!({
+                "type": "edit",
+                "path": str_field(input, "file_path").unwrap_or_default(),
+                "edits": edits,
+            }))
+        }
+        Some("Write") => Some(serde_json::json!({
+            "type": "edit",
+            "path": str_field(input, "file_path").unwrap_or_default(),
+            "content": str_field(input, "content").unwrap_or_default(),
+        })),
+        _ => None,
+    }
+}
+
+/// `questions` payload from Claude's `AskUserQuestion` input (`multiSelect` becomes `multi_select`).
+fn questions_payload(questions: &Value) -> Value {
+    let list: Vec<Value> = questions
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .map(|q| {
+                    let options: Vec<Value> = q
+                        .get("options")
+                        .and_then(|v| v.as_array())
+                        .map(|opts| {
+                            opts.iter()
+                                .map(|o| {
+                                    let mut option = serde_json::json!({
+                                        "label": o.get("label").and_then(|v| v.as_str()).unwrap_or_default(),
+                                    });
+                                    if let Some(d) = o.get("description").and_then(|v| v.as_str()) {
+                                        option["description"] = Value::String(d.to_string());
+                                    }
+                                    option
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    serde_json::json!({
+                        "header": q.get("header").and_then(|v| v.as_str()).unwrap_or_default(),
+                        "question": q.get("question").and_then(|v| v.as_str()).unwrap_or_default(),
+                        "options": options,
+                        "multi_select": q.get("multiSelect").and_then(|v| v.as_bool()).unwrap_or(false),
+                        "allow_other": true,
+                        "secret": false,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    serde_json::json!({ "type": "questions", "questions": list })
+}
+
+fn plan_payload(input: Option<&Value>, plan: &str) -> Value {
+    let mut payload = serde_json::json!({ "type": "plan", "plan": plan });
+    if let Some(path) = str_field(input, "planFilePath") {
+        payload["plan_file_path"] = Value::String(path.to_string());
+    }
+    payload
+}
+
 fn content_kind(kind: BlockKind) -> MessageContentKind {
     match kind {
         BlockKind::Text => MessageContentKind::Text,
@@ -1087,6 +1251,97 @@ mod tests {
         let request = mapper.take_approval("p-1").unwrap();
         let allow = approval_control_response("p-1", &request, ApprovalDecision::AllowOnce);
         assert_eq!(allow["response"]["response"]["updatedInput"]["planFilePath"], "x.md");
+    }
+
+    fn payload_of(line: &str) -> Value {
+        let counter = Arc::new(AtomicU64::new(1));
+        let mut mapper = ClaudeStreamMapper::default();
+        match mapper.push_line(line, &counter).as_slice() {
+            [AgentEvent::ApprovalRequested { payload: Some(p), .. }] => p.clone(),
+            other => panic!("expected an approval with a payload: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn bash_approval_carries_a_command_payload() {
+        let p = payload_of(CAN_USE_TOOL);
+        assert_eq!(p["type"], "command");
+        assert_eq!(p["command"], "echo hi > probe.txt");
+    }
+
+    #[test]
+    fn edit_approval_carries_one_edit() {
+        let p = payload_of(r#"{"type":"control_request","request_id":"e1","request":{"subtype":"can_use_tool","tool_name":"Edit","input":{"file_path":"a.rs","old_string":"x","new_string":"y"}}}"#);
+        assert_eq!(p["type"], "edit");
+        assert_eq!(p["path"], "a.rs");
+        assert_eq!(p["edits"], serde_json::json!([{"old_text": "x", "new_text": "y"}]));
+        assert!(p.get("content").is_none());
+    }
+
+    #[test]
+    fn multi_edit_approval_carries_every_edit() {
+        let p = payload_of(r#"{"type":"control_request","request_id":"e2","request":{"subtype":"can_use_tool","tool_name":"MultiEdit","input":{"file_path":"a.rs","edits":[{"old_string":"a","new_string":"b"},{"old_string":"c","new_string":"d"}]}}}"#);
+        assert_eq!(p["type"], "edit");
+        assert_eq!(p["edits"].as_array().unwrap().len(), 2);
+        assert_eq!(p["edits"][1]["new_text"], "d");
+    }
+
+    #[test]
+    fn write_approval_carries_the_full_content() {
+        let p = payload_of(r#"{"type":"control_request","request_id":"e3","request":{"subtype":"can_use_tool","tool_name":"Write","input":{"file_path":"n.txt","content":"hello"}}}"#);
+        assert_eq!(p["type"], "edit");
+        assert_eq!(p["path"], "n.txt");
+        assert_eq!(p["content"], "hello");
+        assert!(p.get("edits").is_none());
+    }
+
+    #[test]
+    fn question_approval_carries_questions_with_mapped_fields() {
+        let p = payload_of(r#"{"type":"control_request","request_id":"q-2","request":{"subtype":"can_use_tool","tool_name":"AskUserQuestion","input":{"questions":[{"question":"Pick?","header":"H","options":[{"label":"A","description":"da"},{"label":"B"}],"multiSelect":true}]}}}"#);
+        assert_eq!(p["type"], "questions");
+        let q = &p["questions"][0];
+        assert_eq!(q["question"], "Pick?");
+        assert_eq!(q["header"], "H");
+        assert_eq!(q["multi_select"], true);
+        assert_eq!(q["allow_other"], true);
+        assert_eq!(q["secret"], false);
+        assert_eq!(q["options"][0]["description"], "da");
+        assert!(q["options"][1].get("description").is_none());
+    }
+
+    #[test]
+    fn plan_approval_carries_the_plan_and_file_path() {
+        let p = payload_of(r##"{"type":"control_request","request_id":"p-2","request":{"subtype":"can_use_tool","tool_name":"ExitPlanMode","input":{"plan":"# Plan","planFilePath":"x.md"}}}"##);
+        assert_eq!(p["type"], "plan");
+        assert_eq!(p["plan"], "# Plan");
+        assert_eq!(p["plan_file_path"], "x.md");
+    }
+
+    #[test]
+    fn unknown_control_request_gets_an_error_reply_and_a_notice() {
+        let counter = Arc::new(AtomicU64::new(1));
+        let mut mapper = ClaudeStreamMapper::default();
+        let events = mapper.push_line(
+            r#"{"type":"control_request","request_id":"h-1","request":{"subtype":"hook_callback"}}"#,
+            &counter,
+        );
+        match events.as_slice() {
+            [AgentEvent::Notice { id, level, .. }] => {
+                assert_eq!(id, "claude-unsupported-hook_callback");
+                assert_eq!(*level, NoticeLevel::Warning);
+            }
+            other => panic!("unexpected events: {other:?}"),
+        }
+        let replies = mapper.take_replies();
+        assert_eq!(replies.len(), 1);
+        assert_eq!(replies[0]["type"], "control_response");
+        assert_eq!(replies[0]["response"]["subtype"], "error");
+        assert_eq!(replies[0]["response"]["request_id"], "h-1");
+        assert_eq!(replies[0]["response"]["error"], "not supported by Loomria");
+        assert!(mapper.take_replies().is_empty());
+        // can_use_tool is not an unsupported request.
+        mapper.push_line(CAN_USE_TOOL, &counter);
+        assert!(mapper.take_replies().is_empty());
     }
 
     #[test]
