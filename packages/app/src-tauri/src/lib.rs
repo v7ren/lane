@@ -14,6 +14,7 @@ mod ports;
 pub mod process;
 mod project_path;
 mod fs_scoped;
+mod git_info;
 pub mod pty;
 mod settings_persist;
 mod settings_store;
@@ -59,6 +60,8 @@ pub fn run() {
             commands::push_settings_event,
             commands::sync_public_settings,
             app_lifecycle::get_app_install_info,
+            git_info::git_status_summary,
+            git_info::git_diff_files,
             ports::ports_report,
             ports::ports_get_config,
             ports::ports_set_config,

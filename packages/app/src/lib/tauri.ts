@@ -29,6 +29,8 @@ export type PaneInfo = {
   surface?: string;
 };
 
+export type GitSummary = { branch: string | null; changed: number };
+export type DiffFile = { path: string; before: string; after: string };
 export type ClaudePastSession = { id: string; title: string; updated_at: number };
 
 export type TerminalSnapshotEvent = { pane_id: string; snapshot: string };
@@ -529,5 +531,8 @@ export const tauri = {
       { ok: true, active_profile: 'a', profiles: [], restarted_panes: [] },
       true,
     ),
+  gitStatusSummary: (cwd: string) =>
+    safeInvoke<GitSummary>('git_status_summary', { cwd }, { branch: null, changed: 0 }, true),
+  gitDiffFiles: (cwd: string) => safeInvoke<DiffFile[]>('git_diff_files', { cwd }, [], true),
   exitApp: () => safeInvoke<void>('exit_app', undefined, undefined, true),
 };
