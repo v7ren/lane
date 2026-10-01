@@ -6,7 +6,7 @@
 //! skipped too.
 
 use crate::protocol::{
-    AgentEvent, MessageContentKind, MessageRole, MessageTextMode, ToolStatus, TurnStatus,
+    AgentEvent, MessageContentKind, MessageRole, MessageTextMode, PlanItem, PlanStatus, ToolStatus, TurnStatus,
 };
 use serde::Serialize;
 use serde_json::Value;
@@ -206,25 +206,33 @@ impl SessionReplay {
                         duration_ms: None,
                     });
                 }
-                Some("tool_use") => out.push(AgentEvent::ToolStarted {
-                    turn_id: turn_id.clone(),
-                    tool_id: block
-                        .get("id")
-                        .and_then(Value::as_str)
-                        .unwrap_or("tool")
-                        .to_string(),
-                    name: block
+                Some("tool_use") => {
+                    let tool_name = block
                         .get("name")
                         .and_then(Value::as_str)
                         .unwrap_or("tool")
-                        .to_string(),
-                    input_summary: block
-                        .get("input")
-                        .map(Value::to_string)
-                        .unwrap_or_default(),
-                    tool_state: None,
-                    title: None,
-                }),
+                        .to_string();
+                    out.push(AgentEvent::ToolStarted {
+                        turn_id: turn_id.clone(),
+                        tool_id: block
+                            .get("id")
+                            .and_then(Value::as_str)
+                            .unwrap_or("tool")
+                            .to_string(),
+                        name: tool_name.clone(),
+                        input_summary: block
+                            .get("input")
+                            .map(Value::to_string)
+                            .unwrap_or_default(),
+                        tool_state: None,
+                        title: None,
+                    });
+                    if tool_name == "TodoWrite" {
+                        if let Some(plan_event) = todo_write_to_plan_updated(block, &turn_id) {
+                            out.push(plan_event);
+                        }
+                    }
+                }
                 _ => {}
             }
         }
@@ -270,6 +278,35 @@ fn tool_result(block: &Value, turn_id: &str) -> AgentEvent {
         tool_state: None,
         title: None,
     }
+}
+
+fn todo_write_to_plan_updated(block: &Value, turn_id: &str) -> Option<AgentEvent> {
+    let input = block.get("input")?;
+    let todos = input.get("todos")?.as_array()?;
+
+    let items: Vec<PlanItem> = todos
+        .iter()
+        .filter_map(|todo| {
+            let text = todo.get("content")?.as_str()?.to_string();
+            let status_str = todo.get("status")?.as_str()?;
+            let status = match status_str {
+                "in_progress" => PlanStatus::InProgress,
+                "completed" => PlanStatus::Done,
+                _ => PlanStatus::Pending,
+            };
+            Some(PlanItem { text, status })
+        })
+        .collect();
+
+    if items.is_empty() {
+        return None;
+    }
+
+    Some(AgentEvent::PlanUpdated {
+        turn_id: Some(turn_id.to_string()),
+        items,
+        explanation: None,
+    })
 }
 
 /// Parse a whole session file into events. Returns the events and how many turns they hold.
@@ -477,5 +514,36 @@ mod tests {
         );
         assert_eq!(title_from_head(head).as_deref(), Some("fix the bug"));
         assert_eq!(title_from_head("{}\n"), None);
+    }
+
+    #[test]
+    fn todo_write_to_plan_updated_live() {
+        let mut r = SessionReplay::default();
+        r.push_line(r#"{"type":"user","uuid":"u1","message":{"content":"make a todo list"}}"#);
+        let a = r.push_line(r#"{"type":"assistant","uuid":"a1","message":{"stop_reason":"tool_use","content":[{"type":"tool_use","id":"t1","name":"TodoWrite","input":{"todos":[{"content":"step 1","status":"pending"},{"content":"step 2","status":"in_progress"},{"content":"step 3","status":"completed"}]}}]}}"#);
+        assert!(matches!(&a[0], AgentEvent::ToolStarted { tool_id, name, .. } if tool_id == "t1" && name == "TodoWrite"));
+        assert!(matches!(&a[1], AgentEvent::PlanUpdated { turn_id, items, .. } if turn_id.is_some() && items.len() == 3));
+        if let AgentEvent::PlanUpdated { items, .. } = &a[1] {
+            assert_eq!(items[0].text, "step 1");
+            assert_eq!(items[0].status, PlanStatus::Pending);
+            assert_eq!(items[1].text, "step 2");
+            assert_eq!(items[1].status, PlanStatus::InProgress);
+            assert_eq!(items[2].text, "step 3");
+            assert_eq!(items[2].status, PlanStatus::Done);
+        } else {
+            panic!("Expected PlanUpdated event");
+        }
+    }
+
+    #[test]
+    fn todo_write_status_mapping() {
+        let mut r = SessionReplay::default();
+        r.push_line(r#"{"type":"user","uuid":"u1","message":{"content":"todos"}}"#);
+        let a = r.push_line(r#"{"type":"assistant","uuid":"a1","message":{"stop_reason":"tool_use","content":[{"type":"tool_use","id":"t1","name":"TodoWrite","input":{"todos":[{"content":"one","status":"unknown"}]}}]}}"#);
+        if let AgentEvent::PlanUpdated { items, .. } = &a[1] {
+            assert_eq!(items[0].status, PlanStatus::Pending);
+        } else {
+            panic!("Expected PlanUpdated event");
+        }
     }
 }

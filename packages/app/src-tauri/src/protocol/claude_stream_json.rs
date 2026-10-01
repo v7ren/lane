@@ -3,7 +3,7 @@
 use super::event_contract::is_claude_auth_failure_text;
 use super::types::{
     AgentError, AgentEvent, ApprovalDecision, ApprovalKind, Capabilities, Endpoint, MessageContentKind,
-    MessageRole, MessageTextMode, NoticeLevel, ProtocolAdapter, ProtocolSession, ToolStatus, TurnStatus,
+    MessageRole, MessageTextMode, NoticeLevel, PlanItem, PlanStatus, ProtocolAdapter, ProtocolSession, ToolStatus, TurnStatus,
 };
 use crate::agents::ProtocolKind;
 use crate::opencode::event_map::next_turn;
@@ -645,7 +645,17 @@ impl ClaudeStreamMapper {
             }
             Some("control_request") => self.map_control_request(&value, &mut out),
             Some("tool_use") => {
-                out.push(self.tool_started(&value, &turn_id));
+                let tool_event = self.tool_started(&value, &turn_id);
+                let tool_name = value
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                out.push(tool_event);
+                if tool_name == "TodoWrite" {
+                    if let Some(plan_event) = self.todo_write_to_plan_updated(&value, &turn_id) {
+                        out.push(plan_event);
+                    }
+                }
             }
             Some("tool_result") => {
                 out.push(tool_result_event(&value, &turn_id));
@@ -856,6 +866,35 @@ impl ClaudeStreamMapper {
             tool_state: None,
             title: None,
         }
+    }
+
+    fn todo_write_to_plan_updated(&self, block: &Value, turn_id: &str) -> Option<AgentEvent> {
+        let input = block.get("input")?;
+        let todos = input.get("todos")?.as_array()?;
+
+        let items: Vec<PlanItem> = todos
+            .iter()
+            .filter_map(|todo| {
+                let text = todo.get("content")?.as_str()?.to_string();
+                let status_str = todo.get("status")?.as_str()?;
+                let status = match status_str {
+                    "in_progress" => PlanStatus::InProgress,
+                    "completed" => PlanStatus::Done,
+                    _ => PlanStatus::Pending,
+                };
+                Some(PlanItem { text, status })
+            })
+            .collect();
+
+        if items.is_empty() {
+            return None;
+        }
+
+        Some(AgentEvent::PlanUpdated {
+            turn_id: Some(turn_id.to_string()),
+            items,
+            explanation: None,
+        })
     }
 
     fn map_result(&mut self, value: &Value, turn_id: &str, out: &mut Vec<AgentEvent>) {
@@ -1357,5 +1396,41 @@ mod tests {
         assert!(always["response"]["response"]["updatedPermissions"].is_array());
         let deny = approval_control_response("req-1", &request, ApprovalDecision::Deny);
         assert_eq!(deny["response"]["response"]["behavior"], "deny");
+    }
+
+    #[test]
+    fn todo_write_emits_plan_updated() {
+        let counter = Arc::new(AtomicU64::new(1));
+        let mut mapper = ClaudeStreamMapper::default();
+        mapper.begin_turn();
+        let line = r#"{"type":"tool_use","id":"t1","name":"TodoWrite","input":{"todos":[{"content":"step 1","status":"pending"},{"content":"step 2","status":"in_progress"},{"content":"step 3","status":"completed"}]}}"#;
+        let events = mapper.push_line(line, &counter);
+        assert_eq!(events.len(), 2);
+        assert!(matches!(&events[0], AgentEvent::ToolStarted { tool_id, name, .. } if tool_id == "t1" && name == "TodoWrite"));
+        assert!(matches!(&events[1], AgentEvent::PlanUpdated { turn_id, items, .. } if turn_id.is_some() && items.len() == 3));
+        if let AgentEvent::PlanUpdated { items, .. } = &events[1] {
+            assert_eq!(items[0].text, "step 1");
+            assert_eq!(items[0].status, PlanStatus::Pending);
+            assert_eq!(items[1].text, "step 2");
+            assert_eq!(items[1].status, PlanStatus::InProgress);
+            assert_eq!(items[2].text, "step 3");
+            assert_eq!(items[2].status, PlanStatus::Done);
+        } else {
+            panic!("Expected PlanUpdated event");
+        }
+    }
+
+    #[test]
+    fn todo_write_status_mapping_unknown_defaults_to_pending() {
+        let counter = Arc::new(AtomicU64::new(1));
+        let mut mapper = ClaudeStreamMapper::default();
+        mapper.begin_turn();
+        let line = r#"{"type":"tool_use","id":"t1","name":"TodoWrite","input":{"todos":[{"content":"item","status":"unknown"}]}}"#;
+        let events = mapper.push_line(line, &counter);
+        if let AgentEvent::PlanUpdated { items, .. } = &events[1] {
+            assert_eq!(items[0].status, PlanStatus::Pending);
+        } else {
+            panic!("Expected PlanUpdated event");
+        }
     }
 }
