@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import type { NoticeAction } from '../../lib/agent-events';
 import type { TranscriptViewModel } from '../../lib/transcript';
 import { AssistantTurnBlock, UserTurnRow } from './TurnRows';
 
@@ -10,11 +11,14 @@ export function TranscriptView({
   nativeTuiOnly,
   onForkFromMessage,
   projectRoot,
+  onNoticeAction,
 }: {
   vm: TranscriptViewModel;
   nativeTuiOnly: boolean;
   onForkFromMessage?: (messageId: string) => void;
   projectRoot?: string | null;
+  /** Called when a notice row's action button is pressed. No-op until wired by the host. */
+  onNoticeAction?: (action: NoticeAction) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [stuckBottom, setStuckBottom] = useState(true);
@@ -109,7 +113,11 @@ export function TranscriptView({
                   {row.turn.role === 'user' ? (
                     <UserTurnRow turn={row.turn} onForkFromHere={onForkFromMessage} />
                   ) : (
-                    <AssistantTurnBlock turn={row.turn} projectRoot={projectRoot} />
+                    <AssistantTurnBlock
+                      turn={row.turn}
+                      projectRoot={projectRoot}
+                      onNoticeAction={onNoticeAction}
+                    />
                   )}
                 </div>
               );
@@ -120,7 +128,12 @@ export function TranscriptView({
             row.turn.role === 'user' ? (
               <UserTurnRow key={row.id} turn={row.turn} onForkFromHere={onForkFromMessage} />
             ) : (
-              <AssistantTurnBlock key={row.id} turn={row.turn} projectRoot={projectRoot} />
+              <AssistantTurnBlock
+                key={row.id}
+                turn={row.turn}
+                projectRoot={projectRoot}
+                onNoticeAction={onNoticeAction}
+              />
             ),
           )
         )}

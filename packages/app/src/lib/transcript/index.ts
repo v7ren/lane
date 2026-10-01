@@ -6,6 +6,8 @@ export type {
   TranscriptTurn,
   TranscriptItem,
   TranscriptToolCall,
+  TranscriptToolGroup,
+  TranscriptNotice,
   TranscriptUserPrompt,
   AssistantMessageMeta,
   ToolCallStatus,

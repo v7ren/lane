@@ -80,6 +80,13 @@ describe('TranscriptView', () => {
     expect(userIdx).toBeGreaterThanOrEqual(0);
     expect(userIdx).toBeLessThan(firstAsst);
     expect(user?.textContent).toContain('Read hello.txt');
+    // Reasoning is collapsed by default, so expand it to check the content
+    const reasoningButton = assistants[0]?.querySelector('button');
+    if (reasoningButton) {
+      act(() => {
+        reasoningButton.click();
+      });
+    }
     expect(assistants[0]?.textContent).toMatch(/think step one/);
     expect(assistants[0]?.textContent).toMatch(/Read/);
     expect(assistants[1]?.textContent).toMatch(/hello/);

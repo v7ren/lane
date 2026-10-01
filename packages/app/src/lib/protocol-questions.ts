@@ -4,16 +4,30 @@ import type { TimelineApproval } from './agent-timeline-reducer';
 /** Decision prefix the backend reads as "these are the user answers" (see ANSWER_PREFIX in Rust). */
 const ANSWER_PREFIX = 'answer:';
 
-type ProtocolQuestion = {
+type LegacyQuestion = {
   question?: unknown;
   header?: unknown;
   options?: unknown;
   multiSelect?: unknown;
 };
 
+/** `QuestionInfo` plus the extra flags carried by the structured payload. */
+export type ProtocolQuestionInfo = QuestionInfo & { secret?: boolean; allow_other?: boolean };
+
 /** Questions an agent asked through the approval channel (Claude AskUserQuestion). */
-export function questionsFromApproval(approval: TimelineApproval): QuestionInfo[] {
+export function questionsFromApproval(approval: TimelineApproval): ProtocolQuestionInfo[] {
   if (approval.kind !== 'question') return [];
+  if (approval.payload?.type === 'questions') {
+    return approval.payload.questions.map((q) => ({
+      question: q.question,
+      header: q.header,
+      options: q.options.map((o) => ({ label: o.label, description: o.description ?? '' })),
+      multiple: q.multi_select === true,
+      custom: q.allow_other !== false,
+      secret: q.secret === true,
+      allow_other: q.allow_other !== false,
+    }));
+  }
   let parsed: unknown;
   try {
     parsed = JSON.parse(approval.detail);
@@ -21,7 +35,7 @@ export function questionsFromApproval(approval: TimelineApproval): QuestionInfo[
     return [];
   }
   if (!Array.isArray(parsed)) return [];
-  return parsed.map((raw: ProtocolQuestion) => {
+  return parsed.map((raw: LegacyQuestion) => {
     const options = Array.isArray(raw.options) ? raw.options : [];
     return {
       question: String(raw.question ?? ''),

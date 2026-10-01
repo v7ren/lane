@@ -1,4 +1,12 @@
-import type { AgentEvent, AgentEventEnvelope, ApprovalDecision } from './agent-events';
+import type {
+  AgentEvent,
+  AgentEventEnvelope,
+  ApprovalDecision,
+  ApprovalPayload,
+  NoticeAction,
+  NoticeLevel,
+  PlanItem,
+} from './agent-events';
 
 export type TimelineMessage = {
   id: string;
@@ -32,8 +40,20 @@ export type TimelineApproval = {
   detail: string;
   kind: 'command' | 'edit' | 'question' | 'plan' | 'other';
   options: ApprovalDecision[];
+  payload?: ApprovalPayload;
   resolved?: ApprovalDecision;
 };
+
+export type TimelineNotice = {
+  id: string;
+  level: NoticeLevel;
+  text: string;
+  source?: string;
+  action?: NoticeAction;
+  sticky: boolean;
+};
+
+export type TimelinePlan = { items: PlanItem[]; explanation?: string; turnId?: string };
 
 export type AgentTimelineViewModel = {
   messages: TimelineMessage[];
@@ -41,8 +61,17 @@ export type AgentTimelineViewModel = {
   approvals: TimelineApproval[];
   pendingApprovals: TimelineApproval[];
   filePaths: string[];
-  usage?: { input_tokens?: number; output_tokens?: number; cost_usd?: number };
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cost_usd?: number;
+    context_tokens?: number;
+    context_window?: number;
+  };
   rateLimit?: { message: string; retry_at_ms?: number };
+  plan?: TimelinePlan;
+  /** Notices by stable id (a repeat replaces in place, `cleared` removes). */
+  notices: TimelineNotice[];
   turnActive: boolean;
   lastError?: string;
   maxSeq: number;
@@ -55,6 +84,7 @@ export function emptyTimelineViewModel(): AgentTimelineViewModel {
     approvals: [],
     pendingApprovals: [],
     filePaths: [],
+    notices: [],
     turnActive: false,
     maxSeq: -1,
   };
@@ -266,6 +296,7 @@ function applyEvent(vm: AgentTimelineViewModel, event: AgentEvent): AgentTimelin
         detail: event.detail,
         kind: event.kind,
         options: event.options,
+        ...(event.payload ? { payload: event.payload } : {}),
       };
       const approvals = [...vm.approvals.filter((a) => a.id !== event.approval_id), approval];
       return {
@@ -311,6 +342,31 @@ function applyEvent(vm: AgentTimelineViewModel, event: AgentEvent): AgentTimelin
       };
     case 'error':
       return { ...vm, lastError: event.message };
+    case 'notice': {
+      if (event.cleared) {
+        return { ...vm, notices: vm.notices.filter((n) => n.id !== event.id) };
+      }
+      const notice: TimelineNotice = {
+        id: event.id,
+        level: event.level,
+        text: event.text,
+        source: event.source,
+        action: event.action,
+        sticky: event.sticky === true,
+      };
+      const idx = vm.notices.findIndex((n) => n.id === event.id);
+      const notices = vm.notices.slice();
+      if (idx === -1) notices.push(notice);
+      else notices[idx] = notice;
+      return { ...vm, notices };
+    }
+    case 'plan_updated':
+      return {
+        ...vm,
+        plan: { items: event.items, explanation: event.explanation, turnId: event.turn_id },
+      };
+    case 'tool_output_delta':
+      return vm;
     default: {
       const _never: never = event;
       return _never;

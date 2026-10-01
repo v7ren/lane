@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { NoticeAction } from '../../lib/agent-events';
 import type { TranscriptTurn } from '../../lib/transcript';
 import { formatAssistantMetaLine } from '../../lib/transcript';
 import { TranscriptItemView } from './TranscriptItemView';
@@ -72,15 +73,22 @@ export function UserTurnRow({
 export function AssistantTurnBlock({
   turn,
   projectRoot,
+  onNoticeAction,
 }: {
   turn: TranscriptTurn;
   projectRoot?: string | null;
+  onNoticeAction?: (action: NoticeAction) => void;
 }) {
   const metaLine = turn.meta ? formatAssistantMetaLine(turn.meta) : undefined;
   return (
     <div className="space-y-2 py-2" data-testid="assistant-turn">
       {turn.items.map((item) => (
-        <TranscriptItemView key={item.id} item={item} projectRoot={projectRoot} />
+        <TranscriptItemView
+          key={item.id}
+          item={item}
+          projectRoot={projectRoot}
+          onNoticeAction={onNoticeAction}
+        />
       ))}
       {metaLine && (
         <p className="text-meta text-text-3 pt-1 border-t border-border-subtle/50" data-testid="meta-footer">

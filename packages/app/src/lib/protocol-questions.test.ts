@@ -43,4 +43,30 @@ describe('protocol questions', () => {
       'answer:{"Which color do you pick?":"Red, Blue"}',
     );
   });
+
+  it('reads payload.questions first, carrying secret and allow_other', () => {
+    const withPayload: TimelineApproval = {
+      ...approval('question', 'not json'),
+      payload: {
+        type: 'questions',
+        questions: [
+          {
+            header: 'Key',
+            question: 'API key?',
+            options: [{ label: 'Paste' }],
+            multi_select: true,
+            allow_other: false,
+            secret: true,
+          },
+        ],
+      },
+    };
+    const [question] = questionsFromApproval(withPayload);
+    expect(question?.question).toBe('API key?');
+    expect(question?.options).toEqual([{ label: 'Paste', description: '' }]);
+    expect(question?.multiple).toBe(true);
+    expect(question?.custom).toBe(false);
+    expect(question?.secret).toBe(true);
+    expect(question?.allow_other).toBe(false);
+  });
 });

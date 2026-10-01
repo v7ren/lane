@@ -5,6 +5,7 @@ import {
   flattenTranscriptTurns,
   type AssistantMessageMeta,
   type TranscriptItem,
+  type TranscriptNotice,
   type TranscriptTurn,
   type TranscriptViewModel,
 } from './types.js';
@@ -32,6 +33,7 @@ type BuildState = {
   lastError?: string;
   rateLimit?: TranscriptViewModel['rateLimit'];
   errorSeq: number;
+  stickyNotices: Map<string, TranscriptNotice>;
 };
 
 function emptyTurn(id: string, role: 'user' | 'assistant'): TurnBuilder {
@@ -67,9 +69,13 @@ function assistantBuilder(state: BuildState, turnId: string): TurnBuilder {
   return getOrCreateBuilder(state, turnId, turnId, 'assistant');
 }
 
+const NOTICE_PREFIX = 'notice:';
+
 function lastAssistantBuilder(state: BuildState): TurnBuilder | undefined {
   for (let i = state.order.length - 1; i >= 0; i -= 1) {
-    const tb = state.builders.get(state.order[i]!);
+    const key = state.order[i]!;
+    if (key.startsWith(NOTICE_PREFIX)) continue;
+    const tb = state.builders.get(key);
     if (tb?.role === 'assistant') return tb;
   }
   return undefined;
@@ -162,7 +168,33 @@ function mapToolPhase(state?: string): 'pending' | 'running' | 'ok' | 'error' | 
   return 'running';
 }
 
-function applyEvent(state: BuildState, event: AgentEvent): void {
+function applyNotice(state: BuildState, event: Extract<AgentEvent, { type: 'notice' }>): void {
+  const key = `${NOTICE_PREFIX}${event.id}`;
+  const row = state.builders.get(key);
+  if (event.cleared) {
+    state.stickyNotices.delete(event.id);
+    if (row) row.items = [];
+    return;
+  }
+  const notice: TranscriptNotice = {
+    kind: 'notice',
+    id: event.id,
+    level: event.level,
+    text: event.text,
+    ...(event.action ? { action: event.action } : {}),
+  };
+  if (event.sticky === true) {
+    if (row) row.items = [];
+    state.stickyNotices.set(event.id, notice);
+    return;
+  }
+  state.stickyNotices.delete(event.id);
+  const tb = getOrCreateBuilder(state, key, key, 'assistant');
+  tb.items = [notice];
+}
+
+function applyEvent(state: BuildState, event: AgentEvent, env?: AgentEventEnvelope): void {
+  const liveTs = env && !env.replayed && env.ts_ms ? env.ts_ms : undefined;
   switch (event.type) {
     case 'turn_started':
       state.turnActive = true;
@@ -232,6 +264,7 @@ function applyEvent(state: BuildState, event: AgentEvent): void {
         status: mapAgentToolStatus(mapToolPhase(event.tool_state)),
         input: normalized.input ?? event.input_summary,
         output: normalized.output,
+        ...(liveTs != null ? { startedAtMs: liveTs } : {}),
       };
       const prior = state.tools.get(event.tool_id);
       const priorBuilder = prior ? state.builders.get(prior.builderKey) : undefined;
@@ -267,6 +300,7 @@ function applyEvent(state: BuildState, event: AgentEvent): void {
         tool.input = normalized.input ?? rawInput;
         tool.output = normalized.output ?? event.output_summary;
         tool.title = event.title ?? tool.title;
+        if (liveTs != null) tool.endedAtMs = liveTs;
       } else {
         tb.items.push({
           kind: 'tool_call',
@@ -331,8 +365,13 @@ function applyEvent(state: BuildState, event: AgentEvent): void {
       pushError(tb, id, event.message);
       break;
     }
+    case 'notice':
+      applyNotice(state, event);
+      break;
     case 'approval_requested':
     case 'approval_resolved':
+    case 'plan_updated':
+    case 'tool_output_delta':
       break;
     default: {
       const _never: never = event;
@@ -369,10 +408,11 @@ export function fromAgentEventEnvelopes(envelopes: AgentEventEnvelope[]): Transc
     globalFilePaths: [],
     turnActive: false,
     errorSeq: 0,
+    stickyNotices: new Map(),
   };
 
   for (const env of sorted) {
-    applyEvent(state, env.event);
+    applyEvent(state, env.event, env);
   }
 
   // files_changed is session-wide: surface one patch item on the last assistant turn (as the legacy bridge does).
@@ -393,6 +433,7 @@ export function fromAgentEventEnvelopes(envelopes: AgentEventEnvelope[]): Transc
     rateLimit: state.rateLimit,
     lastError: state.lastError,
     globalFilePaths: state.globalFilePaths,
+    stickyNotices: [...state.stickyNotices.values()],
   };
 }
 

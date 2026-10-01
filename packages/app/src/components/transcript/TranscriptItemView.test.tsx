@@ -181,4 +181,100 @@ describe('TranscriptItemView part types', () => {
     const el = container.querySelector('[data-testid="transcript-compaction"]');
     expect(el?.textContent?.trim()).toBe('Context compacted');
   });
+
+  it('renders reasoning collapsed by default', () => {
+    act(() => {
+      root.render(
+        <TranscriptItemView
+          item={{
+            kind: 'reasoning',
+            id: 'r1',
+            text: 'I need to think about this carefully',
+            streaming: false,
+          }}
+        />,
+      );
+    });
+    expect(container.textContent).toContain('Thought');
+    const bodyElement = container.querySelector('p');
+    expect(bodyElement).toBeNull();
+  });
+
+  it('reasoning expands on click', () => {
+    act(() => {
+      root.render(
+        <TranscriptItemView
+          item={{
+            kind: 'reasoning',
+            id: 'r1',
+            text: 'I need to think about this carefully',
+            streaming: false,
+          }}
+        />,
+      );
+    });
+    const button = container.querySelector('button');
+    expect(button).not.toBeNull();
+    act(() => {
+      button!.click();
+    });
+    const bodyElement = container.querySelector('p');
+    expect(bodyElement).not.toBeNull();
+    expect(bodyElement?.textContent).toContain('I need to think about this carefully');
+  });
+
+  it('streaming reasoning shows "Thinking…" label', () => {
+    act(() => {
+      root.render(
+        <TranscriptItemView
+          item={{
+            kind: 'reasoning',
+            id: 'r1',
+            text: 'partial thought',
+            streaming: true,
+          }}
+        />,
+      );
+    });
+    expect(container.textContent).toContain('Thinking…');
+  });
+
+  it('renders notices by level and fires the action callback', () => {
+    const calls: unknown[] = [];
+    act(() => {
+      root.render(
+        <TranscriptItemView
+          item={{
+            kind: 'notice',
+            id: 'n1',
+            level: 'error',
+            text: 'Chat unavailable',
+            action: { kind: 'retry_chat' },
+          }}
+          onNoticeAction={(a) => calls.push(a)}
+        />,
+      );
+    });
+    const row = container.querySelector('[data-testid="transcript-notice"]');
+    expect(row?.getAttribute('data-level')).toBe('error');
+    expect(row?.className).toContain('text-status-error');
+    expect(row?.textContent).toContain('Chat unavailable');
+    act(() => {
+      container.querySelector('button')!.click();
+    });
+    expect(calls).toEqual([{ kind: 'retry_chat' }]);
+  });
+
+  it('renders info notices muted, without a button when there is no action', () => {
+    act(() => {
+      root.render(
+        <TranscriptItemView
+          item={{ kind: 'notice', id: 'n2', level: 'info', text: 'Context compacted' }}
+        />,
+      );
+    });
+    const row = container.querySelector('[data-testid="transcript-notice"]');
+    expect(row?.className).toContain('text-text-3');
+    expect(container.querySelector('button')).toBeNull();
+  });
 });

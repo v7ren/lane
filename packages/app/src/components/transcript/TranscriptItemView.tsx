@@ -2,7 +2,9 @@ import { useState } from 'react';
 
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
-import type { TranscriptItem } from '../../lib/transcript';
+import type { NoticeAction } from '../../lib/agent-events';
+
+import type { TranscriptItem, TranscriptNotice } from '../../lib/transcript';
 
 import { formatDuration } from '../../lib/transcript';
 
@@ -18,11 +20,15 @@ export function TranscriptItemView({
 
   projectRoot,
 
+  onNoticeAction,
+
 }: {
 
   item: TranscriptItem;
 
   projectRoot?: string | null;
+
+  onNoticeAction?: (action: NoticeAction) => void;
 
 }) {
 
@@ -52,11 +58,11 @@ export function TranscriptItemView({
 
           : item.streaming
 
-            ? 'Thought…'
+            ? 'Thinking…'
 
             : 'Thought';
 
-      return <CollapsibleMuted label={label} body={item.text} defaultOpen />;
+      return <CollapsibleMuted label={label} body={item.text} defaultOpen={false} />;
 
     }
 
@@ -196,6 +202,26 @@ export function TranscriptItemView({
 
       );
 
+    case 'notice':
+
+      return <NoticeRow notice={item} onAction={onNoticeAction} />;
+
+    case 'tool_group':
+
+      return (
+
+        <div className="space-y-1" data-testid="transcript-tool-group">
+
+          {item.tools.map((tool) => (
+
+            <ToolCard key={tool.id} tool={tool} projectRoot={projectRoot} />
+
+          ))}
+
+        </div>
+
+      );
+
     case 'user_prompt':
 
       return null;
@@ -213,6 +239,80 @@ export function TranscriptItemView({
 }
 
 
+
+const NOTICE_TONE: Record<TranscriptNotice['level'], string> = {
+
+  info: 'text-text-3',
+
+  warning: 'text-status-approval',
+
+  error: 'text-status-error',
+
+};
+
+const NOTICE_ACTION_LABEL: Record<NoticeAction['kind'], string> = {
+
+  retry_chat: 'Retry',
+
+  open_terminal: 'Open in terminal',
+
+  focus_terminal: 'Focus terminal',
+
+  back_to_chat: 'Back to chat',
+
+};
+
+function NoticeRow({
+
+  notice,
+
+  onAction,
+
+}: {
+
+  notice: TranscriptNotice;
+
+  onAction?: (action: NoticeAction) => void;
+
+}) {
+
+  return (
+
+    <div
+
+      className={`flex items-center gap-2 px-1 text-meta ${NOTICE_TONE[notice.level]}`}
+
+      data-testid="transcript-notice"
+
+      data-level={notice.level}
+
+    >
+
+      <span className="min-w-0 flex-1 break-words">{notice.text}</span>
+
+      {notice.action && (
+
+        <button
+
+          type="button"
+
+          className="shrink-0 text-accent hover:underline"
+
+          onClick={() => notice.action && onAction?.(notice.action)}
+
+        >
+
+          {NOTICE_ACTION_LABEL[notice.action.kind]}
+
+        </button>
+
+      )}
+
+    </div>
+
+  );
+
+}
 
 function CollapsibleMuted({
 

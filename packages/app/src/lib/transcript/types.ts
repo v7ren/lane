@@ -1,3 +1,5 @@
+import type { NoticeAction, NoticeLevel } from '../agent-events.js';
+
 export type ToolCallStatus = 'pending' | 'running' | 'completed' | 'error';
 
 export type TranscriptFileChip = {
@@ -41,6 +43,10 @@ export type TranscriptToolCall = {
   input: unknown;
   output: unknown;
   diff?: string;
+  /** Wall-clock ms (hub `ts_ms`) of the live tool_started / tool_completed events. */
+  startedAtMs?: number;
+  endedAtMs?: number;
+  diffStat?: { added: number; removed: number };
   /** OpenCode tool state metadata (e.g. child session id for task tools). */
   metadata?: unknown;
 };
@@ -103,6 +109,21 @@ export type TranscriptCompaction = {
   auto?: boolean;
 };
 
+export type TranscriptToolGroup = {
+  kind: 'tool_group';
+  id: string;
+  tools: TranscriptToolCall[];
+  summary: string;
+};
+
+export type TranscriptNotice = {
+  kind: 'notice';
+  id: string;
+  level: NoticeLevel;
+  text: string;
+  action?: NoticeAction;
+};
+
 export type TranscriptItem =
   | TranscriptUserPrompt
   | TranscriptAssistantText
@@ -115,7 +136,9 @@ export type TranscriptItem =
   | TranscriptError
   | TranscriptStepUsage
   | TranscriptFile
-  | TranscriptCompaction;
+  | TranscriptCompaction
+  | TranscriptToolGroup
+  | TranscriptNotice;
 
 export type AssistantMessageMeta = {
   agent?: string;
@@ -148,6 +171,8 @@ export type TranscriptViewModel = {
   rateLimit?: TranscriptRateLimit;
   lastError?: string;
   globalFilePaths: string[];
+  /** Sticky notices render as a chip above the composer, not as transcript rows. */
+  stickyNotices?: TranscriptNotice[];
 };
 
 export function emptyTranscriptViewModel(): TranscriptViewModel {

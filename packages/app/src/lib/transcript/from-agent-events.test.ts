@@ -271,3 +271,87 @@ function minimalEvent(type: string, turnId: string): AgentEvent {
       return { type: 'turn_completed', turn_id: turnId, status: 'ok' };
   }
 }
+
+describe('fromAgentEventEnvelopes notices, plan and tool timing', () => {
+  const notice = (seq: number, event: Partial<Extract<AgentEvent, { type: 'notice' }>>) =>
+    envelope(seq, { type: 'notice', id: 'n1', level: 'warning', text: 'careful', ...event });
+
+  it('renders a non-sticky notice as an item, replaced in place by id and removed on cleared', () => {
+    let vm = fromAgentEventEnvelopes([
+      notice(1, {}),
+      notice(2, { text: 'updated', action: { kind: 'retry_chat' } }),
+    ]);
+    let items = vm.flatItems.filter((i) => i.kind === 'notice');
+    expect(items).toEqual([
+      { kind: 'notice', id: 'n1', level: 'warning', text: 'updated', action: { kind: 'retry_chat' } },
+    ]);
+    expect(vm.stickyNotices).toEqual([]);
+    vm = fromAgentEventEnvelopes([notice(1, {}), notice(2, { cleared: true })]);
+    items = vm.flatItems.filter((i) => i.kind === 'notice');
+    expect(items).toEqual([]);
+  });
+
+  it('routes sticky notices to the view model, not the turns', () => {
+    const vm = fromAgentEventEnvelopes([notice(1, { sticky: true, level: 'info' })]);
+    expect(vm.flatItems).toEqual([]);
+    expect(vm.stickyNotices?.map((n) => n.id)).toEqual(['n1']);
+    const cleared = fromAgentEventEnvelopes([
+      notice(1, { sticky: true }),
+      notice(2, { sticky: true, cleared: true }),
+    ]);
+    expect(cleared.stickyNotices).toEqual([]);
+  });
+
+  it('does not attach usage to a notice row', () => {
+    const vm = fromAgentEventEnvelopes([
+      envelope(1, {
+        type: 'message_completed',
+        turn_id: 't1',
+        message_id: 'a1',
+        role: 'assistant',
+        text: 'hi',
+      }),
+      notice(2, {}),
+      envelope(3, { type: 'usage', input_tokens: 5 }),
+    ]);
+    const turn = vm.turns.find((t) => t.items.some((i) => i.kind === 'step_usage'));
+    expect(turn?.items.some((i) => i.kind === 'assistant_text')).toBe(true);
+  });
+
+  it('ignores plan_updated and tool_output_delta in the transcript', () => {
+    const vm = fromAgentEventEnvelopes([
+      envelope(1, { type: 'plan_updated', items: [{ text: 'a', status: 'done' }] }),
+      envelope(2, { type: 'tool_output_delta', turn_id: 't1', tool_id: 'x', chunk: 'c' }),
+    ]);
+    expect(vm.flatItems).toEqual([]);
+  });
+
+  it('records live tool times but not replayed ones', () => {
+    const started = {
+      type: 'tool_started',
+      turn_id: 't1',
+      tool_id: 'x',
+      name: 'Bash',
+      input_summary: 'ls',
+    } as const;
+    const done = {
+      type: 'tool_completed',
+      turn_id: 't1',
+      tool_id: 'x',
+      status: 'ok',
+      output_summary: 'f',
+    } as const;
+    const live = fromAgentEventEnvelopes([
+      { ...envelope(1, started), ts_ms: 1000 },
+      { ...envelope(2, done), ts_ms: 2500 },
+    ]);
+    const tool = live.flatItems.find((i) => i.kind === 'tool_call');
+    expect(tool?.kind === 'tool_call' && [tool.startedAtMs, tool.endedAtMs]).toEqual([1000, 2500]);
+    const replay = fromAgentEventEnvelopes([
+      { ...envelope(1, started), ts_ms: 1000, replayed: true },
+      { ...envelope(2, done), ts_ms: 2500, replayed: true },
+    ]);
+    const rt = replay.flatItems.find((i) => i.kind === 'tool_call');
+    expect(rt?.kind === 'tool_call' && rt.startedAtMs).toBeUndefined();
+  });
+});

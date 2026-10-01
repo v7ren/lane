@@ -192,4 +192,64 @@ describe('agent-timeline-reducer', () => {
     expect(base.lastError).toBe('new');
     expect(base.maxSeq).toBe(2);
   });
+
+  it('stores notices by id: a repeat replaces, cleared removes', () => {
+    const base = { type: 'notice', level: 'info', sticky: false } as const;
+    let vm = reduceAgentTimeline(
+      [],
+      [
+        env(1, { ...base, id: 'n1', text: 'one' }),
+        env(2, { ...base, id: 'n2', text: 'two', level: 'warning', sticky: true }),
+        env(3, { ...base, id: 'n1', text: 'one again' }),
+      ],
+    );
+    expect(vm.notices.map((n) => [n.id, n.text, n.sticky])).toEqual([
+      ['n1', 'one again', false],
+      ['n2', 'two', true],
+    ]);
+    vm = mergeAgentEventEnvelopes(vm, [
+      env(4, { type: 'notice', id: 'n1', level: 'info', text: '', cleared: true }),
+    ]);
+    expect(vm.notices.map((n) => n.id)).toEqual(['n2']);
+  });
+
+  it('keeps the latest plan (replace, not merge) and ignores tool output deltas', () => {
+    const vm = reduceAgentTimeline(
+      [],
+      [
+        env(1, { type: 'plan_updated', items: [{ text: 'a', status: 'pending' }] }),
+        env(2, {
+          type: 'plan_updated',
+          items: [{ text: 'b', status: 'in_progress' }],
+          explanation: 'why',
+        }),
+        env(3, { type: 'tool_output_delta', turn_id: 't1', tool_id: 'x', chunk: 'hi' }),
+      ],
+    );
+    expect(vm.plan?.items).toEqual([{ text: 'b', status: 'in_progress' }]);
+    expect(vm.plan?.explanation).toBe('why');
+    expect(vm.tools).toEqual([]);
+    expect(vm.maxSeq).toBe(3);
+  });
+
+  it('carries the approval payload and usage context fields', () => {
+    const vm = reduceAgentTimeline(
+      [],
+      [
+        env(1, {
+          type: 'approval_requested',
+          approval_id: 'a1',
+          title: 'Run',
+          detail: 'ls',
+          kind: 'command',
+          options: ['allow_once', 'deny'],
+          payload: { type: 'command', command: 'ls' },
+        }),
+        env(2, { type: 'usage', input_tokens: 1, context_tokens: 90, context_window: 200 }),
+      ],
+    );
+    expect(vm.pendingApprovals[0]?.payload).toEqual({ type: 'command', command: 'ls' });
+    expect(vm.usage?.context_tokens).toBe(90);
+    expect(vm.usage?.context_window).toBe(200);
+  });
 });
