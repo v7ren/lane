@@ -18,7 +18,14 @@ pub fn path_for_spawn() -> &'static str {
 }
 
 /// Set interactive PATH on a child command without clearing other inherited env (OAuth, config dirs).
+/// Set by a parent Claude Code session. A `claude` that inherits them believes it is a nested
+/// child and does not save its transcript, so Loomria could neither resume nor mirror the chat.
+pub const NESTED_CLAUDE_ENV: [&str; 2] = ["CLAUDE_CODE_CHILD_SESSION", "CLAUDECODE"];
+
 pub fn apply_path_to_command(cmd: &mut std::process::Command) {
+    for key in NESTED_CLAUDE_ENV {
+        cmd.env_remove(key);
+    }
     cmd.env("PATH", path_for_spawn());
     #[cfg(windows)]
     cmd.env("Path", path_for_spawn());

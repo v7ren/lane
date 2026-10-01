@@ -1,3 +1,4 @@
+pub mod claude_mirror;
 pub mod claude_session_file;
 pub mod claude_stream_json;
 mod codex_app_server;

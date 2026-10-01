@@ -224,6 +224,9 @@ fn apply_common_pty_env(cmd_builder: &mut CommandBuilder) {
     cmd_builder.env("PATH", crate::shell_env::path_for_spawn());
     #[cfg(windows)]
     cmd_builder.env("Path", crate::shell_env::path_for_spawn());
+    for key in crate::shell_env::NESTED_CLAUDE_ENV {
+        cmd_builder.env_remove(key);
+    }
     cmd_builder.env("TERM", "xterm-256color");
     cmd_builder.env("COLORTERM", "truecolor");
     crate::process::configure_unix_session(cmd_builder);

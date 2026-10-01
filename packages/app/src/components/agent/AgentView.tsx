@@ -10,6 +10,7 @@ import {
 } from '../../lib/sessions/merge-sessions';
 import {
   sessionCancelTurn,
+  sessionClaudeToChat,
   sessionOpenInTui,
   sessionRespondApproval,
   sessionSendPrompt,
@@ -34,14 +35,10 @@ import { getOpenCodeStore } from '../../lib/opencode/store';
 import { useOpenCodeLastRequestError } from '../../lib/opencode/hooks';
 import { tauri } from '../../lib/tauri';
 import {
-  canResumeClaudeSession,
   clearTuiCompanion,
-  countAssistantTurns,
   getTuiCompanion,
   setTuiCompanion,
-  tuiNeedsSync,
   useTuiCompanions,
-  useTuiSyncedTurns,
 } from '../../lib/tui-companions';
 import { answerClaudeTrustPrompt, useClaudeTrustPrompt } from '../../lib/claude-trust-prompt';
 import { answerDecision, questionsFromApproval } from '../../lib/protocol-questions';
@@ -377,50 +374,33 @@ export function AgentView({
     }
   }, [capabilities.cancel, openCodePane, paneId, refresh, sessionId]);
 
-  // A headless Claude pane has no terminal, so its TUI is a hidden companion pane that resumes the
-  // same session; it is created on first use and shown in this pane's TUI column.
-  const canResumeSession = canResumeClaudeSession(transcript.turns, displayStatus);
-  const assistantTurns = countAssistantTurns(transcript.turns);
-  const syncedAssistantTurns = useTuiSyncedTurns(paneId);
-  const claudeTuiStale =
-    Boolean(claudeTuiPaneId) && tuiNeedsSync(transcript.turns, displayStatus, syncedAssistantTurns);
-
-  // Close the terminal and reopen it resuming the saved session, so it shows this chat.
-  const syncClaudeTui = useCallback(async () => {
-    setActionError(null);
-    try {
-      const old = clearTuiCompanion(paneId);
-      if (old) {
-        await tauri.killPane(old);
-        disposeTerminalSession(old);
-      }
-      setTuiCompanion(paneId, await sessionOpenInTui(paneId, false), assistantTurns);
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : String(err));
-    }
-  }, [assistantTurns, paneId]);
-
+  // One owner at a time: either this chat's process or the terminal owns the Claude session. The
+  // terminal is a hidden companion pane; handing over stops the other process, so the two cannot drift.
+  const terminalOwns = Boolean(claudeTuiPaneId);
   const toggleClaudeTui = useCallback(async () => {
-    if (showTui) {
-      onToggleTui();
-      return;
-    }
     setActionError(null);
+    const working = displayStatus === 'working';
     try {
-      if (getTuiCompanion(paneId)) {
-        if (claudeTuiStale) await syncClaudeTui();
-      } else {
-        setTuiCompanion(
-          paneId,
-          await sessionOpenInTui(paneId, !canResumeSession),
-          canResumeSession ? assistantTurns : 0,
-        );
+      if (terminalOwns) {
+        if (working && !window.confirm('Claude is still working in the terminal. Stop it and go back to chat?')) {
+          return;
+        }
+        const old = clearTuiCompanion(paneId);
+        if (old) disposeTerminalSession(old);
+        await sessionClaudeToChat(paneId, old);
+        if (showTui) onToggleTui();
+        return;
       }
-      onToggleTui();
+      if (working && !window.confirm('Claude is still working. Stop it and open the terminal?')) {
+        return;
+      }
+      if (working) await sessionCancelTurn(paneId).catch(() => undefined);
+      setTuiCompanion(paneId, await sessionOpenInTui(paneId));
+      if (!showTui) onToggleTui();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : String(err));
     }
-  }, [assistantTurns, canResumeSession, claudeTuiStale, onToggleTui, paneId, showTui, syncClaudeTui]);
+  }, [displayStatus, onToggleTui, paneId, showTui, terminalOwns]);
 
   const toggleMute = useCallback(async () => {
     const next = !muted;
@@ -502,7 +482,7 @@ export function AgentView({
             className="px-2 py-1 text-meta rounded-md border border-border-subtle hover:bg-hover"
             onClick={() => void toggleClaudeTui()}
           >
-            {showTui ? 'Hide TUI' : 'Show TUI'}
+            {terminalOwns ? 'Back to chat' : 'Open in terminal'}
           </button>
         )}
         {capabilities.attach_tui && !showTui && !headlessClaude && (
@@ -536,23 +516,6 @@ export function AgentView({
       <div
         className={`flex flex-1 flex-col min-h-0 overflow-hidden w-full mx-auto ${showTui ? '' : 'max-w-[52rem]'}`}
       >
-        {showTui && headlessClaude && claudeTuiStale && (
-          <div
-            className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-border-subtle bg-elevated"
-            data-testid="claude-tui-sync-banner"
-          >
-            <p className="text-meta flex-1 min-w-0">
-              The terminal does not have the latest chat replies yet.
-            </p>
-            <button
-              type="button"
-              className="shrink-0 text-meta px-2 py-1 rounded-md bg-accent text-white hover:opacity-90"
-              onClick={() => void syncClaudeTui()}
-            >
-              Sync terminal
-            </button>
-          </div>
-        )}
         {connectFailed && (
           <div
             className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-status-error/30"

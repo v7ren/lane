@@ -72,9 +72,16 @@ export async function sessionCancelTurn(paneId: string): Promise<void> {
   await invoke('session_cancel_turn', { paneId });
 }
 
-export async function sessionOpenInTui(paneId: string, fresh = false): Promise<string> {
+/** Hand the Claude session to the terminal (the chat process stops); returns the terminal pane id. */
+export async function sessionOpenInTui(paneId: string): Promise<string> {
   if (!isTauriRuntime()) throw new Error('session_open_in_tui unavailable outside Tauri');
-  return invoke<string>('session_open_in_tui', { paneId, fresh });
+  return invoke<string>('session_open_in_tui', { paneId });
+}
+
+/** Take the Claude session back from the terminal: the chat process resumes it. */
+export async function sessionClaudeToChat(paneId: string, tuiPaneId?: string): Promise<void> {
+  if (!isTauriRuntime()) throw new Error('session_claude_to_chat unavailable outside Tauri');
+  await invoke('session_claude_to_chat', { paneId, tuiPaneId: tuiPaneId ?? null });
 }
 
 export function subscribeAgentEvents(

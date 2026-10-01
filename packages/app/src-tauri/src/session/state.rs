@@ -149,7 +149,7 @@ impl SessionStateStore {
         pane_id.map(|(id, state, detail)| self.upsert(id, state, detail, entry.timestamp_ms))
     }
 
-    fn upsert(
+    pub(crate) fn upsert(
         &self,
         pane_id: String,
         state: SessionStateKind,

@@ -1,15 +1,14 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * A headless chat pane (Claude stream-json) has no terminal of its own. "Show TUI" resumes the
- * same session in a second, terminal pane; that pane is a hidden companion of the chat pane:
- * it is shown in the chat pane's TUI column, kept out of the sidebar, and closed with it.
+ * A headless chat pane (Claude stream-json) has no terminal of its own. "Open in terminal" hands the
+ * session to a terminal pane, the hidden companion of the chat pane: only one of the two processes
+ * owns the session at a time. The companion is shown in the chat pane's TUI column, kept out of the
+ * sidebar, and closed when the session goes back to the chat.
  */
 type CompanionMap = Readonly<Record<string, string>>;
 
 let companions: CompanionMap = {};
-/** Assistant turns of the chat that the terminal had loaded when it was opened or last synced. */
-let syncedTurns: Readonly<Record<string, number>> = {};
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -20,43 +19,9 @@ export function getTuiCompanion(chatPaneId: string): string | undefined {
   return companions[chatPaneId];
 }
 
-export function setTuiCompanion(chatPaneId: string, tuiPaneId: string, loadedAssistantTurns = 0): void {
+export function setTuiCompanion(chatPaneId: string, tuiPaneId: string): void {
   companions = { ...companions, [chatPaneId]: tuiPaneId };
-  syncedTurns = { ...syncedTurns, [chatPaneId]: loadedAssistantTurns };
   emit();
-}
-
-export function getTuiSyncedTurns(chatPaneId: string): number {
-  return syncedTurns[chatPaneId] ?? 0;
-}
-
-export function useTuiSyncedTurns(chatPaneId: string): number {
-  return useSyncExternalStore(
-    subscribe,
-    () => syncedTurns[chatPaneId] ?? 0,
-    () => 0,
-  );
-}
-
-export function countAssistantTurns(turns: ReadonlyArray<{ role: string }>): number {
-  return turns.filter((turn) => turn.role === 'assistant').length;
-}
-
-/** Claude saves a session after its first reply; only then can a terminal resume the chat. */
-export function canResumeClaudeSession(
-  turns: ReadonlyArray<{ role: string }>,
-  status: string,
-): boolean {
-  return countAssistantTurns(turns) > 0 && (status === 'done' || status === 'idle');
-}
-
-/** The chat has finished replies the terminal has not loaded (it is stale until resynced). */
-export function tuiNeedsSync(
-  turns: ReadonlyArray<{ role: string }>,
-  status: string,
-  loadedAssistantTurns: number,
-): boolean {
-  return canResumeClaudeSession(turns, status) && countAssistantTurns(turns) > loadedAssistantTurns;
 }
 
 /** Forget the companion of a chat pane and return its terminal pane id (to close it). */
@@ -65,8 +30,6 @@ export function clearTuiCompanion(chatPaneId: string): string | undefined {
   if (tuiPaneId === undefined) return undefined;
   const { [chatPaneId]: _removed, ...rest } = companions;
   companions = rest;
-  const { [chatPaneId]: _synced, ...restSynced } = syncedTurns;
-  syncedTurns = restSynced;
   emit();
   return tuiPaneId;
 }
@@ -82,7 +45,6 @@ export function companionPaneIds(map: CompanionMap): Set<string> {
 
 export function resetTuiCompanionsForTests(): void {
   companions = {};
-  syncedTurns = {};
   emit();
 }
 

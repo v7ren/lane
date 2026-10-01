@@ -20,8 +20,12 @@ struct PaneProtocol {
     seq: u64,
     session: Arc<dyn ProtocolSession>,
     protocol_child_pid: Option<u32>,
-    _pump: thread::JoinHandle<()>,
+    /// Identifies this registration: events from a replaced or unregistered session are dropped.
+    generation: u64,
+    _pump: Option<thread::JoinHandle<()>>,
 }
+
+static NEXT_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 pub struct ProtocolHub {
     inner: Mutex<HubInner>,
@@ -83,14 +87,7 @@ impl ProtocolHub {
         let mut rx = session.subscribe();
         let hub = Arc::clone(self);
         let pane_for_pump = pane_id.clone();
-        let pump = thread::Builder::new()
-            .name(format!("protocol-{pane_id}"))
-            .spawn(move || {
-                while let Ok(event) = rx.blocking_recv() {
-                    hub.ingest(&pane_for_pump, event);
-                }
-            })
-            .map_err(|e| format!("spawn protocol pump: {e}"))?;
+        let generation = NEXT_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
         self.inner.lock().panes.insert(
             pane_id.clone(),
@@ -100,11 +97,35 @@ impl ProtocolHub {
                 seq: 0,
                 session,
                 protocol_child_pid,
-                _pump: pump,
+                generation,
+                _pump: None,
             },
         );
+        // The pump starts once the pane is registered, and only forwards events of this very
+        // registration: a stopped chat process reporting its exit must not touch a later one.
+        let pump = thread::Builder::new()
+            .name(format!("protocol-{pane_id}"))
+            .spawn(move || {
+                while let Ok(event) = rx.blocking_recv() {
+                    hub.ingest_from(&pane_for_pump, generation, event);
+                }
+            })
+            .map_err(|e| format!("spawn protocol pump: {e}"))?;
+        if let Some(pane) = self.inner.lock().panes.get_mut(&pane_id) {
+            if pane.generation == generation {
+                pane._pump = Some(pump);
+            }
+        }
         if let Some(store) = self.inner.lock().session_states.as_ref() {
             store.set_protocol_backed(&pane_id, true);
+            // A pane starts out "working" (spawn); a chat that has not been asked anything is idle.
+            let snap = store.upsert(
+                pane_id.clone(),
+                crate::session::state::SessionStateKind::Idle,
+                None,
+                crate::events::now_ms(),
+            );
+            crate::session::state::push_agent_state(store.as_ref(), snap);
         }
         Ok(())
     }
@@ -212,6 +233,13 @@ impl ProtocolHub {
                 | AgentEvent::ApprovalRequested { .. }
                 | AgentEvent::ApprovalResolved { .. }
         )
+    }
+
+    fn ingest_from(self: &Arc<Self>, pane_id: &str, generation: u64, event: AgentEvent) {
+        let current = self.inner.lock().panes.get(pane_id).map(|p| p.generation);
+        if current == Some(generation) {
+            self.ingest(pane_id, event);
+        }
     }
 
     fn ingest(self: &Arc<Self>, pane_id: &str, event: AgentEvent) {

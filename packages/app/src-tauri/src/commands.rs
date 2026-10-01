@@ -388,12 +388,14 @@ pub async fn claude_list_sessions(
     Ok(sessions)
 }
 
+/// Hand the Claude session over to the terminal. Only one `claude` process owns a session at a
+/// time: the chat process stops, the terminal resumes the same session, and the chat pane mirrors
+/// the session file until `session_claude_to_chat` takes it back.
 #[tauri::command]
 pub async fn session_open_in_tui(
     app: AppHandle,
     state: State<'_, AppState>,
     pane_id: String,
-    fresh: Option<bool>,
 ) -> Result<String, String> {
     let session_id =
         crate::session::claude_headless::claude_session_id(&state.registry, &pane_id)?;
@@ -411,12 +413,15 @@ pub async fn session_open_in_tui(
     let resume = manifest
         .launch_resume_args()
         .ok_or_else(|| "claude manifest missing launch.resume".to_string())?;
+    // Stop the chat process first so the terminal is the only writer of the session file.
+    state.protocol_hub.unregister(&pane_id);
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     // Claude only saves a session after its first reply, so an empty chat has nothing to resume:
     // the terminal starts a session under the same id instead.
-    let extra_args = if fresh.unwrap_or(false) {
-        vec!["--session-id".to_string(), session_id.clone()]
-    } else {
+    let extra_args = if crate::protocol::claude_session_file::session_exists(&cwd, &session_id) {
         crate::session::substitute_args(resume, 0, "", &session_id, &cwd)
+    } else {
+        vec!["--session-id".to_string(), session_id.clone()]
     };
     let new_pane_id = registry_spawn_pane(
         &state.registry,
@@ -424,7 +429,7 @@ pub async fn session_open_in_tui(
         &app,
         SpawnPaneArgs {
             agent_type: "claude".to_string(),
-            cwd: Some(cwd),
+            cwd: Some(cwd.clone()),
             cols: None,
             rows: None,
             extra_args: Some(extra_args),
@@ -434,7 +439,70 @@ pub async fn session_open_in_tui(
         },
         None,
     )?;
+    start_claude_mirror(&state, &app, &pane_id, &new_pane_id, &session_id, &cwd)?;
     Ok(new_pane_id)
+}
+
+fn start_claude_mirror(
+    state: &AppState,
+    app: &AppHandle,
+    chat_pane_id: &str,
+    tui_pane_id: &str,
+    session_id: &str,
+    cwd: &str,
+) -> Result<(), String> {
+    let (registry, app_write, tui) = (Arc::clone(&state.registry), app.clone(), tui_pane_id.to_string());
+    let write: Arc<dyn Fn(&str) -> Result<(), String> + Send + Sync> = Arc::new(move |text| {
+        crate::pty::registry::write_input(
+            &registry,
+            &app_write,
+            &tui,
+            &crate::protocol::claude_mirror::terminal_text(text),
+            true,
+            false,
+            None,
+        )
+    });
+    let (registry, app_stop, tui) = (Arc::clone(&state.registry), app.clone(), tui_pane_id.to_string());
+    // Esc is the TUI's own interrupt key.
+    let interrupt: Arc<dyn Fn() -> Result<(), String> + Send + Sync> = Arc::new(move || {
+        crate::pty::registry::write_input(&registry, &app_stop, &tui, "\x1b", false, false, None)
+    });
+    let (session, seed) = crate::protocol::claude_mirror::start(cwd, session_id, write, interrupt)
+        .map_err(|e| e.to_string())?;
+    state.protocol_hub.register(
+        chat_pane_id.to_string(),
+        crate::protocol::claude_mirror::OneShotAdapter::new(session),
+        crate::protocol::Endpoint {
+            url: String::new(),
+            session_id: Some(session_id.to_string()),
+            cwd: Some(cwd.to_string()),
+            codex: None,
+            connect_pane_id: None,
+        },
+    )?;
+    state.protocol_hub.seed_history(chat_pane_id, seed);
+    Ok(())
+}
+
+/// Take the Claude session back from the terminal: close it and restart the chat process, which
+/// resumes the same session and replays everything the terminal added.
+#[tauri::command]
+pub async fn session_claude_to_chat(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    pane_id: String,
+    tui_pane_id: Option<String>,
+) -> Result<(), String> {
+    state.protocol_hub.unregister(&pane_id);
+    if let Some(tui) = tui_pane_id {
+        state.protocol_hub.unregister(&tui);
+        registry_kill_pane(&state.registry, &tui)?;
+    }
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    register_claude_headless_protocol(&state, &pane_id)?;
+    let _ = app.emit("pty://panes-changed", ());
+    Ok(())
 }
 
 #[tauri::command]
