@@ -11,6 +11,8 @@ export type SessionNotifyInput = {
   focusedPaneId: string | null;
   windowFocused: boolean;
   bodyDetail?: string | null;
+  /** The state change came from replayed history, not the live stream. */
+  replayed?: boolean;
 };
 
 export type SessionNotifyDecision =
@@ -18,6 +20,9 @@ export type SessionNotifyDecision =
   | { notify: true; title: string; body: string; bodyDetail?: string | null };
 
 export function decideSessionNotification(input: SessionNotifyInput): SessionNotifyDecision {
+  if (input.replayed) {
+    return { notify: false, reason: 'replayed' };
+  }
   if (input.previousState === input.nextState) {
     return { notify: false, reason: 'unchanged_state' };
   }

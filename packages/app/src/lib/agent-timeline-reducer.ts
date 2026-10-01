@@ -383,6 +383,7 @@ export function mergeAgentEventEnvelopes(
   for (const env of sorted) {
     if (env.seq <= vm.maxSeq) continue;
     vm = applyEvent(vm, env.event);
+    if (env.replayed) vm = { ...vm, messages: finalizeStreamingMessages(vm.messages) };
     vm = { ...vm, maxSeq: env.seq };
   }
   return vm;

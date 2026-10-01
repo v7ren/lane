@@ -66,6 +66,10 @@ function eventForType(type: string, ctx: { turnId: string; seq: number }): Agent
       };
     case 'approval_resolved':
       return { type: 'approval_resolved', approval_id: 'a1', decision: 'deny' };
+    case 'notice':
+      return { type: 'notice', id: 'n1', level: 'info', text: 'hi', sticky: false, cleared: false };
+    case 'plan_updated':
+      return { type: 'plan_updated', items: [{ text: 'a', status: 'in_progress' }] };
     case 'turn_completed':
       return { type: 'turn_completed', turn_id: ctx.turnId, status: 'ok' };
     default:
@@ -109,6 +113,13 @@ describe('agent contract fixture sequences', () => {
         expect(vm.approvals.some((a) => a.resolved !== undefined)).toBe(true);
       }
 
+      if (typeNames.includes('notice')) {
+        expect(vm.notices.some((n) => n.id === 'n1')).toBe(true);
+      }
+      if (typeNames.includes('plan_updated')) {
+        expect(vm.plan?.items).toHaveLength(1);
+      }
+
       if (typeNames.includes('turn_completed')) {
         expect(vm.turnActive).toBe(false);
       } else if (typeNames.includes('turn_started')) {
@@ -129,6 +140,8 @@ describe('agent contract fixture sequences', () => {
       'files_changed',
       'usage',
       'rate_limited',
+      'notice',
+      'plan_updated',
       'turn_completed',
       'error',
     ]);

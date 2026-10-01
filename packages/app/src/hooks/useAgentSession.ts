@@ -7,6 +7,7 @@ import {
   type AgentTimelineViewModel,
 } from '../lib/agent-timeline-reducer';
 import {
+  envelopeEpoch,
   mergeEnvelopeLog,
   sessionCapabilities,
   sessionHistory,
@@ -56,6 +57,7 @@ export function useAgentSession(
   const [envelopes, setEnvelopes] = useState<readonly AgentEventEnvelope[]>(NO_ENVELOPES);
   const vmRef = useRef(timeline);
   const envelopesRef = useRef<readonly AgentEventEnvelope[]>(NO_ENVELOPES);
+  const epochRef = useRef(0);
 
   const applyEnvelopes = useCallback((next: readonly AgentEventEnvelope[]) => {
     envelopesRef.current = next;
@@ -98,6 +100,7 @@ export function useAgentSession(
       setSource('protocol');
       const history = await sessionHistory(paneId);
       const vm = reduceAgentTimeline(history, []);
+      for (const env of history) epochRef.current = Math.max(epochRef.current, envelopeEpoch(env));
       applyVm(vm);
       applyEnvelopes(mergeEnvelopeLog(envelopesRef.current, history));
       setError(null);
@@ -121,6 +124,7 @@ export function useAgentSession(
     }
     setSource('native_tui');
     setError(null);
+    epochRef.current = 0;
     applyVm(reduceAgentTimeline([], []));
     applyEnvelopes(NO_ENVELOPES);
     void refreshCapabilities();
@@ -149,6 +153,19 @@ export function useAgentSession(
     let unlisten: (() => void) | null = null;
     void subscribeAgentEvents((envelope: AgentEventEnvelope) => {
       if (envelope.pane_id !== paneId) return;
+      const epoch = envelopeEpoch(envelope);
+      if (epoch < epochRef.current) return; // straggler from a previous registration
+      if (epoch > epochRef.current) {
+        // The hub re-registered this pane (Open in terminal / Back to chat): `seq` restarted, so
+        // drop the old log and view model and re-fetch history for the new registration.
+        const hadEvents = envelopesRef.current.length > 0 || vmRef.current.maxSeq >= 0;
+        epochRef.current = epoch;
+        if (hadEvents) {
+          applyVm(reduceAgentTimeline([], []));
+          applyEnvelopes(NO_ENVELOPES);
+          void refreshCapabilities();
+        }
+      }
       const next = mergeAgentEventEnvelopes(vmRef.current, [envelope]);
       applyVm(next);
       applyEnvelopes(mergeEnvelopeLog(envelopesRef.current, [envelope]));
@@ -156,7 +173,7 @@ export function useAgentSession(
       unlisten = fn;
     });
     return () => unlisten?.();
-  }, [active, applyEnvelopes, applyVm, demoSession, paneId, source]);
+  }, [active, applyEnvelopes, applyVm, demoSession, paneId, refreshCapabilities, source]);
 
   useEffect(() => {
     if (source !== 'opencode_fallback' || !paneId || !active) return;

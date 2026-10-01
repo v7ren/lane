@@ -253,3 +253,13 @@ describe('agent-timeline-reducer', () => {
     expect(vm.usage?.context_window).toBe(200);
   });
 });
+
+describe('replayed envelopes', () => {
+  it('render with streaming false even when no completion event follows', () => {
+    const delta = { type: 'message_delta' as const, turn_id: 't', message_id: 'm', role: 'assistant' as const, text: 'hi' };
+    const live = reduceAgentTimeline([], [env(1, delta)]);
+    expect(live.messages[0].streaming).toBe(true);
+    const replayed = reduceAgentTimeline([{ ...env(1, delta), replayed: true }], []);
+    expect(replayed.messages[0].streaming).toBe(false);
+  });
+});

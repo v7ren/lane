@@ -57,3 +57,20 @@ describe('decideSessionNotification', () => {
     if (!d.notify) expect(d.reason).toBe('unchanged_state');
   });
 });
+
+describe('decideSessionNotification replayed', () => {
+  it('never notifies for replayed history', () => {
+    const d = decideSessionNotification({
+      paneId: 'p',
+      previousState: 'working',
+      nextState: 'done',
+      muted: false,
+      mode: 'workspace',
+      focusedPaneId: null,
+      windowFocused: false,
+      replayed: true,
+    });
+    expect(d.notify).toBe(false);
+    if (!d.notify) expect(d.reason).toBe('replayed');
+  });
+});

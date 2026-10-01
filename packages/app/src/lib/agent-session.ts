@@ -96,9 +96,15 @@ export function subscribeAgentEvents(
 /** Upper bound on retained raw envelopes per pane (oldest dropped first). */
 export const MAX_ENVELOPE_LOG = 20000;
 
+/** Hub registration an envelope belongs to (absent on older producers = 0). */
+export function envelopeEpoch(env: AgentEventEnvelope): number {
+  return env.epoch ?? 0;
+}
+
 /**
- * Merge envelopes into an ordered, seq-deduplicated log. Returns the existing
- * array (same identity) when nothing new was added.
+ * Merge envelopes into an ordered log deduplicated by `(epoch, seq)`: `seq` restarts at 0 on every
+ * hub re-registration, so `seq` alone would drop the new registration's events. Returns the
+ * existing array (same identity) when nothing new was added.
  */
 export function mergeEnvelopeLog(
   existing: readonly AgentEventEnvelope[],
@@ -106,16 +112,19 @@ export function mergeEnvelopeLog(
   limit: number = MAX_ENVELOPE_LOG,
 ): readonly AgentEventEnvelope[] {
   if (incoming.length === 0) return existing;
-  const seen = new Set<number>();
-  for (const env of existing) seen.add(env.seq);
+  const seen = new Set<string>();
+  for (const env of existing) seen.add(`${envelopeEpoch(env)}:${env.seq}`);
   const added: AgentEventEnvelope[] = [];
   for (const env of incoming) {
-    if (seen.has(env.seq)) continue;
-    seen.add(env.seq);
+    const key = `${envelopeEpoch(env)}:${env.seq}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
     added.push(env);
   }
   if (added.length === 0) return existing;
-  const merged = [...existing, ...added].sort((a, b) => a.seq - b.seq);
+  const merged = [...existing, ...added].sort(
+    (a, b) => envelopeEpoch(a) - envelopeEpoch(b) || a.seq - b.seq,
+  );
   return merged.length > limit ? merged.slice(merged.length - limit) : merged;
 }
 

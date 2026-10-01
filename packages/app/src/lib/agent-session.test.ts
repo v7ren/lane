@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
+  mergeEnvelopeLog,
   sessionCancelTurn,
   sessionRespondApprovalInvokePayload,
   sessionSendPrompt,
@@ -46,5 +47,25 @@ describe('agent-session invoke contract', () => {
   it('session_cancel_turn uses flat paneId (not nested args)', async () => {
     await sessionCancelTurn('pane-xyz');
     expect(invokeMock).toHaveBeenCalledWith('session_cancel_turn', { paneId: 'pane-xyz' });
+  });
+});
+
+describe('mergeEnvelopeLog (epoch, seq) key', () => {
+  const mk = (epoch: number | undefined, seq: number) => ({
+    pane_id: 'p',
+    seq,
+    epoch,
+    event: { type: 'error' as const, message: `${epoch}:${seq}` },
+  });
+
+  it('keeps events whose seq restarted in a new epoch', () => {
+    const old = mergeEnvelopeLog([], [mk(1, 1), mk(1, 2), mk(1, 3)]);
+    const next = mergeEnvelopeLog(old, [mk(2, 1), mk(2, 2)]);
+    expect(next.map((e) => `${e.epoch}:${e.seq}`)).toEqual(['1:1', '1:2', '1:3', '2:1', '2:2']);
+  });
+
+  it('still dedups the same (epoch, seq) and treats a missing epoch as 0', () => {
+    const log = mergeEnvelopeLog([], [mk(undefined, 1), mk(0, 2)]);
+    expect(mergeEnvelopeLog(log, [mk(0, 1), mk(undefined, 2)])).toBe(log);
   });
 });
