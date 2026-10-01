@@ -196,3 +196,18 @@ Done when, live: send in chat → open in terminal (shows the chat) → type in 
 - Run `pnpm test`, typecheck, `cargo test --no-default-features --features codex-ws`, and the feature-less build (after 0.2) before each commit.
 - Keep both `protocol_hub.rs` and `protocol_hub_stub.rs` in sync in the same commit.
 - Tiny prompts only; each one costs money.
+
+---
+
+## 5. Progress (updated 2026-10-01)
+
+Done and verified live in the real app:
+- 0.1, 0.2: tree committed in three commits; feature-less Rust build fixed (`codex_ws_stub.rs`).
+- 0.3 spikes: S1 (`-p --resume` keeps the session id), S3 (record types; only `user` and `assistant` matter, fixture in `src-tauri/tests/fixtures/claude_session.jsonl`), S5 (Codex reply shapes, see `docs/codex-protocol-notes.md`).
+- 1.3 and 1.5 (Claude half): `protocol/claude_session_file.rs` parser and past-chat list, `--resume` instead of `--session-id` for an existing session, history replay into the hub, past chats in the sidebar (click resumes with the full transcript).
+- 2 (core): one owner at a time. `session_open_in_tui` stops the chat process, resumes the session in the terminal, and the chat pane mirrors the session file (`protocol/claude_mirror.rs`); the composer writes into the terminal, Stop sends Esc. `session_claude_to_chat` takes it back and replays what the terminal added. Sync banner and its helpers removed. Verified: chat, terminal, back to chat, with memory kept.
+- 3.1, 3.2, 3.4, 3.7 (Codex): unknown server requests get a JSON-RPC error, replies are built per request method, legacy `execCommandApproval`/`applyPatchApproval` and `requestUserInput` are mapped, `file_changes` is on, a first send no longer fails while the thread is still starting. Verified live: command approval allow and deny.
+- Fixes found on the way: nested-Claude env vars (`CLAUDE_CODE_CHILD_SESSION`, `CLAUDECODE`) are scrubbed when spawning Claude, because a `claude` that inherits them does not save its transcript; events from a replaced protocol session are dropped (a stopped chat reported "Error"); a fresh chat starts Idle instead of Working.
+
+Not done yet: 0.3 spikes S2, S4, S6; 1.1 (`PlanUpdated`, `ToolOutputDelta`, `Notice`), 1.4 and the Codex half of 1.5; 2.6; 3.3 (elicitation), 3.5, 3.6 (explicit approval policy), 3.8 (questions live); phases 4, 5, 6.
+Known gaps: a permission prompt while the terminal owns the session is answered in the terminal (no "waiting in terminal" chip yet); the question dock for Codex is unit-tested but not yet seen live.
