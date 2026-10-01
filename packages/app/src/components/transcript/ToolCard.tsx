@@ -4,6 +4,7 @@ import type { TranscriptToolCall } from '../../lib/transcript';
 import { formatDuration } from '../../lib/transcript';
 import {
   displayPathChip,
+  isShellToolName,
   KNOWN_TOOL_NAMES,
   readOutputText,
   resolveToolFields,
@@ -239,6 +240,8 @@ function ToolStatusChip({ status }: { status: TranscriptToolCall['status'] }) {
 }
 
 const BASH_OUTPUT_MAX_LINES = 40;
+/** Output is a preview: enough to see what happened, never a whole file. */
+const OUTPUT_PREVIEW_LINES = 12;
 
 function bashCommandText(input: unknown): string {
   if (typeof input === 'string') return input;
@@ -543,7 +546,11 @@ function BashToolBody({ input, output }: { input: unknown; output: unknown }) {
     <>
       <TruncatedMonoLines text={command} maxLines={BASH_OUTPUT_MAX_LINES} testId="tool-bash-command" />
       {outputText !== '' && (
-        <TruncatedMonoLines text={outputText} testId="tool-bash-output" />
+        <TruncatedMonoLines
+          text={outputText}
+          maxLines={OUTPUT_PREVIEW_LINES}
+          testId="tool-bash-output"
+        />
       )}
     </>
   );
@@ -561,7 +568,9 @@ function isEmptyGenericToolValue(value: unknown): boolean {
 function formatGenericFieldValue(value: unknown): string {
   if (value === null) return 'null';
   if (value === undefined) return '';
-  if (typeof value === 'string') return value;
+  if (typeof value === 'string') {
+    return value.length > 200 ? `${value.slice(0, 200)}… (${value.length} chars)` : value;
+  }
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   if (Array.isArray(value)) return `[${value.length} items]`;
   if (typeof value === 'object') {
@@ -573,14 +582,7 @@ function formatGenericFieldValue(value: unknown): string {
 
 function GenericToolKvRows({ value, testId }: { value: unknown; testId: string }) {
   if (typeof value === 'string') {
-    return (
-      <pre
-        data-testid={testId}
-        className="whitespace-pre-wrap font-mono text-[12px] text-text-2"
-      >
-        {value}
-      </pre>
-    );
+    return <TruncatedMonoLines text={value} maxLines={OUTPUT_PREVIEW_LINES} testId={testId} />;
   }
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const entries = Object.entries(value as Record<string, unknown>);
@@ -683,8 +685,13 @@ export function ToolCard({
   tool: TranscriptToolCall;
   projectRoot?: string | null;
 }) {
-  const [open, setOpen] = useState(tool.status === 'running' || tool.status === 'completed');
   const { name, input, output, diff } = resolveToolFields(tool, projectRoot);
+  // Tools that can carry a whole file or a long log start collapsed; the header says what ran.
+  const startsCollapsed =
+    isShellToolName(name) || name === 'read' || name === 'read_file' || name === 'write' || !KNOWN_TOOL_NAMES.has(name);
+  const [open, setOpen] = useState(
+    !startsCollapsed && (tool.status === 'running' || tool.status === 'completed'),
+  );
   const header = toolPathHeader(tool, name, input, projectRoot);
 
   return (
@@ -724,7 +731,7 @@ export function ToolCard({
       </button>
       {open && (
         <div className="px-3 pb-3 space-y-2 border-t border-border-subtle" data-testid="tool-card-body">
-          {(name === 'bash' || name === 'shell') && (
+          {isShellToolName(name) && (
             <BashToolBody input={input} output={output} />
           )}
           {(name === 'read' || name === 'read_file') && (

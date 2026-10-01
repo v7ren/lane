@@ -20,6 +20,27 @@ export function canonicalToolName(tool: TranscriptToolCall): string {
   return title.replace(/[^a-z0-9_]/g, '_');
 }
 
+/** Tools that run a shell command (Claude Bash, OpenCode shell, Codex "command"). */
+const SHELL_TOOL_NAMES = new Set(['bash', 'shell', 'command', 'command_execution', 'exec_command']);
+
+export function isShellToolName(name: string): boolean {
+  return SHELL_TOOL_NAMES.has(name);
+}
+
+/** The command text of a shell tool call, whatever shape the agent sent it in. */
+export function shellCommandText(input: unknown): string {
+  if (typeof input === 'string') return input;
+  if (input && typeof input === 'object') {
+    const rec = input as Record<string, unknown>;
+    if (typeof rec.command === 'string') return rec.command;
+    if (Array.isArray(rec.command)) return rec.command.map(String).join(' ');
+    if (typeof rec.input === 'string') return rec.input;
+  }
+  return '';
+}
+
+const HEADER_COMMAND_MAX_CHARS = 140;
+
 export function toolDisplayLabel(tool: TranscriptToolCall): string {
   const name = canonicalToolName(tool);
   if (name === 'read' || name === 'read_file') return 'Read';
@@ -212,6 +233,17 @@ export function toolPathHeader(
   pathTestId?: string;
   kindLabel?: string;
 } {
+  if (isShellToolName(name)) {
+    // The command is the one-line answer to "what did it run"; the output stays collapsed.
+    const firstLine = shellCommandText(input).trim().split(/\r?\n/)[0] ?? '';
+    if (firstLine) {
+      const short =
+        firstLine.length > HEADER_COMMAND_MAX_CHARS
+          ? `${firstLine.slice(0, HEADER_COMMAND_MAX_CHARS)}…`
+          : firstLine;
+      return { primary: short, pathTestId: 'tool-shell-command', kindLabel: toolDisplayLabel(tool) };
+    }
+  }
   const isRead = name === 'read' || name === 'read_file';
   const isWrite = name === 'write';
   const isEdit = name === 'edit' || name === 'apply_patch';
@@ -251,6 +283,9 @@ export function formatJsonFallback(value: unknown): string {
 export const KNOWN_TOOL_NAMES = new Set([
   'bash',
   'shell',
+  'command',
+  'command_execution',
+  'exec_command',
   'read',
   'read_file',
   'write',

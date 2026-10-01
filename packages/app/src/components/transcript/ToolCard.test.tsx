@@ -28,10 +28,16 @@ afterEach(() => {
   container.remove();
 });
 
-function headerToggle(): HTMLButtonElement {
-  const btn = container.querySelector('[data-testid="tool-bash-1"] > button[aria-expanded]');
+function headerToggle(id = 'bash-1'): HTMLButtonElement {
+  const btn = container.querySelector(`[data-testid="tool-${id}"] > button[aria-expanded]`);
   if (!btn) throw new Error('tool header toggle not found');
   return btn as HTMLButtonElement;
+}
+
+/** Output-heavy tools start collapsed; open the card like a user would. */
+function openCard(id: string) {
+  const btn = headerToggle(id);
+  if (btn.getAttribute('aria-expanded') !== 'true') act(() => btn.click());
 }
 
 describe('ToolCard', () => {
@@ -46,20 +52,65 @@ describe('ToolCard', () => {
     expect(container.textContent).toContain('1.5s');
   });
 
-  it('collapses and expands the tool body', () => {
+  it('starts collapsed with the command in the header, and the output hidden', () => {
     act(() => {
       root.render(<ToolCard tool={bashCompleted} />);
     });
-    expect(container.querySelector('[data-testid="tool-card-body"]')).not.toBeNull();
-    expect(container.textContent).toContain('echo hello');
+    expect(container.querySelector('[data-testid="tool-card-body"]')).toBeNull();
+    expect(container.querySelector('[data-testid="tool-shell-command"]')?.textContent).toBe(
+      'echo hello',
+    );
+    expect(container.textContent).not.toContain('hello\n');
+  });
 
+  it('expands and collapses the tool body', () => {
+    act(() => {
+      root.render(<ToolCard tool={bashCompleted} />);
+    });
+    act(() => headerToggle().click());
+    expect(container.querySelector('[data-testid="tool-card-body"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="tool-bash-output"]')?.textContent).toContain(
+      'hello',
+    );
     act(() => headerToggle().click());
     expect(container.querySelector('[data-testid="tool-card-body"]')).toBeNull();
-    expect(container.textContent).not.toContain('echo hello');
+  });
 
-    act(() => headerToggle().click());
-    expect(container.querySelector('[data-testid="tool-card-body"]')).not.toBeNull();
-    expect(container.textContent).toContain('echo hello');
+  it('shows a Codex command in the header and never dumps a whole file', () => {
+    const file = Array.from({ length: 200 }, (_, i) => `file-line-${i + 1}`).join('\n');
+    const tool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'codex-cmd',
+      name: 'command',
+      status: 'completed',
+      input: "Get-Content -LiteralPath 'C:\\skills\\SKILL.md'",
+      output: file,
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    expect(container.querySelector('[data-testid="tool-shell-command"]')?.textContent).toContain(
+      'SKILL.md',
+    );
+    expect(container.textContent).not.toContain('file-line-1');
+    openCard('codex-cmd');
+    const out = container.querySelector('[data-testid="tool-bash-output"]')?.textContent ?? '';
+    expect(out).toContain('file-line-12');
+    expect(out).not.toContain('file-line-13');
+  });
+
+  it('truncates a very long header command to one line', () => {
+    const tool: TranscriptToolCall = {
+      ...bashCompleted,
+      id: 'long-cmd',
+      input: { command: `echo ${'x'.repeat(400)}\nsecond line` },
+    };
+    act(() => {
+      root.render(<ToolCard tool={tool} />);
+    });
+    const header = container.querySelector('[data-testid="tool-shell-command"]')?.textContent ?? '';
+    expect(header.length).toBeLessThanOrEqual(141);
+    expect(header).not.toContain('second line');
   });
 
   it('renders bash command and output from object input', () => {
@@ -72,6 +123,7 @@ describe('ToolCard', () => {
     act(() => {
       root.render(<ToolCard tool={tool} />);
     });
+    openCard('bash-object');
     const command = container.querySelector('[data-testid="tool-bash-command"]');
     const output = container.querySelector('[data-testid="tool-bash-output"]');
     expect(command?.textContent).toBe('echo hi');
@@ -79,7 +131,7 @@ describe('ToolCard', () => {
     expect(container.textContent).not.toContain('[object Object]');
   });
 
-  it('collapses long bash output to ~40 lines with Show more', () => {
+  it('collapses long bash output to a short preview with Show more', () => {
     const longOutput = `${Array.from({ length: 50 }, (_, i) => `line-${i + 1}`).join('\n')}\n`;
     const tool: TranscriptToolCall = {
       ...bashCompleted,
@@ -90,10 +142,11 @@ describe('ToolCard', () => {
     act(() => {
       root.render(<ToolCard tool={tool} />);
     });
+    openCard('bash-long');
     const outputEl = container.querySelector('[data-testid="tool-bash-output"]');
     expect(outputEl?.textContent).toContain('line-1');
-    expect(outputEl?.textContent).toContain('line-40');
-    expect(outputEl?.textContent).not.toContain('line-50');
+    expect(outputEl?.textContent).toContain('line-12');
+    expect(outputEl?.textContent).not.toContain('line-13');
     const showMore = Array.from(container.querySelectorAll('button')).find(
       (b) => b.textContent === 'Show more',
     );
@@ -114,6 +167,7 @@ describe('ToolCard', () => {
     act(() => {
       root.render(<ToolCard tool={tool} />);
     });
+    openCard('read-1');
     expect(container.querySelector('[data-testid="tool-read-path"]')?.textContent).toBe('hello.txt');
     expect(container.textContent).toContain('Read');
     expect(container.querySelector('[data-testid="tool-read-content"]')).toBeNull();
@@ -137,6 +191,7 @@ describe('ToolCard', () => {
     act(() => {
       root.render(<ToolCard tool={tool} />);
     });
+    openCard('write-1');
     expect(container.querySelector('[data-testid="tool-write-path"]')?.textContent).toBe('out.txt');
     expect(container.textContent).toContain('Write');
     expect(container.querySelector('[data-testid="tool-write-content"]')).toBeNull();
@@ -161,6 +216,7 @@ describe('ToolCard', () => {
     act(() => {
       root.render(<ToolCard tool={tool} />);
     });
+    openCard('write-obj');
     expect(container.textContent).not.toContain('[object Object]');
     const showMore = Array.from(container.querySelectorAll('button')).find(
       (b) => b.textContent === 'Show more',
@@ -483,6 +539,7 @@ ping
     act(() => {
       root.render(<ToolCard tool={tool} />);
     });
+    openCard('mystery-1');
     expect(container.textContent).toContain('Mystery tool');
     expect(container.textContent).toContain('foo');
     expect(container.textContent).toContain('bar');
@@ -506,6 +563,7 @@ ping
     act(() => {
       root.render(<ToolCard tool={tool} />);
     });
+    openCard('mystery-empty');
     expect(container.textContent).toContain('No input');
     expect(container.textContent).not.toContain('{"');
   });
