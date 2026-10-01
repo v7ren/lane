@@ -393,6 +393,8 @@ fn map_step_finish(part: &Value, turn_id: &str) -> Vec<AgentEvent> {
             input_tokens: tokens.get("input").and_then(|v| v.as_u64()),
             output_tokens: tokens.get("output").and_then(|v| v.as_u64()),
             cost_usd: part.get("cost").and_then(|v| v.as_f64()),
+            context_tokens: None,
+            context_window: None,
         });
     }
     let _ = turn_id;
@@ -541,6 +543,7 @@ fn map_permission(value: &Value) -> Option<AgentEvent> {
             ApprovalDecision::AllowAlways,
             ApprovalDecision::Deny,
         ],
+        payload: None,
     })
 }
 

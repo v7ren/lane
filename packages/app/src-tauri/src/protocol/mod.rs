@@ -24,7 +24,7 @@ pub use event_contract::{
 pub use types::{
     AgentError, AgentEvent, AgentEventEnvelope, ApprovalDecision, ApprovalKind, Capabilities,
     CodexThreadOptions, Endpoint, MessageContentKind, MessageRole, MessageTextMode,
-    ProtocolAdapter, ProtocolSession, ToolStatus, TurnStatus, AGENT_EVENT_CHANNEL, HISTORY_CAP,
+    NoticeAction, NoticeLevel, PlanItem, PlanStatus, ProtocolAdapter, ProtocolSession, ToolStatus, TurnStatus, AGENT_EVENT_CHANNEL, HISTORY_CAP,
 };
 pub use crate::agents::ProtocolKind;
 

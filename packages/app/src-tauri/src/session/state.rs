@@ -60,7 +60,9 @@ impl SessionStateStore {
             AgentEvent::ApprovalRequested { title, .. } => {
                 (SessionStateKind::NeedsApproval, Some(title.clone()))
             }
-            AgentEvent::TurnStarted { .. } | AgentEvent::MessageDelta { .. } => {
+            AgentEvent::ApprovalResolved { .. }
+            | AgentEvent::TurnStarted { .. }
+            | AgentEvent::MessageDelta { .. } => {
                 (SessionStateKind::Working, None)
             }
             AgentEvent::TurnCompleted { status, error, .. } => match status {
@@ -72,6 +74,12 @@ impl SessionStateStore {
                 ),
             },
             AgentEvent::Error { message } => (SessionStateKind::Error, Some(message.clone())),
+            AgentEvent::Notice {
+                level: crate::protocol::NoticeLevel::Error,
+                text,
+                cleared: false,
+                ..
+            } => (SessionStateKind::Error, Some(text.clone())),
             AgentEvent::RateLimited { message, .. } => {
                 (SessionStateKind::RateLimited, Some(message.clone()))
             }
@@ -230,5 +238,68 @@ impl SessionStateKind {
             Self::Error => "error",
             Self::RateLimited => "rate_limited",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::protocol::{ApprovalDecision, NoticeLevel, PlanItem, PlanStatus};
+
+    fn notice(level: NoticeLevel, cleared: bool) -> AgentEvent {
+        AgentEvent::Notice {
+            id: "n".into(),
+            level,
+            text: "boom".into(),
+            source: None,
+            action: None,
+            sticky: false,
+            cleared,
+        }
+    }
+
+    #[test]
+    fn approval_resolved_maps_to_working() {
+        let store = SessionStateStore::new();
+        let snap = store
+            .apply_agent_event(
+                "p",
+                &AgentEvent::ApprovalResolved {
+                    approval_id: "a".into(),
+                    decision: ApprovalDecision::AllowOnce,
+                },
+            )
+            .expect("state");
+        assert_eq!(snap.state, SessionStateKind::Working);
+    }
+
+    #[test]
+    fn error_notice_maps_to_error_others_to_nothing() {
+        let store = SessionStateStore::new();
+        let snap = store
+            .apply_agent_event("p", &notice(NoticeLevel::Error, false))
+            .expect("state");
+        assert_eq!(snap.state, SessionStateKind::Error);
+        assert_eq!(snap.detail.as_deref(), Some("boom"));
+        assert!(store.apply_agent_event("p", &notice(NoticeLevel::Warning, false)).is_none());
+        assert!(store.apply_agent_event("p", &notice(NoticeLevel::Info, false)).is_none());
+        assert!(store.apply_agent_event("p", &notice(NoticeLevel::Error, true)).is_none());
+    }
+
+    #[test]
+    fn plan_and_tool_output_map_to_nothing() {
+        let store = SessionStateStore::new();
+        let plan = AgentEvent::PlanUpdated {
+            turn_id: None,
+            items: vec![PlanItem { text: "x".into(), status: PlanStatus::Pending }],
+            explanation: None,
+        };
+        assert!(store.apply_agent_event("p", &plan).is_none());
+        let out = AgentEvent::ToolOutputDelta {
+            turn_id: "t".into(),
+            tool_id: "x".into(),
+            chunk: "c".into(),
+        };
+        assert!(store.apply_agent_event("p", &out).is_none());
     }
 }

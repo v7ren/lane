@@ -51,6 +51,7 @@ pub fn map_codex_server_request(value: &Value, turn_counter: &AtomicU64) -> Vec<
                     ApprovalDecision::AllowAlways,
                     ApprovalDecision::Deny,
                 ],
+                payload: None,
             }]
         }
         "execCommandApproval" => {
@@ -73,6 +74,7 @@ pub fn map_codex_server_request(value: &Value, turn_counter: &AtomicU64) -> Vec<
                     ApprovalDecision::AllowAlways,
                     ApprovalDecision::Deny,
                 ],
+                payload: None,
             }]
         }
         "applyPatchApproval" => {
@@ -92,6 +94,7 @@ pub fn map_codex_server_request(value: &Value, turn_counter: &AtomicU64) -> Vec<
                     ApprovalDecision::AllowAlways,
                     ApprovalDecision::Deny,
                 ],
+                payload: None,
             }]
         }
         "item/tool/requestUserInput" => {
@@ -120,6 +123,7 @@ pub fn map_codex_server_request(value: &Value, turn_counter: &AtomicU64) -> Vec<
                 detail: Value::Array(questions).to_string(),
                 kind: ApprovalKind::Question,
                 options: vec![ApprovalDecision::AllowOnce, ApprovalDecision::Deny],
+                payload: None,
             }]
         }
         _ => Vec::new(),
@@ -463,6 +467,12 @@ pub fn map_codex_notification(
                 input_tokens: pick("inputTokens"),
                 output_tokens: pick("outputTokens"),
                 cost_usd: None,
+                context_tokens: params
+                    .pointer("/tokenUsage/last/inputTokens")
+                    .and_then(|v| v.as_u64()),
+                context_window: params
+                    .pointer("/tokenUsage/modelContextWindow")
+                    .and_then(|v| v.as_u64()),
             }]
         }
         "error" => {

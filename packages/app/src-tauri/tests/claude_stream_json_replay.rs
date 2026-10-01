@@ -222,3 +222,18 @@ fn streamed_thinking_then_text_uses_distinct_ids() {
         .collect();
     assert_eq!(ids, vec!["msg_a:thinking:0", "msg_a"]);
 }
+
+#[test]
+fn usage_carries_context_tokens() {
+    let caps = captures();
+    let events = replay(&caps[1], 2);
+    let usage = events
+        .iter()
+        .find_map(|e| match e {
+            AgentEvent::Usage { context_tokens, context_window, .. } => Some((*context_tokens, *context_window)),
+            _ => None,
+        })
+        .expect("usage event");
+    // input 4 + cache_read 77261 + cache_creation 25432
+    assert_eq!(usage, (Some(4 + 77261 + 25432), None));
+}

@@ -150,3 +150,24 @@ fn unknown_and_noise_methods_are_dropped() {
     let weird = serde_json::json!({"method": 5});
     assert!(map_codex_notification(&weird, &counter, &active).is_empty());
 }
+
+#[test]
+fn usage_carries_context_from_last_and_window() {
+    let events = replay();
+    let t1 = turn_events(&events, "TURN_1");
+    assert!(matches!(
+        &t1[3],
+        AgentEvent::Usage {
+            context_tokens: Some(24613),
+            context_window: Some(258400),
+            ..
+        }
+    ));
+    // Later turns use `last`, not the running `total`.
+    let t2 = turn_events(&events, "TURN_2");
+    let ctx = t2.iter().find_map(|e| match e {
+        AgentEvent::Usage { context_tokens, .. } => *context_tokens,
+        _ => None,
+    });
+    assert_eq!(ctx, Some(24631));
+}

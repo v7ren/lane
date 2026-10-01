@@ -123,6 +123,9 @@ pub enum AgentEvent {
         detail: String,
         kind: ApprovalKind,
         options: Vec<ApprovalDecision>,
+        /// Structured form of the request (spec 2.3); `detail` stays the one-line summary.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        payload: Option<serde_json::Value>,
     },
     ApprovalResolved {
         approval_id: String,
@@ -138,6 +141,10 @@ pub enum AgentEvent {
         output_tokens: Option<u64>,
         #[serde(skip_serializing_if = "Option::is_none")]
         cost_usd: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        context_tokens: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        context_window: Option<u64>,
     },
     RateLimited {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -153,6 +160,67 @@ pub enum AgentEvent {
     Error {
         message: String,
     },
+    /// A stable-id notice; a later Notice with the same id replaces the earlier one.
+    Notice {
+        id: String,
+        level: NoticeLevel,
+        text: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        source: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        action: Option<NoticeAction>,
+        /// Sticky notices render as a chip above the composer, not as a transcript row.
+        #[serde(default)]
+        sticky: bool,
+        /// Removes the notice with this id (text ignored).
+        #[serde(default)]
+        cleared: bool,
+    },
+    PlanUpdated {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        turn_id: Option<String>,
+        /// Full list each time (replace, not merge).
+        items: Vec<PlanItem>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        explanation: Option<String>,
+    },
+    /// Ephemeral live tool output; coalesced per `tool_id`, never stored in history.
+    ToolOutputDelta {
+        turn_id: String,
+        tool_id: String,
+        chunk: String,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NoticeLevel {
+    Info,
+    Warning,
+    Error,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum NoticeAction {
+    RetryChat,
+    OpenTerminal,
+    FocusTerminal,
+    BackToChat,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanItem {
+    pub text: String,
+    pub status: PlanStatus,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlanStatus {
+    Pending,
+    InProgress,
+    Done,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -210,6 +278,15 @@ pub struct AgentEventEnvelope {
     pub pane_id: String,
     pub seq: u64,
     pub event: AgentEvent,
+    /// Hub registration this event belongs to (`PaneProtocol.generation`); changes on re-register.
+    #[serde(default)]
+    pub epoch: u64,
+    /// Event came from history replay (session file / thread/read), not the live stream.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub replayed: bool,
+    /// Wall-clock ms when the hub committed it (live) or the record timestamp (replay, if known).
+    #[serde(default)]
+    pub ts_ms: i64,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -323,6 +400,7 @@ mod tests {
                     ApprovalDecision::AllowAlways,
                     ApprovalDecision::Deny,
                 ],
+                payload: Some(serde_json::json!({"type": "command", "command": "git status"})),
             },
             AgentEvent::ApprovalResolved {
                 approval_id: "a1".into(),
@@ -335,6 +413,8 @@ mod tests {
                 input_tokens: Some(1),
                 output_tokens: Some(2),
                 cost_usd: None,
+                context_tokens: Some(3),
+                context_window: Some(200_000),
             },
             AgentEvent::RateLimited {
                 retry_at_ms: Some(1_700_000_000_000),
@@ -348,12 +428,97 @@ mod tests {
             AgentEvent::Error {
                 message: "boom".into(),
             },
+            AgentEvent::Notice {
+                id: "n1".into(),
+                level: NoticeLevel::Warning,
+                text: "careful".into(),
+                source: Some("codex".into()),
+                action: Some(NoticeAction::RetryChat),
+                sticky: true,
+                cleared: false,
+            },
+            AgentEvent::PlanUpdated {
+                turn_id: Some("t1".into()),
+                items: vec![PlanItem {
+                    text: "step".into(),
+                    status: PlanStatus::InProgress,
+                }],
+                explanation: None,
+            },
+            AgentEvent::ToolOutputDelta {
+                turn_id: "t1".into(),
+                tool_id: "tool1".into(),
+                chunk: "out".into(),
+            },
         ];
 
         for event in samples {
             let value = serde_json::to_value(&event).expect("serialize");
             assert_eq!(value.get("type").and_then(|v| v.as_str()), Some(expected_type(&event)));
+            let back: AgentEvent = serde_json::from_value(value.clone()).expect("deserialize");
+            assert_eq!(serde_json::to_value(&back).expect("reserialize"), value);
         }
+    }
+
+    #[test]
+    fn new_variants_serialize_to_spec_shapes() {
+        let notice = serde_json::to_value(AgentEvent::Notice {
+            id: "n".into(),
+            level: NoticeLevel::Error,
+            text: "t".into(),
+            source: None,
+            action: Some(NoticeAction::BackToChat),
+            sticky: false,
+            cleared: false,
+        })
+        .unwrap();
+        assert_eq!(notice["level"], "error");
+        assert_eq!(notice["action"], serde_json::json!({"kind": "back_to_chat"}));
+        assert!(notice.get("source").is_none());
+        // Every new field is optional on input.
+        let parsed: AgentEvent =
+            serde_json::from_str(r#"{"type":"notice","id":"n","level":"info","text":"x"}"#).unwrap();
+        assert!(matches!(
+            parsed,
+            AgentEvent::Notice { sticky: false, cleared: false, action: None, .. }
+        ));
+        let plan = serde_json::to_value(AgentEvent::PlanUpdated {
+            turn_id: None,
+            items: vec![PlanItem { text: "a".into(), status: PlanStatus::InProgress }],
+            explanation: None,
+        })
+        .unwrap();
+        assert_eq!(plan["items"][0]["status"], "in_progress");
+        assert!(plan.get("turn_id").is_none());
+        // Old Usage / ApprovalRequested JSON still parses.
+        let usage: AgentEvent =
+            serde_json::from_str(r#"{"type":"usage","input_tokens":1}"#).unwrap();
+        assert!(matches!(
+            usage,
+            AgentEvent::Usage { context_tokens: None, context_window: None, .. }
+        ));
+        let approval: AgentEvent = serde_json::from_str(
+            r#"{"type":"approval_requested","approval_id":"a","title":"t","detail":"d","kind":"command","options":["deny"]}"#,
+        )
+        .unwrap();
+        assert!(matches!(approval, AgentEvent::ApprovalRequested { payload: None, .. }));
+    }
+
+    #[test]
+    fn envelope_new_fields_default_and_skip() {
+        let env: AgentEventEnvelope = serde_json::from_str(
+            r#"{"pane_id":"p","seq":1,"event":{"type":"turn_started","turn_id":"t"}}"#,
+        )
+        .unwrap();
+        assert_eq!((env.epoch, env.replayed, env.ts_ms), (0, false, 0));
+        let v = serde_json::to_value(&env).unwrap();
+        assert!(v.get("replayed").is_none());
+        assert_eq!(v["epoch"], 0);
+        let replayed = AgentEventEnvelope { replayed: true, epoch: 2, ts_ms: 5, ..env };
+        let v = serde_json::to_value(&replayed).unwrap();
+        assert_eq!(v["replayed"], true);
+        assert_eq!(v["epoch"], 2);
+        assert_eq!(v["ts_ms"], 5);
     }
 
     fn expected_type(event: &AgentEvent) -> &'static str {
@@ -371,6 +536,9 @@ mod tests {
             AgentEvent::RateLimited { .. } => "rate_limited",
             AgentEvent::TurnCompleted { .. } => "turn_completed",
             AgentEvent::Error { .. } => "error",
+            AgentEvent::Notice { .. } => "notice",
+            AgentEvent::PlanUpdated { .. } => "plan_updated",
+            AgentEvent::ToolOutputDelta { .. } => "tool_output_delta",
         }
     }
 }

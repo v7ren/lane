@@ -485,6 +485,7 @@ impl ClaudeStreamMapper {
                 detail: questions.to_string(),
                 kind: ApprovalKind::Question,
                 options: vec![ApprovalDecision::AllowOnce, ApprovalDecision::Deny],
+                payload: None,
             });
             return;
         }
@@ -502,6 +503,7 @@ impl ClaudeStreamMapper {
                 detail: plan,
                 kind: ApprovalKind::Plan,
                 options: vec![ApprovalDecision::AllowOnce, ApprovalDecision::Deny],
+                payload: None,
             });
             return;
         }
@@ -522,6 +524,7 @@ impl ClaudeStreamMapper {
                 ApprovalDecision::AllowAlways,
                 ApprovalDecision::Deny,
             ],
+            payload: None,
         });
     }
 
@@ -813,6 +816,15 @@ impl ClaudeStreamMapper {
                 input_tokens: usage.and_then(|u| u.get("input_tokens")).and_then(|v| v.as_u64()),
                 output_tokens: usage.and_then(|u| u.get("output_tokens")).and_then(|v| v.as_u64()),
                 cost_usd: cost,
+                context_tokens: usage.and_then(|u| {
+                    let n = |k: &str| u.get(k).and_then(|v| v.as_u64());
+                    // Context in use = everything the model read this turn.
+                    n("input_tokens").map(|i| {
+                        i + n("cache_read_input_tokens").unwrap_or(0)
+                            + n("cache_creation_input_tokens").unwrap_or(0)
+                    })
+                }),
+                context_window: None,
             });
         }
         if is_error && self.interrupt_requested && subtype == "error_during_execution" {
@@ -972,7 +984,7 @@ mod tests {
         let mut mapper = ClaudeStreamMapper::default();
         let events = mapper.push_line(CAN_USE_TOOL, &counter);
         match events.as_slice() {
-            [AgentEvent::ApprovalRequested { approval_id, title, detail, kind, options }] => {
+            [AgentEvent::ApprovalRequested { approval_id, title, detail, kind, options, .. }] => {
                 assert_eq!(approval_id, "req-1");
                 assert_eq!(title, "Allow Bash?");
                 assert_eq!(detail, "echo hi > probe.txt");

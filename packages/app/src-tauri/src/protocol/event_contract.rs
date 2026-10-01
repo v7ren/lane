@@ -28,6 +28,9 @@ fn event_type(event: &AgentEvent) -> &'static str {
         AgentEvent::FilesChanged { .. } => "files_changed",
         AgentEvent::Usage { .. } => "usage",
         AgentEvent::RateLimited { .. } => "rate_limited",
+        AgentEvent::Notice { .. } => "notice",
+        AgentEvent::PlanUpdated { .. } => "plan_updated",
+        AgentEvent::ToolOutputDelta { .. } => "tool_output_delta",
     }
 }
 
@@ -38,7 +41,9 @@ fn turn_id_of(event: &AgentEvent) -> Option<&str> {
         | AgentEvent::MessageCompleted { turn_id, .. }
         | AgentEvent::ToolStarted { turn_id, .. }
         | AgentEvent::ToolCompleted { turn_id, .. }
+        | AgentEvent::ToolOutputDelta { turn_id, .. }
         | AgentEvent::TurnCompleted { turn_id, .. } => Some(turn_id.as_str()),
+        AgentEvent::PlanUpdated { turn_id, .. } => turn_id.as_deref(),
         _ => None,
     }
 }

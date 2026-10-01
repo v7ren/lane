@@ -16,6 +16,8 @@ const COALESCE_MS: u64 = 32;
 
 struct PaneProtocol {
     capabilities: Capabilities,
+    /// Replayed history (a resumed chat's transcript); uncapped, always in front of the ring.
+    seed: Vec<AgentEventEnvelope>,
     history: VecDeque<AgentEventEnvelope>,
     seq: u64,
     session: Arc<dyn ProtocolSession>,
@@ -36,6 +38,8 @@ struct HubInner {
     session_states: Option<Arc<SessionStateStore>>,
     app: Option<AppHandle>,
     coalesce: HashMap<String, HashMap<String, AgentEvent>>,
+    /// Pending `ToolOutputDelta` chunks per pane, keyed by `tool_id`.
+    tool_coalesce: HashMap<String, HashMap<String, AgentEvent>>,
     flush_scheduled: HashMap<String, bool>,
 }
 
@@ -47,6 +51,7 @@ impl ProtocolHub {
                 session_states: None,
                 app: None,
                 coalesce: HashMap::new(),
+                tool_coalesce: HashMap::new(),
                 flush_scheduled: HashMap::new(),
             }),
         })
@@ -62,6 +67,7 @@ impl ProtocolHub {
         let mut inner = self.inner.lock();
         inner.panes.remove(pane_id);
         inner.coalesce.remove(pane_id);
+        inner.tool_coalesce.remove(pane_id);
         inner.flush_scheduled.remove(pane_id);
         if let Some(store) = inner.session_states.as_ref() {
             store.set_protocol_backed(pane_id, false);
@@ -93,6 +99,7 @@ impl ProtocolHub {
             pane_id.clone(),
             PaneProtocol {
                 capabilities,
+                seed: Vec::new(),
                 history: VecDeque::new(),
                 seq: 0,
                 session,
@@ -144,7 +151,7 @@ impl ProtocolHub {
             .lock()
             .panes
             .get(pane_id)
-            .map(|p| p.history.iter().cloned().collect())
+            .map(|p| p.seed.iter().chain(p.history.iter()).cloned().collect())
             .unwrap_or_default()
     }
 
@@ -152,8 +159,13 @@ impl ProtocolHub {
     /// history and the UI like any event but never touch the pane's working/idle state.
     pub fn seed_history(self: &Arc<Self>, pane_id: &str, events: Vec<AgentEvent>) {
         for event in events {
-            self.commit_event(pane_id, event);
+            self.commit(pane_id, event, true);
         }
+    }
+
+    /// Commit an event the hub itself creates (for example a Notice from a command handler).
+    pub fn emit_local(self: &Arc<Self>, pane_id: &str, event: AgentEvent) {
+        self.ingest(pane_id, event);
     }
 
     pub fn send_prompt(self: &Arc<Self>, pane_id: &str, text: String) -> Result<(), String> {
@@ -229,6 +241,7 @@ impl ProtocolHub {
         matches!(
             event,
             AgentEvent::TurnCompleted { .. }
+                | AgentEvent::ToolCompleted { .. }
                 | AgentEvent::MessageCompleted { .. }
                 | AgentEvent::ApprovalRequested { .. }
                 | AgentEvent::ApprovalResolved { .. }
@@ -267,7 +280,36 @@ impl ProtocolHub {
             return;
         }
 
+        if let AgentEvent::ToolOutputDelta { tool_id, .. } = &event {
+            let tool_id = tool_id.clone();
+            let mut inner = self.inner.lock();
+            let slot = inner.tool_coalesce.entry(pane_id.to_string()).or_default();
+            let merged = match slot.remove(&tool_id) {
+                Some(prev) => Self::merge_tool_output(prev, event),
+                None => event,
+            };
+            slot.insert(tool_id, merged);
+            drop(inner);
+            self.schedule_flush(pane_id);
+            return;
+        }
+
         self.commit_event(pane_id, event);
+    }
+
+    /// Combine two pending tool output chunks for the same tool: always append.
+    fn merge_tool_output(prev: AgentEvent, next: AgentEvent) -> AgentEvent {
+        match (prev, next) {
+            (
+                AgentEvent::ToolOutputDelta { chunk: prev_chunk, .. },
+                AgentEvent::ToolOutputDelta { turn_id, tool_id, chunk },
+            ) => AgentEvent::ToolOutputDelta {
+                turn_id,
+                tool_id,
+                chunk: format!("{prev_chunk}{chunk}"),
+            },
+            (_, next) => next,
+        }
     }
 
     /// Combine two pending deltas for the same message: `Replace` supersedes everything
@@ -331,19 +373,33 @@ impl ProtocolHub {
             .lock()
             .flush_scheduled
             .insert(pane_id.to_string(), false);
-        let deltas: Vec<AgentEvent> = self
-            .inner
-            .lock()
-            .coalesce
-            .remove(pane_id)
-            .map(|m| m.into_values().collect())
-            .unwrap_or_default();
+        let deltas: Vec<AgentEvent> = {
+            let mut inner = self.inner.lock();
+            let mut out: Vec<AgentEvent> = inner
+                .coalesce
+                .remove(pane_id)
+                .map(|m| m.into_values().collect())
+                .unwrap_or_default();
+            out.extend(
+                inner
+                    .tool_coalesce
+                    .remove(pane_id)
+                    .map(|m| m.into_values().collect::<Vec<_>>())
+                    .unwrap_or_default(),
+            );
+            out
+        };
         for event in deltas {
             self.commit_event(pane_id, event);
         }
     }
 
     fn commit_event(self: &Arc<Self>, pane_id: &str, event: AgentEvent) {
+        self.commit(pane_id, event, false);
+    }
+
+    fn commit(self: &Arc<Self>, pane_id: &str, event: AgentEvent, replayed: bool) {
+        let ephemeral = matches!(event, AgentEvent::ToolOutputDelta { .. });
         let envelope = {
             let mut inner = self.inner.lock();
             let Some(pane) = inner.panes.get_mut(pane_id) else {
@@ -354,10 +410,17 @@ impl ProtocolHub {
                 pane_id: pane_id.to_string(),
                 seq: pane.seq,
                 event,
+                epoch: pane.generation,
+                replayed,
+                ts_ms: crate::events::now_ms(),
             };
-            pane.history.push_back(envelope.clone());
-            while pane.history.len() > HISTORY_CAP {
-                pane.history.pop_front();
+            if replayed {
+                pane.seed.push(envelope.clone());
+            } else if !ephemeral {
+                pane.history.push_back(envelope.clone());
+                while pane.history.len() > HISTORY_CAP {
+                    pane.history.pop_front();
+                }
             }
             envelope
         };
