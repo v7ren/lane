@@ -51,7 +51,7 @@ import { setSessionMuted } from '../../lib/session-notify-prefs';
 import { formatPaneSubtitle } from '../../lib/session-subtitle';
 import { DisplayStatusDot } from '../DisplayStatusDot';
 import { AgentComposerPanel } from '../composer/AgentComposerPanel';
-import { capabilitiesForAgentType } from '../../lib/agent-capabilities';
+import { capabilitiesForAgentType, agentFamily } from '../../lib/agent-capabilities';
 import {
   buildPermissionDockItems,
   PermissionDock,
@@ -60,6 +60,7 @@ import {
 import { QuestionDock, type QuestionDockItem } from '../opencode/QuestionDock';
 import { TranscriptView } from '../transcript/TranscriptView';
 import { useAgentApprovalShortcuts } from './AgentView.keyboard';
+import { AgentMark } from './AgentMark';
 
 /**
  * Claude has no server to share, so a terminal is a second process on the same session and drifts from
@@ -464,6 +465,7 @@ export function AgentView({
       }
     >
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border-subtle shrink-0 w-full">
+        <AgentMark family={agentFamily(resolvedAgentType)} size="md" />
         <DisplayStatusDot
           status={displayStatus}
           pulse={displayStatus === 'needs_approval' || displayStatus === 'waiting'}

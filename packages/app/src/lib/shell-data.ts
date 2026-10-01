@@ -28,6 +28,8 @@ import { useOpenCodePaneStates, useEnsureOpenCodeStores } from './sessions/use-o
 import { useShellSelection } from './shell-selection-context';
 import { isTauriRuntime } from './is-tauri';
 import { companionPaneIds, useTuiCompanions } from './tui-companions';
+import type { AgentFamily } from './agent-capabilities';
+import { agentFamily } from './agent-capabilities';
 
 export type ShellSession = {
   id: string;
@@ -36,6 +38,7 @@ export type ShellSession = {
   parentSessionId?: string;
   title: string;
   agentLabel: string;
+  agentFamily: AgentFamily;
   status: DisplayStatus;
   /** Human-readable OpenCode status (Busy / Retrying / Idle). */
   statusLabel?: string;
@@ -171,6 +174,7 @@ export function useSessionList(options?: {
         paneId: '',
         title: past.title,
         agentLabel: 'Claude',
+        agentFamily: 'claude',
         status: 'idle',
         updatedAt: past.updated_at,
         unread: false,
@@ -186,6 +190,7 @@ export function useSessionList(options?: {
           paneId,
           title: `Session ${paneId.slice(0, 8)}`,
           agentLabel: 'Agent',
+          agentFamily: agentFamily(session.agent_type),
           status: 'connecting',
           updatedAt: session.updated_at_ms,
           unread: false,

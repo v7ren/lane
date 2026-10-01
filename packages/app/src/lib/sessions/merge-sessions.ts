@@ -17,6 +17,7 @@ import type { ShellSession } from '../shell-data';
 import { isUserShellPane } from '../pane-surface';
 import { buildPaneDisplayNames } from '../pane-display-name';
 import { displayOpenCodeSessionTitle } from './session-display-title';
+import { agentFamily } from '../agent-capabilities';
 
 export function isOpenCodePane(pane: PaneData): boolean {
   return pane.info.agent_type === 'opencode_native';
@@ -94,6 +95,7 @@ export function buildOpenCodeShellSessions(args: {
       parentSessionId: session.parentID,
       title: displayOpenCodeSessionTitle(state, sessionId, session.title),
       agentLabel: session.agent ?? agentLabel,
+      agentFamily: 'opencode',
       status,
       statusLabel,
       updatedAt,
@@ -145,6 +147,7 @@ export function buildPaneShellSessions(args: {
       paneId: pane.info.id,
       title,
       agentLabel,
+      agentFamily: agentFamily(session?.agent_type ?? pane.info.agent_type),
       status,
       updatedAt: session?.updated_at_ms ?? pane.info.last_output_at ?? 0,
       unread: selectedPaneId !== pane.info.id && status === 'needs_approval',

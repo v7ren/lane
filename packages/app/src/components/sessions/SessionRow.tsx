@@ -10,6 +10,7 @@ import { useSessionActions } from '../../lib/sessions/session-actions-context';
 import type { ShellSession } from '../../lib/shell-data';
 import { DisplayStatusDot } from '../DisplayStatusDot';
 import { SessionContextMenu } from './SessionContextMenu';
+import { AgentMark } from '../agent/AgentMark';
 
 export function SessionRow({
   session,
@@ -82,6 +83,7 @@ export function SessionRow({
             className="w-full min-w-0 text-left px-2 py-1.5 pr-7"
           >
             <div className="flex items-center gap-1.5 min-w-0 w-full">
+              <AgentMark family={session.agentFamily} size="sm" />
               <DisplayStatusDot
                 status={session.status}
                 pulse={session.status === 'needs_approval' || session.status === 'waiting'}

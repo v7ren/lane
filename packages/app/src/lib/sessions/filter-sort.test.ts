@@ -4,6 +4,7 @@ import type { ShellSession } from '../shell-data';
 
 const row = (partial: Partial<ShellSession> & Pick<ShellSession, 'id' | 'paneId' | 'title'>): ShellSession => ({
   agentLabel: 'Agent',
+  agentFamily: 'other',
   status: 'idle',
   updatedAt: 0,
   unread: false,

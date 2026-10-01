@@ -31,6 +31,7 @@ describe('merge OpenCode and pane sessions', () => {
     });
     expect(rows[0]?.sessionId).toBe('sess_a');
     expect(rows[0]?.id).toBe('sess_a');
+    expect(rows[0]?.agentFamily).toBe('opencode');
   });
 
   it('nests child sessions under parent', () => {
@@ -41,6 +42,7 @@ describe('merge OpenCode and pane sessions', () => {
         sessionId: 'parent',
         title: 'Parent',
         agentLabel: 'A',
+        agentFamily: 'opencode',
         status: 'idle',
         updatedAt: 1,
         unread: false,
@@ -52,6 +54,7 @@ describe('merge OpenCode and pane sessions', () => {
         parentSessionId: 'parent',
         title: 'Child',
         agentLabel: 'A',
+        agentFamily: 'opencode',
         status: 'idle',
         updatedAt: 0,
         unread: false,
@@ -71,6 +74,7 @@ describe('merge OpenCode and pane sessions', () => {
           sessionId: 'oc1',
           title: 'OC',
           agentLabel: 'OpenCode',
+          agentFamily: 'opencode',
           status: 'idle',
           updatedAt: 1,
           unread: false,
@@ -82,6 +86,7 @@ describe('merge OpenCode and pane sessions', () => {
           paneId: 'pane-codex',
           title: 'Codex',
           agentLabel: 'Codex',
+          agentFamily: 'codex',
           status: 'working',
           updatedAt: 2,
           unread: false,
@@ -99,6 +104,7 @@ describe('merge OpenCode and pane sessions', () => {
       sessionId: 'ses1',
       title: 'Shared',
       agentLabel: 'OpenCode',
+      agentFamily: 'opencode' as const,
       status: 'idle' as const,
       updatedAt: 1,
       unread: false,

@@ -49,6 +49,7 @@ describe('isSessionReverted', () => {
       paneId: 'p',
       title: 't',
       agentLabel: 'a',
+      agentFamily: 'other',
       status: 'idle',
       updatedAt: 0,
       unread: false,
