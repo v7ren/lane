@@ -63,6 +63,7 @@ import {
 import { isTauriRuntime } from '../../lib/is-tauri';
 import { ADD_TO_COMPOSER_EVENT, type AddToComposerDetail } from '../../lib/editor/add-to-composer';
 import { useShellSelection } from '../../lib/shell-selection-context';
+import { getDraft, setDraft as storeDraft, clearDraft } from '../../lib/composer-drafts';
 
 function modelChoiceId(m: ComposerModelChoice): string {
   return `${m.providerID}:${m.modelID}`;
@@ -112,7 +113,7 @@ export function AgentComposerPanel({
     shellMode: baseFeatures.shellMode && caps.shellMode,
     stop: baseFeatures.stop && caps.abort,
   };
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(() => getDraft(paneId));
   const [mode, setMode] = useState<ComposerMode>('chat');
   const [agent, setAgent] = useState('build');
   const [permissionMode, setPermissionMode] = useState<'allow' | 'ask'>('allow');
@@ -146,6 +147,11 @@ export function AgentComposerPanel({
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [configPillLabel, setConfigPillLabel] = useState<string | null>(null);
   const sendInFlightRef = useRef(false);
+
+  useEffect(() => {
+    // Load draft when paneId changes
+    setDraft(getDraft(paneId));
+  }, [paneId]);
 
   useEffect(() => {
     const onInsert = (event: Event) => {
@@ -370,6 +376,7 @@ export function AgentComposerPanel({
       historyRef.current = [raw, ...historyRef.current.filter((h) => h !== raw)].slice(0, 50);
       historyIdx.current = null;
       setDraft('');
+      clearDraft(paneId);
       revokeAttachmentPreviews(uploadAttachments);
       setUploadAttachments([]);
       setFileParts([]);
@@ -394,7 +401,7 @@ export function AgentComposerPanel({
     openCode,
     paneId,
     sessionId,
-  ]);
+  ]); // paneId is used in clearDraft
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -501,11 +508,13 @@ export function AgentComposerPanel({
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             onChange={(e) => {
-              setDraft(e.target.value);
-              const at = e.target.value.lastIndexOf('@');
+              const newDraft = e.target.value;
+              setDraft(newDraft);
+              storeDraft(paneId, newDraft);
+              const at = newDraft.lastIndexOf('@');
               if (at >= 0 && features.mentions) {
                 setPicker('mention');
-                setMentionQuery(e.target.value.slice(at + 1));
+                setMentionQuery(newDraft.slice(at + 1));
               }
             }}
             onKeyDown={onKeyDown}

@@ -9,6 +9,7 @@ import {
 } from '../../lib/agent-capabilities';
 import type { Capabilities } from '../../lib/agent-events';
 import { AgentComposerPanel } from './AgentComposerPanel';
+import { clearDraft, getDraft } from '../../lib/composer-drafts';
 
 vi.mock('../../lib/shell-selection-context', () => ({
   useShellSelection: () => ({ setBottomTab: vi.fn() }),
@@ -116,5 +117,160 @@ describe('AgentComposerPanel capability gating', () => {
       el.dispatchEvent(new Event('input', { bubbles: true }));
     });
     expect(hasOpenPopover('mention-popover')).toBe(false);
+  });
+});
+
+describe('AgentComposerPanel draft persistence', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    clearDraft('pane-a');
+    clearDraft('pane-b');
+  });
+
+  afterEach(() => {
+    sessionStorage.clear();
+    clearDraft('pane-a');
+    clearDraft('pane-b');
+  });
+
+  it('composer remount keeps the text via getDraft', () => {
+    // First render: type text
+    root = createRoot(container);
+    act(() => {
+      root!.render(
+        <AgentComposerPanel
+          paneId="pane-a"
+          sessionId="ses-1"
+          openCode
+          capabilities={protocolCaps}
+          agentCapabilities={OPENCODE_CAPABILITIES}
+          disabled={false}
+          busy={false}
+          showStop={false}
+          onSendProtocol={async () => {}}
+          onCancelProtocol={async () => {}}
+          onError={() => {}}
+        />,
+      );
+    });
+
+    const ta = textarea();
+    act(() => {
+      // Simulate React onChange by setting value and firing input event
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+      setter.call(ta, 'hello world');
+      ta.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    expect(getDraft('pane-a')).toBe('hello world');
+
+    // Unmount
+    act(() => root?.unmount());
+
+    // Remount with same paneId
+    root = createRoot(container);
+    act(() => {
+      root!.render(
+        <AgentComposerPanel
+          paneId="pane-a"
+          sessionId="ses-1"
+          openCode
+          capabilities={protocolCaps}
+          agentCapabilities={OPENCODE_CAPABILITIES}
+          disabled={false}
+          busy={false}
+          showStop={false}
+          onSendProtocol={async () => {}}
+          onCancelProtocol={async () => {}}
+          onError={() => {}}
+        />,
+      );
+    });
+
+    // Verify draft is restored
+    expect(textarea().value).toBe('hello world');
+  });
+
+  it('switching panes and back preserves text', () => {
+    // Render pane-a with text
+    root = createRoot(container);
+    act(() => {
+      root!.render(
+        <AgentComposerPanel
+          paneId="pane-a"
+          sessionId="ses-1"
+          openCode
+          capabilities={protocolCaps}
+          agentCapabilities={OPENCODE_CAPABILITIES}
+          disabled={false}
+          busy={false}
+          showStop={false}
+          onSendProtocol={async () => {}}
+          onCancelProtocol={async () => {}}
+          onError={() => {}}
+        />,
+      );
+    });
+
+    const ta = textarea();
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+      setter.call(ta, 'text from pane A');
+      ta.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    expect(getDraft('pane-a')).toBe('text from pane A');
+
+    // Switch to pane-b by changing paneId prop
+    act(() => {
+      root!.render(
+        <AgentComposerPanel
+          paneId="pane-b"
+          sessionId="ses-2"
+          openCode
+          capabilities={protocolCaps}
+          agentCapabilities={OPENCODE_CAPABILITIES}
+          disabled={false}
+          busy={false}
+          showStop={false}
+          onSendProtocol={async () => {}}
+          onCancelProtocol={async () => {}}
+          onError={() => {}}
+        />,
+      );
+    });
+
+    expect(textarea().value).toBe(''); // pane-b has no draft yet
+    expect(getDraft('pane-a')).toBe('text from pane A'); // pane-a's draft is still there
+
+    // Type in pane-b
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+      setter.call(textarea(), 'text from pane B');
+      textarea().dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    // Switch back to pane-a
+    act(() => {
+      root!.render(
+        <AgentComposerPanel
+          paneId="pane-a"
+          sessionId="ses-1"
+          openCode
+          capabilities={protocolCaps}
+          agentCapabilities={OPENCODE_CAPABILITIES}
+          disabled={false}
+          busy={false}
+          showStop={false}
+          onSendProtocol={async () => {}}
+          onCancelProtocol={async () => {}}
+          onError={() => {}}
+        />,
+      );
+    });
+
+    // Verify pane-a's text is restored
+    expect(textarea().value).toBe('text from pane A');
+    expect(getDraft('pane-b')).toBe('text from pane B'); // pane-b's draft is still there
   });
 });
