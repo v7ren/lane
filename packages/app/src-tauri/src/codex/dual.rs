@@ -78,6 +78,7 @@ pub fn spawn_dual_pane(
                 extra_args: args.extra_args.clone(),
                 pane_id: Some(pane_id.clone()),
                 surface: args.surface.clone(),
+                resume_session_id: None,
             };
             return fallback_pty(
                 registry,

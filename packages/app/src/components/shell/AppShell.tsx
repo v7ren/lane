@@ -392,6 +392,18 @@ function AppShellChrome(props: {
   markBottomPanelResized: () => void;
 }) {
   const actions = useSessionActions();
+  const resumeClaudeSession = useCallback(
+    async (claudeSessionId: string) => {
+      const id = await props.registry.spawnPane({
+        agent_type: 'claude',
+        cwd: props.projectPath ?? undefined,
+        surface: 'headless',
+        resume_session_id: claudeSessionId,
+      });
+      if (id) props.selectSession(id);
+    },
+    [props.registry, props.projectPath, props.selectSession],
+  );
   const [portsOpen, setPortsOpen] = useState(false);
   const tuiCompanions = useTuiCompanions();
   const {
@@ -590,6 +602,7 @@ function AppShellChrome(props: {
                 selectedPaneId={selectedPaneId}
                 connecting={railConnecting}
                 onSelectSession={selectSession}
+                onResumeClaudeSession={resumeClaudeSession}
                 projectPath={projectPath}
                 onProjectPathChange={onProjectPathChange}
                 onOpenWorkspace={handleOpenWorkspace}

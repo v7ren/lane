@@ -42,7 +42,16 @@ impl ProtocolAdapter for ClaudeStreamJsonAdapter {
                 .unwrap_or_else(|_| std::env::temp_dir().to_string_lossy().into())
         });
         let (tx, _rx) = broadcast::channel(256);
-        let turn_counter = Arc::new(AtomicU64::new(1));
+        // An existing session is continued with `--resume`; `--session-id` only works for a new one.
+        let resuming = crate::protocol::claude_session_file::session_exists(&cwd, &session_id);
+        let replayed_turns = if resuming {
+            crate::protocol::claude_session_file::read_history(&cwd, &session_id)
+                .map(|(_, turns)| turns)
+                .unwrap_or(0)
+        } else {
+            0
+        };
+        let turn_counter = Arc::new(AtomicU64::new(replayed_turns + 1));
         let claude_exe = crate::shell_env::resolve_claude_executable()
             .map_err(|e| AgentError::Connect(e))?;
         let permission_mode = std::env::var("LOOMRIA_CLAUDE_PERMISSION_MODE")
@@ -57,7 +66,7 @@ impl ProtocolAdapter for ClaudeStreamJsonAdapter {
                 "stream-json",
                 "--include-partial-messages",
                 "--verbose",
-                "--session-id",
+                if resuming { "--resume" } else { "--session-id" },
                 &session_id,
                 "--permission-mode",
                 &permission_mode,

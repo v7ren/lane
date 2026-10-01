@@ -350,8 +350,8 @@ fn register_claude_headless_protocol(state: &AppState, pane_id: &str) -> Result<
         adapter,
         crate::protocol::Endpoint {
             url: String::new(),
-            session_id: Some(session_id),
-            cwd: Some(cwd),
+            session_id: Some(session_id.clone()),
+            cwd: Some(cwd.clone()),
             codex: None,
             connect_pane_id: None,
         },
@@ -362,7 +362,30 @@ fn register_claude_headless_protocol(state: &AppState, pane_id: &str) -> Result<
             crate::process::assign_pid_to_pane_job(&pane.process_tree, pid);
         }
     }
+    // Resumed chat: show what was already said. A missing file just means a brand-new chat.
+    if let Ok((events, _)) = crate::protocol::claude_session_file::read_history(&cwd, &session_id) {
+        state.protocol_hub.seed_history(pane_id, events);
+    }
     Ok(())
+}
+
+/// Past Claude chats of a project (read from Claude's own session files), newest first.
+#[tauri::command]
+pub async fn claude_list_sessions(
+    state: State<'_, AppState>,
+    cwd: String,
+) -> Result<Vec<crate::protocol::claude_session_file::PastSession>, String> {
+    // A session an open pane already holds is not "past": resuming it twice would fight over one file.
+    let open: std::collections::HashSet<String> = state
+        .registry
+        .lock()
+        .panes
+        .values()
+        .filter_map(|p| p.claude_session_id.clone())
+        .collect();
+    let mut sessions = crate::protocol::claude_session_file::list_sessions(&cwd);
+    sessions.retain(|s| !open.contains(&s.id));
+    Ok(sessions)
 }
 
 #[tauri::command]
@@ -407,6 +430,7 @@ pub async fn session_open_in_tui(
             extra_args: Some(extra_args),
             pane_id: None,
             surface: None,
+            resume_session_id: None,
         },
         None,
     )?;

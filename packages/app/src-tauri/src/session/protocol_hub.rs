@@ -127,6 +127,14 @@ impl ProtocolHub {
             .unwrap_or_default()
     }
 
+    /// Put past events (a resumed chat's transcript) in front of the live stream. They go to
+    /// history and the UI like any event but never touch the pane's working/idle state.
+    pub fn seed_history(self: &Arc<Self>, pane_id: &str, events: Vec<AgentEvent>) {
+        for event in events {
+            self.commit_event(pane_id, event);
+        }
+    }
+
     pub fn send_prompt(self: &Arc<Self>, pane_id: &str, text: String) -> Result<(), String> {
         let session = self
             .inner

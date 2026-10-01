@@ -14,6 +14,7 @@ export function SidebarPanel({
   selectedPaneId,
   connecting,
   onSelectSession,
+  onResumeClaudeSession,
   projectPath,
   onProjectPathChange,
   onOpenWorkspace,
@@ -23,6 +24,7 @@ export function SidebarPanel({
   selectedPaneId: string | null;
   connecting?: boolean;
   onSelectSession: (paneId: string, sessionId?: string) => void;
+  onResumeClaudeSession?: (claudeSessionId: string) => void;
   projectPath: string | null;
   onProjectPathChange: (path: string) => Promise<void>;
   onOpenWorkspace: (path: string) => Promise<void>;
@@ -65,7 +67,11 @@ export function SidebarPanel({
 
   if (section === 'sessions') {
     return (
-      <SessionsSidebar connecting={connecting} onSelectSession={onSelectSession} />
+      <SessionsSidebar
+        connecting={connecting}
+        onSelectSession={onSelectSession}
+        onResumeClaudeSession={onResumeClaudeSession}
+      />
     );
   }
 

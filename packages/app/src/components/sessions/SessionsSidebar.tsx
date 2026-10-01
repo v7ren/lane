@@ -16,12 +16,14 @@ const SORT_LABEL: Record<SessionSortMode, string> = {
 export function SessionsSidebar({
   connecting,
   onSelectSession,
+  onResumeClaudeSession,
 }: {
   connecting?: boolean;
   onSelectSession: (paneId: string, sessionId?: string) => void;
+  onResumeClaudeSession?: (claudeSessionId: string) => void;
 }) {
   const { query, setQuery, sortMode, setSortMode } = useSessionListFilter();
-  const sessions = useSessionList({ query, sortMode });
+  const sessions = useSessionList({ query, sortMode, includePast: true });
   const { selectedPaneId, selectedSessionId } = useShellSelection();
   const actions = useSessionActions();
   const [sortOpen, setSortOpen] = useState(false);
@@ -138,6 +140,10 @@ export function SessionsSidebar({
                       session={session}
                       selected={selected}
                       onSelect={() => {
+                        if (session.claudeResumeId) {
+                          onResumeClaudeSession?.(session.claudeResumeId);
+                          return;
+                        }
                         onSelectSession(session.paneId, session.sessionId);
                         if (session.sessionId) markSessionRead(session.paneId, session.sessionId);
                       }}

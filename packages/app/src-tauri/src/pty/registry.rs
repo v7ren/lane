@@ -258,6 +258,8 @@ pub struct SpawnPaneArgs {
     pub pane_id: Option<String>,
     /// `tui` (default) or `headless` (Claude stream-json Agent Mode surface).
     pub surface: Option<String>,
+    /// Headless Claude only: continue this existing session instead of starting a new one.
+    pub resume_session_id: Option<String>,
 }
 
 /// Spawn a pane. The reader thread pushes raw bytes to the scrollback,

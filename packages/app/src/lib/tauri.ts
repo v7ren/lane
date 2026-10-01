@@ -29,6 +29,8 @@ export type PaneInfo = {
   surface?: string;
 };
 
+export type ClaudePastSession = { id: string; title: string; updated_at: number };
+
 export type TerminalSnapshotEvent = { pane_id: string; snapshot: string };
 export type TerminalDataEvent = { pane_id: string; data: number[] };
 export type PaneStatusEvent = { pane_id: string; status: PaneInfo['status'] };
@@ -204,6 +206,8 @@ async function onCurrentWindowCloseRequested(
 
 export const tauri = {
   listPanes: () => safeInvoke<PaneInfo[]>('list_panes', undefined, [], true),
+  claudeListSessions: (cwd: string) =>
+    safeInvoke<ClaudePastSession[]>('claude_list_sessions', { cwd }, [], true),
   listAgents: () =>
     safeInvoke<AgentCatalog>('list_agents', undefined, emptyAgentCatalog(), true),
   listResumableSessions: () =>
@@ -240,6 +244,7 @@ export const tauri = {
     extra_args?: string[];
     surface?: 'tui' | 'headless';
     pane_id?: string;
+    resume_session_id?: string;
   }) => safeInvoke<string>('spawn_pane', { args }, `browser-preview-${Date.now()}`, true),
   killPane: (paneId: string) => safeInvoke<void>('kill_pane_cmd', { paneId }, undefined, true),
   killAllPanes: () => safeInvoke<void>('kill_all_panes', undefined, undefined, true),

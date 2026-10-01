@@ -83,6 +83,7 @@ pub fn run() {
             commands::session_agent_info,
             commands::session_set_option,
             commands::session_open_in_tui,
+            commands::claude_list_sessions,
             commands::read_opencode_messages,
             commands::list_opencode_permissions,
             commands::reply_opencode_question,

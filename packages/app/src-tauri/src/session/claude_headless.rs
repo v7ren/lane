@@ -29,7 +29,10 @@ pub fn spawn_headless_pane(
     .to_string();
 
     let pane_id = args.pane_id.unwrap_or_else(|| Uuid::new_v4().to_string());
-    let session_id = Uuid::new_v4().to_string();
+    let session_id = args
+        .resume_session_id
+        .clone()
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
 
     {
         let mut reg = registry.lock();

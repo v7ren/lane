@@ -1,6 +1,7 @@
 import { getPreset } from '@loomria/shared';
 import { useEffect, useMemo, useState } from 'react';
 import { useAgentCatalog } from '../hooks/useAgentCatalog';
+import { useClaudePastSessions } from '../hooks/useClaudePastSessions';
 import { usePaneRegistry } from '../hooks/usePaneRegistry';
 import { useProjectPath } from '../hooks/useProjectPath';
 import { useSessionRail } from '../hooks/useSessionRail';
@@ -46,6 +47,8 @@ export type ShellSession = {
   shareUrl?: string;
   reverted?: boolean;
   depth?: number;
+  /** A past Claude chat with no open pane; selecting it resumes this session id. */
+  claudeResumeId?: string;
 };
 
 export type SessionSummary = {
@@ -77,7 +80,12 @@ export function useSessionListFilter(): {
   return { query, setQuery, sortMode, setSortMode };
 }
 
-export function useSessionList(options?: { query?: string; sortMode?: SessionSortMode }): ShellSession[] {
+export function useSessionList(options?: {
+  query?: string;
+  sortMode?: SessionSortMode;
+  /** Also list past Claude chats that can be resumed (the sidebar only). */
+  includePast?: boolean;
+}): ShellSession[] {
   const demo = useDemoFixtures();
   const sessionStates = useSessionRail();
   const registry = usePaneRegistry();
@@ -85,6 +93,12 @@ export function useSessionList(options?: { query?: string; sortMode?: SessionSor
   const { selectedPaneId, selectedSessionId } = useShellSelection();
   const query = options?.query ?? '';
   const sortMode = options?.sortMode ?? 'attention';
+  const { projectPath } = useProjectPath();
+  const pastClaude = useClaudePastSessions(
+    Boolean(options?.includePast) && !demo,
+    projectPath,
+    registry.paneList.length,
+  );
 
   const tuiCompanions = useTuiCompanions();
   const panes = useMemo(() => {
@@ -151,6 +165,19 @@ export function useSessionList(options?: { query?: string; sortMode?: SessionSor
     });
 
     let rows = mergeShellSessionLists(ocRows, paneRows, selectedPaneId);
+    for (const past of pastClaude) {
+      rows.push({
+        id: `claude-past-${past.id}`,
+        paneId: '',
+        title: past.title,
+        agentLabel: 'Claude',
+        status: 'idle',
+        updatedAt: past.updated_at,
+        unread: false,
+        workspaceDirectory: projectPath ?? undefined,
+        claudeResumeId: past.id,
+      });
+    }
     if (rows.length === 0) {
       for (const [paneId, session] of sessionStates) {
         if (isUserShellPane(session.agent_type ?? '')) continue;
@@ -173,6 +200,8 @@ export function useSessionList(options?: { query?: string; sortMode?: SessionSor
     ocStates,
     openCodePaneIds,
     panes,
+    pastClaude,
+    projectPath,
     query,
     readAtMs,
     selectedPaneId,

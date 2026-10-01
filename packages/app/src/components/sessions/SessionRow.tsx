@@ -100,6 +100,7 @@ export function SessionRow({
             </div>
             <p className="text-[11px] leading-snug text-text-3 truncate pl-[18px] mt-0.5">{metaLine}</p>
           </button>
+          {!session.claudeResumeId && (
           <button
             ref={menuAnchorRef}
             type="button"
@@ -112,6 +113,7 @@ export function SessionRow({
           >
             <MoreHorizontal size={14} strokeWidth={1.5} />
           </button>
+          )}
         </>
       )}
       <SessionContextMenu

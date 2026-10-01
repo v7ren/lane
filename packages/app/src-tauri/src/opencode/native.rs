@@ -220,6 +220,7 @@ pub fn restart_native_pane(
             extra_args: None,
             pane_id: Some(pane_id.to_string()),
             surface: None,
+            resume_session_id: None,
         }
     };
     crate::opencode::keys::apply_active_auth()?;
