@@ -65,19 +65,56 @@ impl ProtocolSession for CodexAppServerSession {
     }
 
     fn respond_to_approval(&self, approval_id: &str, decision: &str) -> Result<(), AgentError> {
-        let parsed = ApprovalDecision::parse(decision)
-            .map_err(|e| AgentError::Protocol(e))?;
-        self.client
-            .respond_approval_rpc(approval_id, parsed.as_str())?;
+        let (wire, resolved) = match route_decision(decision)? {
+            Routed::Answer => (decision.to_string(), ApprovalDecision::AllowOnce),
+            Routed::Decision(parsed) => (parsed.as_str().to_string(), parsed),
+        };
+        self.client.respond_approval_rpc(approval_id, &wire)?;
         let _ = self.client.emit_local(AgentEvent::ApprovalResolved {
             approval_id: approval_id.to_string(),
-            decision: parsed,
+            decision: resolved,
         });
         Ok(())
     }
 
     fn cancel_turn(&self) -> Result<(), AgentError> {
         self.client.interrupt()
+    }
+}
+
+/// How a decision string from the frontend is handled.
+#[derive(Debug, PartialEq)]
+enum Routed {
+    /// A question answer (`answer:{...}`), forwarded verbatim to the RPC.
+    Answer,
+    /// An ordinary approval decision.
+    Decision(ApprovalDecision),
+}
+
+fn route_decision(decision: &str) -> Result<Routed, AgentError> {
+    if decision.starts_with(super::claude_stream_json::ANSWER_PREFIX) {
+        return Ok(Routed::Answer);
+    }
+    ApprovalDecision::parse(decision)
+        .map(Routed::Decision)
+        .map_err(AgentError::Protocol)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn answer_decisions_route_to_answer() {
+        let r = route_decision(r#"answer:{"Colour?":"blue"}"#).unwrap();
+        assert_eq!(r, Routed::Answer);
+    }
+
+    #[test]
+    fn ordinary_decisions_still_parse() {
+        let r = route_decision("allow_once").unwrap();
+        assert_eq!(r, Routed::Decision(ApprovalDecision::AllowOnce));
+        assert!(route_decision("bogus").is_err());
     }
 }
 

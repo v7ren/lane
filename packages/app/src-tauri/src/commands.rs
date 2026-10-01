@@ -207,15 +207,30 @@ pub struct SessionRespondApprovalArgs {
     pub decision: String,
 }
 
+/// A log-safe description of a decision string: `answer` for a question answer, otherwise the
+/// decision itself (a short fixed vocabulary, or `other` for anything unrecognised).
+fn decision_kind(decision: &str) -> &'static str {
+    if decision.starts_with(crate::protocol::claude_stream_json::ANSWER_PREFIX) {
+        return "answer";
+    }
+    match decision {
+        "allow_once" => "allow_once",
+        "allow_always" => "allow_always",
+        "deny" => "deny",
+        _ => "other",
+    }
+}
+
 #[tauri::command]
 pub async fn session_respond_approval(
     state: State<'_, AppState>,
     args: SessionRespondApprovalArgs,
 ) -> Result<(), String> {
+    // Never log the decision text: an answer can carry a secret.
     info!(
         pane_id = %args.pane_id,
         approval_id = %args.approval_id,
-        decision = %args.decision,
+        decision_kind = decision_kind(&args.decision),
         "session_respond_approval"
     );
     match state
@@ -898,6 +913,48 @@ mod command_invoke_contract_tests {
         let raw = r#"{"args":{"paneId":"pane-1","text":"hello"}}"#;
         let err = serde_json::from_str::<SessionSendPromptInvoke>(raw);
         assert!(err.is_err(), "nested camelCase paneId must not deserialize as pane_id");
+    }
+
+    #[test]
+    fn decision_kind_never_exposes_answer_text() {
+        assert_eq!(decision_kind(r#"answer:{"Password?":"hunter2"}"#), "answer");
+        assert_eq!(decision_kind("allow_once"), "allow_once");
+        assert_eq!(decision_kind("whatever hunter2"), "other");
+    }
+
+    #[test]
+    fn respond_approval_log_line_omits_answer_text() {
+        use std::sync::{Arc, Mutex};
+        #[derive(Clone)]
+        struct Buf(Arc<Mutex<Vec<u8>>>);
+        impl std::io::Write for Buf {
+            fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+                self.0.lock().unwrap().extend_from_slice(b);
+                Ok(b.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let buf = Buf(Arc::new(Mutex::new(Vec::new())));
+        let writer = buf.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(move || writer.clone())
+            .with_ansi(false)
+            .finish();
+        let decision = r#"answer:{"Password?":"hunter2"}"#;
+        tracing::subscriber::with_default(subscriber, || {
+            info!(
+                pane_id = "p",
+                approval_id = "a1",
+                decision_kind = decision_kind(decision),
+                "session_respond_approval"
+            );
+        });
+        let out = String::from_utf8(buf.0.lock().unwrap().clone()).unwrap();
+        assert!(out.contains("decision_kind"), "{out}");
+        assert!(out.contains("answer"), "{out}");
+        assert!(!out.contains("hunter2"), "{out}");
     }
 
     #[test]
