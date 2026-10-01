@@ -214,9 +214,17 @@ impl CodexWsClient {
         text: &str,
         approval_policy: Option<&str>,
     ) -> Result<(), AgentError> {
-        let thread_id = self
-            .thread_id()
-            .ok_or_else(|| AgentError::Protocol("codex thread not ready".into()))?;
+        // The chat opens before the server has answered thread/start; give it a moment.
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let thread_id = loop {
+            if let Some(id) = self.thread_id() {
+                break id;
+            }
+            if Instant::now() >= deadline {
+                return Err(AgentError::Protocol("codex thread not ready".into()));
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        };
         let seq = self.request_seq.fetch_add(1, Ordering::SeqCst);
         let request_id = format!("turn-{seq}");
         let mut params = json!({

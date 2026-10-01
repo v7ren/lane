@@ -47,7 +47,7 @@ impl ProtocolSession for CodexAppServerSession {
             send_prompt: true,
             approvals: true,
             cancel: true,
-            file_changes: false,
+            file_changes: true,
             attach_tui: true,
         }
     }
