@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { TimelineApproval } from './agent-timeline-reducer';
-import { answerDecision, questionsFromApproval } from './protocol-questions';
+import { answerDecision, autoResolutionMsFromApproval, questionsFromApproval } from './protocol-questions';
 
 const DETAIL = JSON.stringify([
   {
@@ -68,5 +68,28 @@ describe('protocol questions', () => {
     expect(question?.custom).toBe(false);
     expect(question?.secret).toBe(true);
     expect(question?.allow_other).toBe(false);
+  });
+
+  it('keeps secret answers out of console output and reads the auto-resolution time', () => {
+    const spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((m) => vi.spyOn(console, m));
+    const withPayload: TimelineApproval = {
+      ...approval('question', '[]'),
+      payload: {
+        type: 'questions',
+        auto_resolution_ms: 30000,
+        questions: [
+          { id: 'q1', header: 'Key', question: 'Token?', options: [], multi_select: false, allow_other: false, secret: true },
+        ],
+      },
+    };
+    const questions = questionsFromApproval(withPayload);
+    expect(questions[0]?.secret).toBe(true);
+    expect(autoResolutionMsFromApproval(withPayload)).toBe(30000);
+    expect(autoResolutionMsFromApproval(approval('question', DETAIL))).toBeUndefined();
+    expect(answerDecision(questions, [['s3cret']])).toBe('answer:{"Token?":"s3cret"}');
+    for (const spy of spies) {
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    }
   });
 });

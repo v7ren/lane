@@ -41,17 +41,26 @@ pub fn map_codex_server_request(value: &Value, turn_counter: &AtomicU64) -> Vec<
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| params.to_string());
+            let (kind, payload) = match method {
+                "item/fileChange/requestApproval" => {
+                    (ApprovalKind::Edit, Some(file_change_payload(&params)))
+                }
+                "item/permissions/requestApproval" => {
+                    (ApprovalKind::Command, Some(permissions_payload(&params)))
+                }
+                _ => (ApprovalKind::Command, Some(command_payload(&params))),
+            };
             vec![AgentEvent::ApprovalRequested {
                 approval_id: request_id,
                 title,
                 detail,
-                kind: ApprovalKind::Command,
+                kind,
                 options: vec![
                     ApprovalDecision::AllowOnce,
                     ApprovalDecision::AllowAlways,
                     ApprovalDecision::Deny,
                 ],
-                payload: None,
+                payload,
             }]
         }
         "execCommandApproval" => {
@@ -67,6 +76,7 @@ pub fn map_codex_server_request(value: &Value, turn_counter: &AtomicU64) -> Vec<
             vec![AgentEvent::ApprovalRequested {
                 approval_id: request_id,
                 title: "Command approval".to_string(),
+                payload: Some(command_payload_from(&detail, &params)),
                 detail,
                 kind: ApprovalKind::Command,
                 options: vec![
@@ -74,7 +84,6 @@ pub fn map_codex_server_request(value: &Value, turn_counter: &AtomicU64) -> Vec<
                     ApprovalDecision::AllowAlways,
                     ApprovalDecision::Deny,
                 ],
-                payload: None,
             }]
         }
         "applyPatchApproval" => {
@@ -87,6 +96,7 @@ pub fn map_codex_server_request(value: &Value, turn_counter: &AtomicU64) -> Vec<
             vec![AgentEvent::ApprovalRequested {
                 approval_id: request_id,
                 title: "File change approval".to_string(),
+                payload: Some(legacy_patch_payload(&params)),
                 detail,
                 kind: ApprovalKind::Edit,
                 options: vec![
@@ -94,40 +104,153 @@ pub fn map_codex_server_request(value: &Value, turn_counter: &AtomicU64) -> Vec<
                     ApprovalDecision::AllowAlways,
                     ApprovalDecision::Deny,
                 ],
-                payload: None,
             }]
         }
         "item/tool/requestUserInput" => {
-            // Same shape the Claude question dock reads; `id` lets the reply find the question again.
-            let questions: Vec<Value> = params
+            // `detail` keeps the legacy shape (fallback for old consumers); `payload` is the
+            // structured form. The reply finds a question by its text.
+            let raw = params
                 .get("questions")
                 .and_then(|q| q.as_array())
-                .map(|qs| {
-                    qs.iter()
-                        .map(|q| {
-                            serde_json::json!({
-                                "id": q.get("id").cloned().unwrap_or(Value::Null),
-                                "header": q.get("header").cloned().unwrap_or(Value::Null),
-                                "question": q.get("question").cloned().unwrap_or(Value::Null),
-                                "options": q.get("options").cloned().unwrap_or_else(|| serde_json::json!([])),
-                                "multiSelect": false,
-                                "isSecret": q.get("isSecret").cloned().unwrap_or(Value::Bool(false)),
-                            })
-                        })
-                        .collect()
-                })
+                .cloned()
                 .unwrap_or_default();
+            let questions: Vec<Value> = raw
+                .iter()
+                .map(|q| {
+                    serde_json::json!({
+                        "id": q.get("id").cloned().unwrap_or(Value::Null),
+                        "header": q.get("header").cloned().unwrap_or(Value::Null),
+                        "question": q.get("question").cloned().unwrap_or(Value::Null),
+                        "options": q.get("options").cloned().unwrap_or_else(|| serde_json::json!([])),
+                        "multiSelect": false,
+                        "isSecret": q.get("isSecret").cloned().unwrap_or(Value::Bool(false)),
+                    })
+                })
+                .collect();
+            let structured: Vec<Value> = raw
+                .iter()
+                .map(|q| {
+                    let options: Vec<Value> = q
+                        .get("options")
+                        .and_then(|o| o.as_array())
+                        .map(|opts| {
+                            opts.iter()
+                                .map(|o| {
+                                    let mut option = serde_json::json!({
+                                        "label": o.get("label").and_then(|v| v.as_str()).unwrap_or_default(),
+                                    });
+                                    if let Some(d) = o.get("description").and_then(|v| v.as_str()) {
+                                        option["description"] = Value::String(d.to_string());
+                                    }
+                                    option
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    let mut question = serde_json::json!({
+                        "header": q.get("header").and_then(|v| v.as_str()).unwrap_or_default(),
+                        "question": q.get("question").and_then(|v| v.as_str()).unwrap_or_default(),
+                        "options": options,
+                        "multi_select": false,
+                        "allow_other": q.get("isOther").and_then(|v| v.as_bool()).unwrap_or(false),
+                        "secret": q.get("isSecret").and_then(|v| v.as_bool()).unwrap_or(false),
+                    });
+                    if let Some(id) = q.get("id").and_then(|v| v.as_str()) {
+                        question["id"] = Value::String(id.to_string());
+                    }
+                    question
+                })
+                .collect();
+            let mut payload = serde_json::json!({ "type": "questions", "questions": structured });
+            if let Some(ms) = params.get("autoResolutionMs").and_then(|v| v.as_u64()) {
+                payload["auto_resolution_ms"] = Value::from(ms);
+            }
             vec![AgentEvent::ApprovalRequested {
                 approval_id: request_id,
                 title: "Question".to_string(),
                 detail: Value::Array(questions).to_string(),
                 kind: ApprovalKind::Question,
                 options: vec![ApprovalDecision::AllowOnce, ApprovalDecision::Deny],
-                payload: None,
+                payload: Some(payload),
             }]
         }
         _ => Vec::new(),
     }
+}
+
+fn set_opt_str(payload: &mut Value, key: &str, value: Option<&str>) {
+    if let Some(v) = value.filter(|v| !v.is_empty()) {
+        payload[key] = Value::String(v.to_string());
+    }
+}
+
+fn command_payload_from(command: &str, params: &Value) -> Value {
+    let mut payload = serde_json::json!({ "type": "command", "command": command });
+    set_opt_str(&mut payload, "cwd", params.get("cwd").and_then(|v| v.as_str()));
+    set_opt_str(&mut payload, "reason", params.get("reason").and_then(|v| v.as_str()));
+    payload
+}
+
+fn command_payload(params: &Value) -> Value {
+    let command = params.get("command").and_then(|v| v.as_str()).unwrap_or("");
+    command_payload_from(command, params)
+}
+
+fn permissions_payload(params: &Value) -> Value {
+    let mut payload = serde_json::json!({
+        "type": "permissions",
+        "permissions": params.get("permissions").cloned().unwrap_or(Value::Null),
+    });
+    set_opt_str(&mut payload, "reason", params.get("reason").and_then(|v| v.as_str()));
+    payload
+}
+
+/// `item/fileChange/requestApproval`: `patch` from the item's changes if present, else
+/// from `params.changes[].diff`.
+fn file_change_payload(params: &Value) -> Value {
+    let changes = params
+        .pointer("/item/changes")
+        .or_else(|| params.get("changes"))
+        .and_then(|c| c.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let path = changes
+        .first()
+        .and_then(|c| c.get("path").and_then(|p| p.as_str()))
+        .or_else(|| params.get("grantRoot").and_then(|p| p.as_str()))
+        .unwrap_or("")
+        .to_string();
+    let patch = changes
+        .iter()
+        .filter_map(|c| c.get("diff").and_then(|d| d.as_str()))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let mut payload = serde_json::json!({ "type": "edit", "path": path });
+    set_opt_str(&mut payload, "patch", Some(&patch));
+    payload
+}
+
+/// `applyPatchApproval`: built from `params.fileChanges` (path -> change).
+fn legacy_patch_payload(params: &Value) -> Value {
+    let files = params.get("fileChanges").and_then(|c| c.as_object());
+    let path = files
+        .map(|f| f.keys().cloned().collect::<Vec<_>>().join("\n"))
+        .unwrap_or_default();
+    let patch = files
+        .map(|f| {
+            f.values()
+                .filter_map(|c| {
+                    c.get("unified_diff")
+                        .or_else(|| c.pointer("/update/unified_diff"))
+                        .and_then(|d| d.as_str())
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
+        .unwrap_or_default();
+    let mut payload = serde_json::json!({ "type": "edit", "path": path });
+    set_opt_str(&mut payload, "patch", Some(&patch));
+    payload
 }
 
 /// One id for every event of a turn: the server turn id carried by the notification
@@ -597,6 +720,115 @@ mod tests {
         assert_eq!(parsed[0]["id"], "q1");
         assert_eq!(parsed[0]["question"], "Pick one");
         assert_eq!(parsed[0]["options"][0]["label"], "Red");
+    }
+
+    fn payload_of(events: &[AgentEvent]) -> Value {
+        match &events[0] {
+            AgentEvent::ApprovalRequested { payload: Some(p), .. } => p.clone(),
+            _ => panic!("expected an approval with a payload"),
+        }
+    }
+
+    #[test]
+    fn command_approval_carries_a_command_payload() {
+        let counter = AtomicU64::new(1);
+        let events = map_codex_server_request(
+            &json!({"id": 1, "method": "item/commandExecution/requestApproval",
+                "params": {"command": "ls -la", "cwd": "/repo", "reason": "list"}}),
+            &counter,
+        );
+        assert_eq!(
+            payload_of(&events),
+            json!({"type": "command", "command": "ls -la", "cwd": "/repo", "reason": "list"})
+        );
+        let legacy = map_codex_server_request(
+            &json!({"id": 2, "method": "execCommandApproval", "params": {"command": ["git", "status"], "cwd": "/r"}}),
+            &counter,
+        );
+        assert_eq!(
+            payload_of(&legacy),
+            json!({"type": "command", "command": "git status", "cwd": "/r"})
+        );
+    }
+
+    #[test]
+    fn file_change_approval_carries_an_edit_payload_with_patch() {
+        let counter = AtomicU64::new(1);
+        let events = map_codex_server_request(
+            &json!({"id": 3, "method": "item/fileChange/requestApproval",
+                "params": {"changes": [{"path": "a.txt", "diff": "@@ -1 +1 @@\n-a\n+b"}]}}),
+            &counter,
+        );
+        assert_eq!(
+            payload_of(&events),
+            json!({"type": "edit", "path": "a.txt", "patch": "@@ -1 +1 @@\n-a\n+b"})
+        );
+        let from_item = map_codex_server_request(
+            &json!({"id": 4, "method": "item/fileChange/requestApproval",
+                "params": {"item": {"changes": [{"path": "b.rs", "diff": "D"}]}, "changes": [{"path": "x", "diff": "ignored"}]}}),
+            &counter,
+        );
+        assert_eq!(payload_of(&from_item), json!({"type": "edit", "path": "b.rs", "patch": "D"}));
+    }
+
+    #[test]
+    fn legacy_patch_approval_carries_an_edit_payload() {
+        let counter = AtomicU64::new(1);
+        let events = map_codex_server_request(
+            &json!({"id": 6, "method": "applyPatchApproval",
+                "params": {"fileChanges": {"a.txt": {"unified_diff": "UD"}}}}),
+            &counter,
+        );
+        assert_eq!(payload_of(&events), json!({"type": "edit", "path": "a.txt", "patch": "UD"}));
+    }
+
+    #[test]
+    fn permissions_approval_carries_a_permissions_payload() {
+        let counter = AtomicU64::new(1);
+        let events = map_codex_server_request(
+            &json!({"id": 7, "method": "item/permissions/requestApproval",
+                "params": {"permissions": {"network": true}, "reason": "needs net"}}),
+            &counter,
+        );
+        assert_eq!(
+            payload_of(&events),
+            json!({"type": "permissions", "permissions": {"network": true}, "reason": "needs net"})
+        );
+    }
+
+    #[test]
+    fn user_input_payload_has_other_secret_and_auto_resolution() {
+        let counter = AtomicU64::new(1);
+        let events = map_codex_server_request(
+            &json!({"id": 9, "method": "item/tool/requestUserInput", "params": {
+                "autoResolutionMs": 30000,
+                "questions": [
+                    {"id": "q1", "header": "H", "question": "Pick", "isOther": true,
+                     "options": [{"label": "Red", "description": "r"}]},
+                    {"id": "q2", "header": "Key", "question": "Token?", "isSecret": true}
+                ]}}),
+            &counter,
+        );
+        let payload = payload_of(&events);
+        assert_eq!(payload["type"], "questions");
+        assert_eq!(payload["auto_resolution_ms"], 30000);
+        assert_eq!(payload["questions"][0]["id"], "q1");
+        assert_eq!(payload["questions"][0]["allow_other"], true);
+        assert_eq!(payload["questions"][0]["secret"], false);
+        assert_eq!(payload["questions"][0]["options"][0]["description"], "r");
+        assert_eq!(payload["questions"][1]["secret"], true);
+        assert_eq!(payload["questions"][1]["allow_other"], false);
+        assert_eq!(payload["questions"][1]["options"], json!([]));
+    }
+
+    #[test]
+    fn user_input_without_auto_resolution_omits_the_field() {
+        let counter = AtomicU64::new(1);
+        let events = map_codex_server_request(
+            &json!({"id": 9, "method": "item/tool/requestUserInput", "params": {"questions": []}}),
+            &counter,
+        );
+        assert!(payload_of(&events).get("auto_resolution_ms").is_none());
     }
 
     #[test]

@@ -50,6 +50,13 @@ export function questionsFromApproval(approval: TimelineApproval): ProtocolQuest
   });
 }
 
+/** Server auto-resolution deadline (ms) of a structured question request, if any. */
+export function autoResolutionMsFromApproval(approval: TimelineApproval): number | undefined {
+  if (approval.kind !== 'question' || approval.payload?.type !== 'questions') return undefined;
+  const ms = approval.payload.auto_resolution_ms;
+  return typeof ms === 'number' && ms > 0 ? ms : undefined;
+}
+
 /** Decision string answering the questions: each answer is the chosen labels joined by commas. */
 export function answerDecision(questions: readonly QuestionInfo[], answers: readonly string[][]): string {
   const byQuestion: Record<string, string> = {};

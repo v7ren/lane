@@ -202,4 +202,59 @@ describe('QuestionDock', () => {
     expect(err?.textContent).toBe('Request failed');
     expect(err?.className).toContain('text-status-error');
   });
+
+  it('renders a secret question as a masked input and submits the typed value', () => {
+    const consoleSpy = vi.spyOn(console, 'log');
+    const { onReply, root } = renderDock({
+      questions: [
+        {
+          id: 'sec-1',
+          questions: [
+            { question: 'Token?', header: 'Key', options: [], custom: false, secret: true } as QuestionInfo,
+          ],
+        },
+      ],
+    });
+    const input = container.querySelector<HTMLInputElement>('[data-testid="question-dock-secret"]');
+    expect(input?.type).toBe('password');
+    expect(input?.autocomplete).toBe('off');
+    expect(container.textContent).not.toContain('Other');
+    setTextInputValue(input!, 'hunter2');
+    expect(container.textContent).not.toContain('hunter2');
+    clickSubmit();
+    expect(onReply).toHaveBeenCalledWith('sec-1', [['hunter2']]);
+    expect(consoleSpy).not.toHaveBeenCalled();
+    consoleSpy.mockRestore();
+    act(() => root.unmount());
+  });
+
+  it('counts down the auto-resolution time, then says Codex continues on its own', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+      const { root } = renderDock({
+        questions: [
+          {
+            id: 'auto-1',
+            autoResolutionMs: 3000,
+            questions: [{ question: 'Pick', header: 'H', options: [{ label: 'A', description: '' }] } as QuestionInfo],
+          },
+        ],
+      });
+      const line = () => container.querySelector('[data-testid="question-dock-countdown"]')?.textContent;
+      expect(line()).toBe('Auto-answers in 3s');
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(line()).toBe('Auto-answers in 1s');
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(line()).toBe('Codex will continue on its own');
+      expect(container.querySelector('[data-testid="question-dock-submit"]')).not.toBeNull();
+      act(() => root.unmount());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
