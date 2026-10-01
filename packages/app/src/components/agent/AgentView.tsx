@@ -14,7 +14,6 @@ import {
   sessionOpenInTui,
   sessionRespondApproval,
   sessionSendPrompt,
-  sessionSetOption,
 } from '../../lib/agent-session';
 import {
   abortOpenCodeSession,
@@ -42,8 +41,7 @@ import {
 } from '../../lib/tui-companions';
 import { answerClaudeTrustPrompt, useClaudeTrustPrompt } from '../../lib/claude-trust-prompt';
 import { answerDecision, questionsFromApproval } from '../../lib/protocol-questions';
-import { useClaudeInfo } from '../../lib/claude-info';
-import { insertComposerText } from '../../lib/composer-insert';
+import { useAgentControls } from '../../hooks/useAgentControls';
 import { ClaudeControlBar } from './ClaudeControlBar';
 import { PlanApprovalCard } from './PlanApprovalCard';
 import { disposeTerminalSession } from '../../terminal/terminal-session-registry';
@@ -61,12 +59,14 @@ import { QuestionDock, type QuestionDockItem } from '../opencode/QuestionDock';
 import { TranscriptView } from '../transcript/TranscriptView';
 import { useAgentApprovalShortcuts } from './AgentView.keyboard';
 import { AgentMark } from './AgentMark';
+import { buildProtocolQuestionDockItems } from './question-dock-items';
 
 /**
  * Claude has no server to share, so a terminal is a second process on the same session and drifts from
  * the chat. The chat is the Claude surface; the terminal toggle stays off until it can mirror the chat.
  */
 const SHOW_CLAUDE_TUI_TOGGLE = true;
+const NOOP_PATCH = () => {};
 
 export function AgentView({
   paneId,
@@ -105,7 +105,18 @@ export function AgentView({
   const shellSession = useSelectedSession();
   const sessionActions = useSessionActions();
   const railState = sessionState?.state ?? null;
-  const { capabilities, source, timeline, loading, error, refresh, connecting, connectFailed, retryConnect } =
+  const {
+    capabilities,
+    source,
+    timeline,
+    envelopes: protocolEnvelopes,
+    loading,
+    error,
+    refresh,
+    connecting,
+    connectFailed,
+    retryConnect,
+  } =
     useAgentSession(
     paneId,
     true,
@@ -157,8 +168,9 @@ export function AgentView({
         sessionId,
         pendingPermissions,
         pendingProtocolApprovals: pendingProtocol,
+        family: agentFamily(resolvedAgentType),
       }),
-    [openCodePane, pendingPermissions, pendingProtocol, sessionId],
+    [openCodePane, pendingPermissions, pendingProtocol, sessionId, resolvedAgentType],
   );
 
   const protocolQuestions = useMemo(
@@ -170,10 +182,7 @@ export function AgentView({
   );
 
   const questionDockItems = useMemo((): QuestionDockItem[] => {
-    const protocolItems = protocolQuestions.map(({ approval, questions }) => ({
-      id: approval.id,
-      questions,
-    }));
+    const protocolItems = buildProtocolQuestionDockItems(protocolQuestions, protocolEnvelopes);
     if (!ocState || !sessionId) return protocolItems;
     const openCodeItems = Object.values(ocState.questions)
       .filter((entry) => entry.sessionID === sessionId)
@@ -183,7 +192,7 @@ export function AgentView({
         submitting: Boolean(entry.submitting),
       }));
     return [...openCodeItems, ...protocolItems];
-  }, [ocState, protocolQuestions, sessionId]);
+  }, [ocState, protocolEnvelopes, protocolQuestions, sessionId]);
 
   const displayStatus = useMemo(() => {
     if (openCodePane && sessionId && ocState) {
@@ -301,22 +310,15 @@ export function AgentView({
     [capabilities.approvals, paneId, pendingPermissions, refresh, source],
   );
 
-  const { info: claudeInfo, update: updateClaudeInfo } = useClaudeInfo(
+  const agentControls = useAgentControls({
     paneId,
-    Boolean(headlessClaude) && source === 'protocol',
-  );
-  const changeClaudeOption = useCallback(
-    async (key: 'permission_mode' | 'model', value: string) => {
-      setActionError(null);
-      try {
-        await sessionSetOption(paneId, key, value);
-        updateClaudeInfo(key === 'model' ? { model: value } : { permissionMode: value });
-      } catch (err) {
-        setActionError(err instanceof Error ? err.message : String(err));
-      }
-    },
-    [paneId, updateClaudeInfo],
-  );
+    family: agentFamily(resolvedAgentType),
+    protocol: Boolean(headlessClaude) && source === 'protocol',
+    onError: setActionError,
+    disabledReason: claudeTuiPaneId ? 'Switch back to chat to change this' : undefined,
+  });
+  const claudeInfo = agentControls.claudeInfo ?? null;
+  const updateClaudeInfo = agentControls.patchClaudeInfo ?? NOOP_PATCH;
 
   const pendingPlan = useMemo(
     () => pendingProtocol.find((approval) => approval.kind === 'plan') ?? null,
@@ -631,12 +633,7 @@ export function AgentView({
               />
             )}
             {headlessClaude && source === 'protocol' && (
-              <ClaudeControlBar
-                info={claudeInfo}
-                onSetMode={(mode) => void changeClaudeOption('permission_mode', mode)}
-                onSetModel={(model) => void changeClaudeOption('model', model)}
-                onPickCommand={(name) => insertComposerText({ paneId, text: `/${name} ` })}
-              />
+              <ClaudeControlBar info={claudeInfo} />
             )}
             <AgentComposerPanel
               paneId={paneId}
@@ -649,6 +646,9 @@ export function AgentView({
               busy={busy}
               showStop={Boolean((capabilities.cancel && transcript.turnActive) || transcript.sessionBusy)}
               sessionModel={sessionModelHint}
+              controls={agentControls}
+              usage={timeline.usage}
+              agentType={resolvedAgentType}
               onSendProtocol={send}
               onCancelProtocol={cancelTurn}
               onError={setActionError}

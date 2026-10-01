@@ -15,8 +15,13 @@ import type { Capabilities } from '../../lib/agent-events';
 import {
   OPENCODE_CAPABILITIES,
   NO_AGENT_CAPABILITIES,
+  agentFamily,
   type AgentCapabilities,
 } from '../../lib/agent-capabilities';
+import type { AgentControls } from '../../hooks/useAgentControls';
+import { resolveContextWindow } from '../../lib/model-context';
+import { formatCost, useSessionCost } from '../../lib/session-cost';
+import { ContextBar } from './ContextBar';
 import {
   abortOpenCodeSession,
   composerFeaturesForCapabilities,
@@ -83,6 +88,9 @@ export function AgentComposerPanel({
   onCancelProtocol,
   onError,
   sessionModel,
+  controls,
+  usage,
+  agentType,
 }: {
   paneId: string;
   sessionId: string | null;
@@ -95,6 +103,11 @@ export function AgentComposerPanel({
   busy: boolean;
   showStop: boolean;
   sessionModel?: { model: string; provider?: string } | null;
+  /** Model and mode choices for the generic pills (Claude today; Codex after D3). */
+  controls?: AgentControls;
+  /** Latest `usage` event: context bar and session cost. */
+  usage?: { cost_usd?: number; context_tokens?: number; context_window?: number } | null;
+  agentType?: string | null;
   onSendProtocol: (text: string) => Promise<void>;
   onCancelProtocol: () => Promise<void>;
   onError: (message: string | null) => void;
@@ -125,9 +138,11 @@ export function AgentComposerPanel({
   const [agents, setAgents] = useState<{ name: string; description?: string }[]>([]);
   const [models, setModels] = useState<ComposerModelChoice[]>([]);
   const [commands, setCommands] = useState<{ name: string; description?: string }[]>([]);
-  const [picker, setPicker] = useState<'agent' | 'model' | 'permission' | 'mention' | 'slash' | null>(
-    null,
-  );
+  const [picker, setPicker] = useState<
+    'agent' | 'model' | 'permission' | 'mention' | 'slash' | 'ctl-model' | 'ctl-mode' | null
+  >(null);
+  const ctlModelRef = useRef<HTMLButtonElement | null>(null);
+  const ctlModeRef = useRef<HTMLButtonElement | null>(null);
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionHits, setMentionHits] = useState<{ path: string }[]>([]);
   const [fileParts, setFileParts] = useState<PromptPart[]>([]);
@@ -147,6 +162,20 @@ export function AgentComposerPanel({
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [configPillLabel, setConfigPillLabel] = useState<string | null>(null);
   const sendInFlightRef = useRef(false);
+  const family = agentFamily(agentType);
+  const ctlModels = controls?.models ?? [];
+  const ctlModes = controls?.modes ?? [];
+  const ctlLabel = (list: { id: string; label: string }[], id?: string, fallback = 'Default') =>
+    list.find((c) => c.id === id)?.label ?? fallback;
+  const ctlLocked = controls?.disabledReason;
+  const contextWindow = resolveContextWindow({
+    family,
+    model: controls?.currentModel,
+    eventWindow: usage?.context_window,
+  });
+  const showContextBar = caps.contextBar && typeof usage?.context_tokens === 'number';
+  const costTotal = useSessionCost(paneId, family === 'codex' ? undefined : usage?.cost_usd);
+  const costLabel = formatCost(costTotal);
 
   useEffect(() => {
     // Load draft when paneId changes
@@ -535,6 +564,31 @@ export function AgentComposerPanel({
                 />
               </label>
             )}
+            {ctlModels.length > 0 && !openCode && (
+              <Pill
+                ref={ctlModelRef}
+                label={ctlLabel(ctlModels, controls?.currentModel)}
+                open={picker === 'ctl-model'}
+                onClick={() => setPicker((p) => (p === 'ctl-model' ? null : 'ctl-model'))}
+                testId="pill-model"
+                wide
+                iconOnly={toolbarCompact}
+                disabled={Boolean(ctlLocked)}
+                title={ctlLocked}
+              />
+            )}
+            {ctlModes.length > 0 && !openCode && (
+              <Pill
+                ref={ctlModeRef}
+                label={ctlLabel(ctlModes, controls?.currentMode, 'Ask')}
+                open={picker === 'ctl-mode'}
+                onClick={() => setPicker((p) => (p === 'ctl-mode' ? null : 'ctl-mode'))}
+                testId="pill-mode"
+                iconOnly={toolbarCompact}
+                disabled={Boolean(ctlLocked)}
+                title={ctlLocked}
+              />
+            )}
             {features.agentPicker && (
               <Pill
                 ref={agentPickerRef}
@@ -580,6 +634,12 @@ export function AgentComposerPanel({
                 wide
                 error={Boolean(modelsError)}
               />
+            )}
+            {showContextBar && <ContextBar tokens={usage?.context_tokens} window={contextWindow} />}
+            {costLabel && (
+              <span className="shrink-0 text-meta text-text-3" data-testid="session-cost" title="Session cost">
+                {costLabel}
+              </span>
             )}
             {showStop && features.stop ? (
               <button
@@ -628,6 +688,31 @@ export function AgentComposerPanel({
             ))}
           </div>
         )}
+        <PickerPopover
+          open={picker === 'ctl-model'}
+          anchorRef={ctlModelRef}
+          onClose={() => setPicker(null)}
+          testId="ctl-model-popover"
+          items={ctlModels}
+          currentId={controls?.currentModel}
+          emptyMessage="Models load when the agent has started"
+          onPick={(id) => {
+            void controls?.setModel(id);
+            setPicker(null);
+          }}
+        />
+        <PickerPopover
+          open={picker === 'ctl-mode'}
+          anchorRef={ctlModeRef}
+          onClose={() => setPicker(null)}
+          testId="ctl-mode-popover"
+          items={ctlModes}
+          currentId={controls?.currentMode}
+          onPick={(id) => {
+            void controls?.setMode(id);
+            setPicker(null);
+          }}
+        />
         <PickerPopover
           open={picker === 'agent'}
           anchorRef={agentPickerRef}
@@ -746,16 +831,19 @@ const Pill = forwardRef<
     wide?: boolean;
     error?: boolean;
     iconOnly?: boolean;
+    disabled?: boolean;
+    title?: string;
   }
->(function Pill({ label, sublabel, onClick, open, testId, wide, error, iconOnly }, ref) {
+>(function Pill({ label, sublabel, onClick, open, testId, wide, error, iconOnly, disabled, title }, ref) {
   const initial = label.trim().charAt(0).toUpperCase() || '?';
   return (
     <button
       ref={ref}
       type="button"
       data-testid={testId}
-      title={iconOnly ? label : undefined}
-      className={`h-8 shrink-0 rounded-full border bg-elevated text-meta hover:bg-hover inline-flex items-center gap-1 min-w-0 ${
+      title={title ?? (iconOnly ? label : undefined)}
+      disabled={disabled}
+      className={`h-8 shrink-0 rounded-full border bg-elevated text-meta hover:bg-hover disabled:opacity-50 inline-flex items-center gap-1 min-w-0 ${
         iconOnly ? 'w-8 px-0 justify-center' : 'px-3'
       } ${
         error ? 'border-status-error/60 text-status-error' : 'border-border-subtle'
@@ -786,7 +874,9 @@ function PickerPopover({
   searchPlaceholder,
   emptyMessage = 'No matches',
   emptyIsError = false,
+  currentId,
 }: {
+  currentId?: string | null;
   open: boolean;
   anchorRef: RefObject<HTMLElement | null>;
   onClose: () => void;
@@ -825,7 +915,9 @@ function PickerPopover({
           <button
             key={item.id}
             type="button"
-            className="w-full text-left px-3 py-2 hover:bg-hover text-body text-text"
+            className={`w-full text-left px-3 py-2 hover:bg-hover text-body text-text ${
+              item.id === currentId ? 'bg-hover' : ''
+            }`}
             onClick={() => onPick(item.id)}
           >
             <div>{item.label}</div>
