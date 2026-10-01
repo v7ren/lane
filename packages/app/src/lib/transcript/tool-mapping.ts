@@ -90,7 +90,7 @@ export function normalizeToolPayload(
       (typeof stateOut?.diff === 'string' ? stateOut.diff : undefined) ??
       (typeof stateIn?.diff === 'string' ? stateIn.diff : undefined);
     const pathRaw =
-      stateIn?.path ?? stateIn?.filePath ?? stateIn?.file ?? stateIn?.target;
+      stateIn?.path ?? stateIn?.filePath ?? stateIn?.file_path ?? stateIn?.file ?? stateIn?.target;
     const baseInput = {
       path: normalizeToolPathValue(pathRaw, projectRoot),
       content: stateIn?.content ?? stateIn?.contents,
@@ -113,6 +113,10 @@ export function normalizeToolPayload(
       output: stateOut?.output ?? output,
       diff,
     };
+  }
+  if (name === 'filechange' || name === 'file_change') {
+    // Codex puts {"changes":[{path,kind,diff}]} in the input; keep it structured.
+    return { input: input, output };
   }
   if (name === 'grep' || name === 'glob') {
     const pattern = stateIn?.pattern ?? stateIn?.glob ?? input;

@@ -46,7 +46,7 @@ export function toolDisplayLabel(tool: TranscriptToolCall): string {
   if (name === 'read' || name === 'read_file') return 'Read';
   if (name === 'bash' || name === 'shell') return 'Bash';
   if (name === 'write') return 'Write';
-  if (name === 'edit' || name === 'apply_patch') return 'Edit';
+  if (name === 'edit' || name === 'apply_patch' || name === 'multiedit' || name === 'filechange') return 'Edit';
   if (name === 'grep') return 'Grep';
   if (name === 'glob') return 'Glob';
   if (name === 'webfetch' || name === 'web_fetch') return 'Web fetch';
@@ -104,7 +104,7 @@ export function filePathFromToolInput(input: unknown): string | undefined {
   if (input && typeof input === 'object') {
     const rec = input as Record<string, unknown>;
     const path =
-      rec.path ?? rec.filePath ?? rec.file ?? rec.target ?? rec.filename;
+      rec.path ?? rec.filePath ?? rec.file_path ?? rec.file ?? rec.target ?? rec.filename;
     if (typeof path === 'string' && path.length > 0) return path;
   }
   return undefined;
@@ -223,6 +223,95 @@ export function writeContentText(input: unknown): string {
   return '';
 }
 
+/** Paths of a Codex fileChange input (`{"changes":[{path,kind,diff}]}`). */
+export function fileChangePaths(input: unknown): string[] {
+  const parsed = parseToolInput(input);
+  if (!parsed || typeof parsed !== 'object') return [];
+  const changes = (parsed as { changes?: unknown }).changes;
+  if (!Array.isArray(changes)) return [];
+  const out: string[] = [];
+  for (const c of changes) {
+    const p = c && typeof c === 'object' ? (c as { path?: unknown }).path : undefined;
+    if (typeof p === 'string' && p) out.push(p);
+  }
+  return out;
+}
+
+/** Diff body for MultiEdit (per-edit line diffs) and Codex fileChange (diffs as sent). */
+export function multiEditLikeDiffText(name: string, input: unknown): string {
+  const parsed = parseToolInput(input);
+  if (!parsed || typeof parsed !== 'object') return '';
+  const rec = parsed as Record<string, unknown>;
+  if (name === 'filechange') {
+    const changes = Array.isArray(rec.changes) ? rec.changes : [];
+    return changes
+      .map((c) => {
+        const r = (c ?? {}) as Record<string, unknown>;
+        const d = typeof r.diff === 'string' ? r.diff.trimEnd() : '';
+        return typeof r.path === 'string' ? `${r.path}\n${d}`.trimEnd() : d;
+      })
+      .filter(Boolean)
+      .join('\n\n');
+  }
+  const edits = Array.isArray(rec.edits) ? rec.edits : [];
+  return edits
+    .map((e) => editDiffText(e, undefined))
+    .filter(Boolean)
+    .join('\n');
+}
+
+export type ToolCategory = 'read' | 'search' | 'shell' | 'edit' | 'web' | 'task' | 'other';
+
+export function toolCategory(name: string): ToolCategory {
+  if (isShellToolName(name)) return 'shell';
+  switch (name) {
+    case 'read':
+    case 'read_file':
+    case 'ls':
+    case 'list':
+      return 'read';
+    case 'grep':
+    case 'glob':
+    case 'search':
+      return 'search';
+    case 'write':
+    case 'edit':
+    case 'multiedit':
+    case 'multi_edit':
+    case 'apply_patch':
+    case 'filechange':
+      return 'edit';
+    case 'webfetch':
+    case 'web_fetch':
+    case 'websearch':
+    case 'web_search':
+      return 'web';
+    case 'task':
+    case 'subtask':
+    case 'todowrite':
+    case 'todo_write':
+    case 'todo':
+      return 'task';
+    default:
+      return 'other';
+  }
+}
+
+export function isEditLikeName(name: string): boolean {
+  return toolCategory(name) === 'edit';
+}
+
+/** The visible duration of a tool row: live timestamps only, hidden under 500 ms. */
+export const TOOL_DURATION_MIN_MS = 500;
+
+export function toolDurationMs(tool: TranscriptToolCall): number | undefined {
+  const ms =
+    tool.startedAtMs != null && tool.endedAtMs != null
+      ? tool.endedAtMs - tool.startedAtMs
+      : tool.durationMs;
+  return ms != null && ms >= TOOL_DURATION_MIN_MS ? ms : undefined;
+}
+
 export function toolPathHeader(
   tool: TranscriptToolCall,
   name: string,
@@ -246,7 +335,14 @@ export function toolPathHeader(
   }
   const isRead = name === 'read' || name === 'read_file';
   const isWrite = name === 'write';
-  const isEdit = name === 'edit' || name === 'apply_patch';
+  const isEdit = name === 'edit' || name === 'apply_patch' || name === 'multiedit';
+  if (name === 'filechange') {
+    const paths = fileChangePaths(input).map((p) => displayPathChip(p, projectRoot).label);
+    if (paths.length > 0) {
+      const more = paths.length > 1 ? ` +${paths.length - 1}` : '';
+      return { primary: `${paths[0]}${more}`, pathTestId: 'tool-edit-path', kindLabel: 'Edit' };
+    }
+  }
   if (!isRead && !isWrite && !isEdit) {
     return { primary: toolDisplayLabel(tool) };
   }
@@ -291,6 +387,8 @@ export const KNOWN_TOOL_NAMES = new Set([
   'write',
   'edit',
   'apply_patch',
+  'multiedit',
+  'filechange',
   'grep',
   'glob',
   'webfetch',

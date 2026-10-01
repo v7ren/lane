@@ -1,7 +1,23 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  FileEdit,
+  FileText,
+  Globe,
+  ListChecks,
+  Loader2,
+  Search,
+  Terminal,
+  Wrench,
+  X,
+} from 'lucide-react';
+import type { ComponentType, ReactElement } from 'react';
 import type { TranscriptToolCall } from '../../lib/transcript';
 import { formatDuration } from '../../lib/transcript';
+import { diffStat } from '../../lib/transcript/diff-stat';
 import {
   displayPathChip,
   isShellToolName,
@@ -11,6 +27,11 @@ import {
   toolPathHeader,
   writeContentText,
   editDiffText,
+  isEditLikeName,
+  multiEditLikeDiffText,
+  toolCategory,
+  toolDurationMs,
+  type ToolCategory,
 } from './tool-render';
 
 const GLOB_GREP_MAX_HITS = 10;
@@ -192,52 +213,50 @@ function toolStatusChipLabel(status: TranscriptToolCall['status']): string {
   }
 }
 
+/** One status icon; the label stays as screen-reader text so the state is never colour-only. */
 function ToolStatusChip({ status }: { status: TranscriptToolCall['status'] }) {
   const label = toolStatusChipLabel(status);
+  let icon: ReactElement;
+  let tone: string;
   switch (status) {
     case 'pending':
-      return (
-        <span
-          data-testid="tool-status-chip"
-          className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-elevated border border-border-subtle text-text-3"
-        >
-          {label}
-        </span>
-      );
+      icon = <Clock className="w-3.5 h-3.5" aria-hidden />;
+      tone = 'text-text-3';
+      break;
     case 'running':
-      return (
-        <span
-          data-testid="tool-status-chip"
-          className="shrink-0 inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-accent/10 border border-accent/30 text-accent"
-        >
-          <Loader2 className="w-2.5 h-2.5 animate-spin" aria-hidden />
-          {label}
-        </span>
-      );
+      icon = <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />;
+      tone = 'text-accent';
+      break;
     case 'completed':
-      return (
-        <span
-          data-testid="tool-status-chip"
-          className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-status-done/15 border border-status-done/30 text-status-done"
-        >
-          {label}
-        </span>
-      );
+      icon = <Check className="w-3.5 h-3.5" aria-hidden />;
+      tone = 'text-status-done';
+      break;
     case 'error':
-      return (
-        <span
-          data-testid="tool-status-chip"
-          className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-status-error/15 border border-status-error/30 text-status-error"
-        >
-          {label}
-        </span>
-      );
+      icon = <X className="w-3.5 h-3.5" aria-hidden />;
+      tone = 'text-status-error';
+      break;
     default: {
       const _never: never = status;
       return _never;
     }
   }
+  return (
+    <span data-testid="tool-status-chip" className={`shrink-0 inline-flex items-center ${tone}`} title={label}>
+      {icon}
+      <span className="sr-only">{label}</span>
+    </span>
+  );
 }
+
+const CATEGORY_ICONS: Record<ToolCategory, ComponentType<{ className?: string }>> = {
+  read: FileText,
+  search: Search,
+  shell: Terminal,
+  edit: FileEdit,
+  web: Globe,
+  task: ListChecks,
+  other: Wrench,
+};
 
 const BASH_OUTPUT_MAX_LINES = 40;
 /** Output is a preview: enough to see what happened, never a whole file. */
@@ -693,6 +712,9 @@ export function ToolCard({
     !startsCollapsed && (tool.status === 'running' || tool.status === 'completed'),
   );
   const header = toolPathHeader(tool, name, input, projectRoot);
+  const CategoryIcon = CATEGORY_ICONS[toolCategory(name)];
+  const stat = tool.diffStat ?? (isEditLikeName(name) ? diffStat(name, input, diff) : undefined);
+  const duration = toolDurationMs(tool);
 
   return (
     <div
@@ -705,12 +727,8 @@ export function ToolCard({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
-        {open ? (
-          <ChevronDown className="w-3.5 h-3.5 text-text-3 shrink-0" />
-        ) : (
-          <ChevronRight className="w-3.5 h-3.5 text-text-3 shrink-0" />
-        )}
         <ToolStatusChip status={tool.status} />
+        <CategoryIcon className="w-3.5 h-3.5 text-text-3 shrink-0" />
         {header.kindLabel != null ? (
           <span className="flex items-center gap-2 flex-1 min-w-0">
             <span className="shrink-0 text-[10px] font-medium text-text-3">{header.kindLabel}</span>
@@ -725,8 +743,21 @@ export function ToolCard({
         ) : (
           <span className="font-mono text-[12px] text-text flex-1 min-w-0 truncate">{header.primary}</span>
         )}
-        {tool.durationMs != null && (
-          <span className="shrink-0 text-meta text-text-3">{formatDuration(tool.durationMs)}</span>
+        {stat != null && (
+          <span className="shrink-0 font-mono text-meta" data-testid="tool-diff-stat">
+            <span className="text-status-done">+{stat.added}</span>{' '}
+            <span className="text-status-error">{'−'}{stat.removed}</span>
+          </span>
+        )}
+        {duration != null && (
+          <span className="shrink-0 text-meta text-text-3" data-testid="tool-duration">
+            {formatDuration(duration)}
+          </span>
+        )}
+        {open ? (
+          <ChevronDown className="w-3.5 h-3.5 text-text-3 shrink-0" />
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5 text-text-3 shrink-0" />
         )}
       </button>
       {open && (
@@ -758,6 +789,13 @@ export function ToolCard({
             <TruncatedMonoLines
               text={editDiffText(input, diff)}
               maxLines={BASH_OUTPUT_MAX_LINES}
+              testId="tool-edit-diff"
+            />
+          )}
+          {(name === 'multiedit' || name === 'filechange') && (
+            <TruncatedMonoLines
+              text={multiEditLikeDiffText(name, input)}
+              maxLines={OUTPUT_PREVIEW_LINES}
               testId="tool-edit-diff"
             />
           )}

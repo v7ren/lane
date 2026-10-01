@@ -598,4 +598,53 @@ ping
       'Pending',
     );
   });
+
+  describe('compact row', () => {
+    const editTool: TranscriptToolCall = {
+      kind: 'tool_call',
+      id: 'edit-1',
+      name: 'Edit',
+      status: 'completed',
+      startedAtMs: 1000,
+      endedAtMs: 3500,
+      input: { file_path: 'src/a.ts', old_string: 'a\nb', new_string: 'a\nc\nd' },
+      output: 'ok',
+    };
+
+    function headerText(id: string): string {
+      return headerToggle(id).textContent ?? '';
+    }
+
+    it('orders status, name, target, diff stat, duration', () => {
+      act(() => root.render(<ToolCard tool={editTool} />));
+      const text = headerText('edit-1');
+      expect(text).toBe('CompletedEdita.ts+2 −12.5s');
+      expect(container.querySelector('[data-testid="tool-diff-stat"]')?.textContent).toBe('+2 −1');
+    });
+
+    it('hides duration under 500 ms', () => {
+      act(() => root.render(<ToolCard tool={{ ...editTool, endedAtMs: 1400 }} />));
+      expect(container.querySelector('[data-testid="tool-duration"]')).toBeNull();
+    });
+
+    it('hides duration for replayed tools without timestamps', () => {
+      const replayed = { ...editTool, startedAtMs: undefined, endedAtMs: undefined };
+      act(() => root.render(<ToolCard tool={replayed} />));
+      expect(container.querySelector('[data-testid="tool-duration"]')).toBeNull();
+    });
+
+    it('shows +N −M for a Codex fileChange', () => {
+      const tool: TranscriptToolCall = {
+        kind: 'tool_call',
+        id: 'fc-1',
+        name: 'fileChange',
+        status: 'completed',
+        input: JSON.stringify({ changes: [{ path: 'src/b.ts', kind: 'update', diff: '-a\n+b\n+c' }] }),
+        output: 'src/b.ts',
+      };
+      act(() => root.render(<ToolCard tool={tool} />));
+      expect(container.querySelector('[data-testid="tool-diff-stat"]')?.textContent).toBe('+2 −1');
+      expect(headerText('fc-1')).toContain('b.ts');
+    });
+  });
 });
