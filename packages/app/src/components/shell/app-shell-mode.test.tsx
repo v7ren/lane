@@ -34,7 +34,12 @@ vi.mock('./SidebarPanel', () => ({ SidebarPanel: () => null }));
 vi.mock('./RightRail', () => ({ RightRail: () => null }));
 vi.mock('./ExplorerPanel', () => ({ ExplorerPanel: () => <div data-testid="explorer-panel" /> }));
 vi.mock('../editor/MonacoEditorPane', () => ({ MonacoEditorPane: () => <div data-testid="monaco" /> }));
-vi.mock('../editor/QuickOpen', () => ({ QuickOpen: () => null }));
+vi.mock('../editor/QuickOpen', async () => {
+  const { useEditor } = await import('../../lib/editor/EditorContext');
+  return {
+    QuickOpen: () => (useEditor().quickOpenOpen ? <div data-testid="quick-open" /> : null),
+  };
+});
 vi.mock('../review/ReviewPanel', () => ({ ReviewPanel: () => <div data-testid="review-panel" /> }));
 vi.mock('../../lib/shell-data', () => ({
   useSessionList: () => sessions.list,
@@ -154,6 +159,12 @@ let container: HTMLDivElement;
 let root: Root;
 
 const q = (id: string) => container.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
+
+/** updateSettings calls that carry ui_mode (layout saves also go through updateSettings). */
+const uiModeWrites = () =>
+  (updateSettingsSpy.mock.calls as unknown as [Record<string, unknown>][]).filter(
+    ([patch]) => patch && 'ui_mode' in patch,
+  );
 
 function press(init: KeyboardEventInit & { key: string }) {
   act(() => {
@@ -276,10 +287,25 @@ describe('AppShell mode switching', () => {
       .toBe(false);
   });
 
-  it('Ctrl+P switches to IDE first', () => {
+  it('Ctrl+P alone opens quick open in agent mode without switching modes', () => {
     mount();
     press({ key: 'p', code: 'KeyP', ctrlKey: true });
+    expect(q('quick-open')).not.toBeNull();
+    expect(q('editor-workspace')).toBeNull();
+    expect(q('agent-home')).not.toBeNull();
+    expect(q('ui-mode-agent')!.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('actually opening a file from quick open then switches to IDE without persisting', async () => {
+    localStorage.setItem('loomria-ui-mode', 'agent');
+    mount();
+    press({ key: 'p', code: 'KeyP', ctrlKey: true });
+    await act(async () => {
+      await captured.editor!.openFile('src/a.ts');
+    });
     expect(q('editor-workspace')).not.toBeNull();
+    expect(localStorage.getItem('loomria-ui-mode')).toBe('agent');
+    expect(uiModeWrites()).toEqual([]);
   });
 
   it('opening a file in agent mode switches to IDE', async () => {
@@ -318,6 +344,102 @@ describe('AppShell mode switching', () => {
       );
     });
     expect(container.textContent).toContain('Switch to IDE mode');
+  });
+});
+
+describe('AppShell agent-mode layout', () => {
+  const rail = () => q('right-rail-column');
+  const toggle = () =>
+    container.querySelector('button[aria-label="Toggle details panel"]') as HTMLButtonElement | null;
+
+  beforeEach(() => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 });
+  });
+
+  it('hides the right rail by default even on wide viewports and always shows the toggle', () => {
+    mount();
+    expect(rail()).toBeNull();
+    expect(toggle()).not.toBeNull();
+  });
+
+  it('opens and closes the rail with the toggle and remembers the choice', () => {
+    mount();
+    act(() => toggle()!.click());
+    expect(rail()).not.toBeNull();
+    expect(toggle()!.getAttribute('aria-pressed')).toBe('true');
+    expect(localStorage.getItem('loomria-agent-right-rail')).toBe('open');
+    act(() => toggle()!.click());
+    expect(rail()).toBeNull();
+    expect(localStorage.getItem('loomria-agent-right-rail')).toBe('closed');
+  });
+
+  it('restores an open rail from storage', () => {
+    localStorage.setItem('loomria-agent-right-rail', 'open');
+    mount();
+    expect(rail()).not.toBeNull();
+  });
+
+  it('keeps the old responsive rule in IDE mode (open on wide viewports, no details toggle)', () => {
+    localStorage.setItem('loomria-ui-mode', 'ide');
+    mount();
+    expect(rail()).not.toBeNull();
+    expect(toggle()).toBeNull();
+  });
+
+  it('constrains the centre column and marks the chat/TUI split row', () => {
+    mount({ selectedPaneId: 'pane-1', showTui: true });
+    const center = q('agent-center')!;
+    expect(center.className).toContain('overflow-hidden');
+    expect(center.className).toContain('min-w-0');
+    const row = center.querySelector('[data-agent-split-row]');
+    expect(row).not.toBeNull();
+    expect(row!.querySelector('[data-agent-tui-column]')).not.toBeNull();
+  });
+
+  it('marks the split row in IDE mode too', () => {
+    localStorage.setItem('loomria-ui-mode', 'ide');
+    mount({ selectedPaneId: 'pane-1', showTui: true });
+    expect(container.querySelector('[data-agent-split-row]')).not.toBeNull();
+  });
+
+  it('does not persist an automatic switch to IDE, but persists the explicit title-bar one', async () => {
+    localStorage.setItem('loomria-ui-mode', 'agent');
+    mount();
+    await act(async () => {
+      await captured.editor!.openFile('src/a.ts');
+    });
+    expect(q('editor-workspace')).not.toBeNull();
+    expect(localStorage.getItem('loomria-ui-mode')).toBe('agent');
+    expect(uiModeWrites()).toEqual([]);
+
+    act(() => q('ui-mode-agent')!.click());
+    act(() => q('ui-mode-ide')!.click());
+    expect(localStorage.getItem('loomria-ui-mode')).toBe('ide');
+    expect(updateSettingsSpy).toHaveBeenCalledWith({ ui_mode: 'ide' });
+  });
+
+  it('does not persist the Review or Ctrl+J auto-switches', () => {
+    localStorage.setItem('loomria-ui-mode', 'agent');
+    mount();
+    press({ key: 'j', code: 'KeyJ', ctrlKey: true });
+    expect(q('bottom-panel')).not.toBeNull();
+    expect(localStorage.getItem('loomria-ui-mode')).toBe('agent');
+    expect(uiModeWrites()).toEqual([]);
+  });
+
+  it('focuses the composer after switching back to agent mode with a pane selected', () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      cb(0);
+      return 0;
+    });
+    localStorage.setItem('loomria-ui-mode', 'ide');
+    mount({ selectedPaneId: 'pane-1' });
+    const ta = document.createElement('textarea');
+    ta.setAttribute('data-agent-composer', '');
+    document.body.appendChild(ta);
+    act(() => q('ui-mode-agent')!.click());
+    expect(document.activeElement).toBe(ta);
+    ta.remove();
   });
 });
 

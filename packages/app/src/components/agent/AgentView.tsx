@@ -95,7 +95,7 @@ export function AgentView({
   showTui: boolean;
   chatWidthPercent?: number;
   onToggleTui: () => void;
-  onExitWorkspace: () => void;
+  onExitWorkspace?: () => void;
   muted: boolean;
   onMutedChange: (muted: boolean) => void;
   embedded?: boolean;
@@ -510,7 +510,7 @@ export function AgentView({
         >
           {muted ? '🔕' : '🔔'}
         </button>
-        {!embedded && (
+        {!embedded && onExitWorkspace && (
           <button
             type="button"
             className="px-2 py-1 text-meta rounded-md border border-border-subtle hover:bg-hover"

@@ -49,6 +49,8 @@ export function ShellTitleBar({
   onNewPane,
   showRightRailToggle,
   onToggleRightRail,
+  rightRailOpen,
+  rightRailLabel = 'Toggle right panel',
   uiMode,
   onUiModeChange,
 }: {
@@ -56,6 +58,9 @@ export function ShellTitleBar({
   onNewPane: () => void;
   showRightRailToggle?: boolean;
   onToggleRightRail?: () => void;
+  /** Reflected as `aria-pressed` on the toggle when provided. */
+  rightRailOpen?: boolean;
+  rightRailLabel?: string;
   /** Renders the Agent / IDE switch when both are provided. */
   uiMode?: 'agent' | 'ide';
   onUiModeChange?: (mode: 'agent' | 'ide') => void;
@@ -69,7 +74,8 @@ export function ShellTitleBar({
         {showRightRailToggle && onToggleRightRail && (
           <button
             type="button"
-            aria-label="Toggle right panel"
+            aria-label={rightRailLabel}
+            aria-pressed={rightRailOpen}
             onClick={onToggleRightRail}
             className="p-1 rounded-md text-text-3 hover:text-text hover:bg-hover"
           >

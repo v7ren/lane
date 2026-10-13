@@ -41,3 +41,38 @@ describe('ShellTitleBar ui-mode switch', () => {
     expect(onUiModeChange).toHaveBeenCalledWith('ide');
   });
 });
+
+describe('ShellTitleBar right-rail toggle', () => {
+  const btn = (label: string) =>
+    container.querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement | null;
+
+  it('is hidden unless requested', () => {
+    act(() => root.render(<ShellTitleBar onNewPane={vi.fn()} onToggleRightRail={vi.fn()} />));
+    expect(btn('Toggle right panel')).toBeNull();
+  });
+
+  it('defaults to the right-panel label and fires the callback', () => {
+    const onToggle = vi.fn();
+    act(() =>
+      root.render(<ShellTitleBar onNewPane={vi.fn()} showRightRailToggle onToggleRightRail={onToggle} />),
+    );
+    act(() => btn('Toggle right panel')!.click());
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it('supports the details label and reflects the open state with aria-pressed', () => {
+    act(() =>
+      root.render(
+        <ShellTitleBar
+          onNewPane={vi.fn()}
+          showRightRailToggle
+          onToggleRightRail={vi.fn()}
+          rightRailLabel="Toggle details panel"
+          rightRailOpen
+        />,
+      ),
+    );
+    expect(btn('Toggle details panel')!.getAttribute('aria-pressed')).toBe('true');
+    expect(btn('Toggle right panel')).toBeNull();
+  });
+});

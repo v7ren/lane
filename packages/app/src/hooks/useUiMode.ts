@@ -34,7 +34,7 @@ function writeCachedUiMode(mode: UiMode): void {
  */
 export function useUiMode() {
   const [uiMode, setUiModeState] = useState<UiMode>(readCachedUiMode);
-  /** Set once the user (or an auto-switch) changes mode, so a slow hydrate cannot overwrite it. */
+  /** Set once the mode changes (explicitly or automatically), so a slow hydrate cannot overwrite it. */
   const changedRef = useRef(false);
   const modeRef = useRef(uiMode);
   modeRef.current = uiMode;
@@ -59,10 +59,15 @@ export function useUiMode() {
     };
   }, []);
 
-  const setUiMode = useCallback((next: UiMode) => {
+  /**
+   * Explicit user actions persist (default). Automatic switches pass `{ persist: false }` so the
+   * remembered preference, cache and settings, is untouched and the next launch starts as before.
+   */
+  const setUiMode = useCallback((next: UiMode, opts?: { persist?: boolean }) => {
     changedRef.current = true;
     modeRef.current = next;
     setUiModeState(next);
+    if (opts?.persist === false) return;
     writeCachedUiMode(next);
     void Promise.resolve(updateSettings({ ui_mode: next })).catch(() => undefined);
   }, []);

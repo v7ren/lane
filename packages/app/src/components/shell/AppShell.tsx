@@ -61,6 +61,7 @@ import { RightRail } from './RightRail';
 import { ShellTitleBar } from './ShellTitleBar';
 import { EditorProvider, useEditor } from '../../lib/editor/EditorContext';
 import { EditorWorkspace } from '../editor/EditorWorkspace';
+import { QuickOpen } from '../editor/QuickOpen';
 import { SidebarPanel } from './SidebarPanel';
 import { RevertBanner } from '../sessions/RevertBanner';
 import { PanelErrorBoundary } from './PanelErrorBoundary';
@@ -84,6 +85,24 @@ export type AppShellProps = {
   onClosePane: (paneId: string) => void;
   onJumpApproval: (paneId: string) => void;
 };
+
+const AGENT_RIGHT_RAIL_KEY = 'loomria-agent-right-rail';
+
+function readAgentRightRailOpen(): boolean {
+  try {
+    return localStorage.getItem(AGENT_RIGHT_RAIL_KEY) === 'open';
+  } catch {
+    return false;
+  }
+}
+
+function writeAgentRightRailOpen(open: boolean): void {
+  try {
+    localStorage.setItem(AGENT_RIGHT_RAIL_KEY, open ? 'open' : 'closed');
+  } catch {
+    /* storage unavailable; the choice just will not be remembered */
+  }
+}
 
 function AppShellInner({
   agentCatalog,
@@ -264,9 +283,37 @@ function AppShellInner({
     shell.setSidebarColumnOpen((open) => !open);
   }, [shell]);
 
+  // Agent mode keeps the details rail closed unless the user opens it; the choice is remembered
+  // separately from the IDE layout (which keeps its responsive "open at >= 1100px" rule).
+  const [agentRightRailOpen, setAgentRightRailOpen] = useState(readAgentRightRailOpen);
   const toggleRightRail = useCallback(() => {
+    if (uiMode === 'agent') {
+      setAgentRightRailOpen((open) => {
+        const next = !open;
+        writeAgentRightRailOpen(next);
+        return next;
+      });
+      return;
+    }
     shell.setRightRailOpen((open) => !open);
-  }, [shell]);
+  }, [shell, uiMode]);
+
+  // Explicit mode changes (title-bar switch, keybind, palette) land the caret in the composer
+  // when entering agent mode with a pane selected. Waiting a frame lets the centre column mount.
+  const changeUiMode = useCallback(
+    (mode: UiMode) => {
+      setUiMode(mode);
+      if (mode === 'agent' && selectedPaneId) {
+        requestAnimationFrame(() => {
+          document.querySelector<HTMLTextAreaElement>('textarea[data-agent-composer]')?.focus();
+        });
+      }
+    },
+    [selectedPaneId, setUiMode],
+  );
+  const toggleUiModeWithFocus = useCallback(() => {
+    changeUiMode(uiMode === 'agent' ? 'ide' : 'agent');
+  }, [changeUiMode, uiMode]);
 
   const handleRailSection = useCallback(
     (section: 'sessions' | 'workspaces') => {
@@ -281,7 +328,8 @@ function AppShellInner({
   );
 
   const showSidebarColumn = shell.sidebarColumnOpen;
-  const showRightRail = viewportWidth >= 1100 || shell.rightRailOpen;
+  const showRightRail =
+    uiMode === 'agent' ? agentRightRailOpen : viewportWidth >= 1100 || shell.rightRailOpen;
 
   const handleNewShell = useCallback(async () => {
     const grid = measureSpawnTerminalSize();
@@ -317,7 +365,8 @@ function AppShellInner({
           onJumpApproval={onJumpApproval}
           uiMode={uiMode}
           setUiMode={setUiMode}
-          toggleUiMode={toggleUiMode}
+          changeUiMode={changeUiMode}
+          toggleUiMode={toggleUiModeWithFocus}
           demo={demo}
           shell={shell}
           layout={layout}
@@ -371,7 +420,9 @@ function AppShellChrome(props: {
   onClosePane: (paneId: string) => void;
   onJumpApproval: (paneId: string) => void;
   uiMode: UiMode;
-  setUiMode: (mode: UiMode) => void;
+  setUiMode: (mode: UiMode, opts?: { persist?: boolean }) => void;
+  /** Explicit (persisted) switch that also focuses the composer when entering agent mode. */
+  changeUiMode: (mode: UiMode) => void;
   toggleUiMode: () => void;
   demo: ReturnType<typeof useDemoFixtures>;
   shell: ReturnType<typeof useShellSelection>;
@@ -436,6 +487,7 @@ function AppShellChrome(props: {
     onClosePane,
     uiMode,
     setUiMode,
+    changeUiMode,
     toggleUiMode,
     demo,
     shell,
@@ -502,20 +554,21 @@ function AppShellChrome(props: {
     (opts?: { bottomPanel?: boolean }) => {
       if (uiMode !== 'agent') return;
       if (opts?.bottomPanel) patchLayout({ bottomPanelCollapsed: false });
-      setUiMode('ide');
+      // Automatic switch: do not overwrite the remembered preference.
+      setUiMode('ide', { persist: false });
     },
     [patchLayout, setUiMode, uiMode],
   );
 
-  // Anything that needs the editor area (opening a file, Review, quick open, explorer search)
-  // switches an agent-mode shell to IDE. Only rising edges count, so toggling back to agent
-  // mode with tabs still open does not bounce straight back.
+  // Anything that needs the editor area (opening a file, Review, explorer search) switches an
+  // agent-mode shell to IDE without persisting it. Quick open alone does not: its dialog is
+  // mounted in the agent centre column, and only opening a file (tabs/seq/active) switches.
+  // Only rising edges count, so toggling back to agent mode with tabs still open does not bounce.
   const editorDemandRef = useRef({
     tabs: editor.tabs.length,
     active: editor.activeTabId,
     seq: editor.openSeq ?? 0,
     review: editor.mainView === 'review',
-    quickOpen: editor.quickOpenOpen,
     search: editor.explorerView === 'search',
   });
   useEffect(() => {
@@ -524,7 +577,6 @@ function AppShellChrome(props: {
       active: editor.activeTabId,
       seq: editor.openSeq ?? 0,
       review: editor.mainView === 'review',
-      quickOpen: editor.quickOpenOpen,
       search: editor.explorerView === 'search',
     };
     const prev = editorDemandRef.current;
@@ -534,7 +586,6 @@ function AppShellChrome(props: {
       next.seq > prev.seq ||
       (next.active !== null && next.active !== prev.active) ||
       (next.review && !prev.review) ||
-      (next.quickOpen && !prev.quickOpen) ||
       (next.search && !prev.search);
     if (rising) revealIde();
   }, [
@@ -542,7 +593,6 @@ function AppShellChrome(props: {
     editor.explorerView,
     editor.mainView,
     editor.openSeq,
-    editor.quickOpenOpen,
     editor.tabs.length,
     revealIde,
   ]);
@@ -639,7 +689,6 @@ function AppShellChrome(props: {
         },
         editorHandlers: {
           onQuickOpen: () => {
-            revealIde();
             editor.openQuickOpen();
           },
           onSearchPanel: () => {
@@ -687,7 +736,6 @@ function AppShellChrome(props: {
       shell.setPaletteOpen(true);
     },
     onOpenFilePalette: () => {
-      revealIde();
       editor.openQuickOpen();
     },
     onSwitchTerminalTab: handleSwitchTerminalTab,
@@ -707,7 +755,7 @@ function AppShellChrome(props: {
   }: {
     embedded: boolean;
     empty: ReactNode;
-    onExitWorkspace: () => void;
+    onExitWorkspace?: () => void;
   }): ReactNode =>
     selectedPaneId ? (
       <div className="relative flex flex-1 min-h-0 flex-col z-[1]">
@@ -717,7 +765,10 @@ function AppShellChrome(props: {
               sessionId={selectedSession.sessionId}
             />
           )}
-        <div className="relative flex flex-1 min-h-0 flex-row">
+        <div
+          className="relative flex flex-1 min-h-0 min-w-0 flex-row overflow-hidden"
+          data-agent-split-row
+        >
         <AgentView
           embedded={embedded}
           paneId={selectedPaneId}
@@ -759,7 +810,7 @@ function AppShellChrome(props: {
         )}
         {showTui && selectedPaneId && (
           <div
-            className="flex flex-1 min-w-[280px] min-h-0 flex-col border-l border-border-subtle bg-canvas z-[2]"
+            className="flex flex-1 min-w-[280px] min-h-0 flex-col border-l border-border-subtle bg-canvas"
             data-agent-tui-column={selectedPaneId}
           >
             <AgentTuiHeader
@@ -786,10 +837,12 @@ function AppShellChrome(props: {
       <ShellTitleBar
         newPaneButtonRef={newPaneAnchorRef}
         onNewPane={() => openNewPaneMenu(newPaneAnchorRef.current)}
-        showRightRailToggle={viewportWidth < 1100}
+        showRightRailToggle={uiMode === 'agent' || viewportWidth < 1100}
         onToggleRightRail={toggleRightRail}
+        rightRailOpen={uiMode === 'agent' ? showRightRail : undefined}
+        rightRailLabel={uiMode === 'agent' ? 'Toggle details panel' : undefined}
         uiMode={uiMode}
-        onUiModeChange={setUiMode}
+        onUiModeChange={changeUiMode}
       />
       <div className="flex flex-1 min-h-0">
         <ActivityRail
@@ -857,7 +910,7 @@ function AppShellChrome(props: {
         )}
         {uiMode === 'agent' ? (
           <div
-            className="flex flex-col flex-1 min-w-0 min-h-0"
+            className="relative flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden"
             data-testid="agent-center"
           >
             <PanelErrorBoundary region="main">
@@ -873,9 +926,9 @@ function AppShellChrome(props: {
                     onChangeFolder={() => void handleChangeFolder()}
                   />
                 ),
-                onExitWorkspace: () => setUiMode('ide'),
               })}
             </PanelErrorBoundary>
+            <QuickOpen />
           </div>
         ) : (
           <div className="flex flex-col flex-1 min-w-0 min-h-0">

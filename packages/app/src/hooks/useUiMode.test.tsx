@@ -86,6 +86,28 @@ describe('useUiMode', () => {
     await act(async () => m.root.unmount());
   });
 
+  it('updates state but neither cache nor settings when persist is false', async () => {
+    localStorage.setItem('loomria-ui-mode', 'agent');
+    const m = mount();
+    await m.render();
+    await act(async () => m.box.api!.setUiMode('ide', { persist: false }));
+    expect(m.box.api!.uiMode).toBe('ide');
+    expect(localStorage.getItem('loomria-ui-mode')).toBe('agent');
+    expect(updateSettings).not.toHaveBeenCalled();
+    await act(async () => m.root.unmount());
+  });
+
+  it('an unpersisted switch still blocks a slow hydrate from overwriting it', async () => {
+    let resolve!: (v: unknown) => void;
+    loadSettings.mockReturnValue(new Promise((r) => (resolve = r)));
+    const m = mount();
+    await m.render();
+    await act(async () => m.box.api!.setUiMode('ide', { persist: false }));
+    await act(async () => resolve({ ui_mode: 'agent' }));
+    expect(m.box.api!.uiMode).toBe('ide');
+    await act(async () => m.root.unmount());
+  });
+
   it('survives a throwing localStorage', async () => {
     const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('blocked');
