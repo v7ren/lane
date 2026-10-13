@@ -207,6 +207,8 @@ const DEFAULT_SETTINGS: Settings = {
 
   theme: 'dark',
 
+  ui_mode: 'agent',
+
   developer_use_rust_mcp: false,
 
 };

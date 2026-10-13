@@ -122,6 +122,8 @@ let errorSpy: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   runtime.desktop = false;
   resetTuiCompanionsForTests();
+  // These tests cover the IDE layout (bottom panel, explorer); agent mode is in app-shell-mode.test.tsx.
+  localStorage.setItem('loomria-ui-mode', 'ide');
   localStorage.removeItem('loomria-bottom-ratio-touched');
   localStorage.removeItem('loomria-shell-layout-v2');
   errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -131,6 +133,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  localStorage.removeItem('loomria-ui-mode');
   act(() => root.unmount());
   container.remove();
   errorSpy.mockRestore();

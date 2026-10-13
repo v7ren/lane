@@ -19,6 +19,8 @@ interface Props {
   /** Selected OpenCode pane/session; Providers, MCP and Config act on this pane's server. */
   opencodePaneId?: string | null;
   opencodeSessionId?: string | null;
+  /** Called when the Interface radio changes so the shell can switch layout immediately. */
+  onUiModeChange?: (mode: 'agent' | 'ide') => void;
 }
 
 export function SettingsPanel({
@@ -28,6 +30,7 @@ export function SettingsPanel({
   onProjectPathChange,
   opencodePaneId = null,
   opencodeSessionId = null,
+  onUiModeChange,
 }: Props) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [bridgeUrl, setBridgeUrl] = useState<string | null>(null);
@@ -57,6 +60,7 @@ export function SettingsPanel({
     projectPath,
     onProjectPathChange,
     bridgeUrl,
+    onUiModeChange,
   };
 
   const handleSave = async () => {

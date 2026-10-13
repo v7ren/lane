@@ -50,6 +50,8 @@ type EditorContextValue = {
   searchQuery: string;
   searchResults: FindMatch[];
   pendingRevealLine: number | null;
+  /** Increments on every openFile call, even when the file is already the active tab. */
+  openSeq: number;
   conflict: DiskConflictState;
   setMainView: (view: MainView) => void;
   openFile: (path: string, opts?: { preview?: boolean; line?: number }) => Promise<void>;
@@ -84,6 +86,7 @@ export function EditorProvider({
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [explorerView, setExplorerView] = useState<ExplorerColumnView>('tree');
   const [pendingRevealLine, setPendingRevealLine] = useState<number | null>(null);
+  const [openSeq, setOpenSeq] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<FindMatch[]>([]);
   const [conflict, setConflict] = useState<DiskConflictState>({
@@ -196,6 +199,7 @@ export function EditorProvider({
         return nextTabs;
       });
       setPendingRevealLine(opts?.line ?? null);
+      setOpenSeq((n) => n + 1);
       setMainView('editor');
       setConflict({ phase: 'idle', diskContent: null, diskMtimeMs: null });
     },
@@ -355,6 +359,7 @@ export function EditorProvider({
       searchQuery,
       searchResults,
       pendingRevealLine,
+      openSeq,
       conflict,
       setMainView,
       openFile,
@@ -407,6 +412,7 @@ export function EditorProvider({
       saveActive,
       searchQuery,
       pendingRevealLine,
+      openSeq,
       searchResults,
       tabs,
       root,

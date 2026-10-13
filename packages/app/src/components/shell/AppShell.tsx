@@ -6,6 +6,7 @@ import {
   useState,
   type Dispatch,
   type MutableRefObject,
+  type ReactNode,
   type RefObject,
 } from 'react';
 import type { AgentCatalog, AgentId } from '@loomria/shared';
@@ -24,8 +25,11 @@ import type { SessionRailState } from '../../hooks/useSessionRail';
 import { useAgentChatSplit } from '../../hooks/useAgentChatSplit';
 import { useShellLayout } from '../../hooks/useShellLayout';
 import { useShellKeyboard } from '../../hooks/useShellKeyboard';
+import { useUiMode, type UiMode } from '../../hooks/useUiMode';
 import { buildPaneDisplayNames } from '../../lib/pane-display-name';
 import { isUserShellPane } from '../../lib/pane-surface';
+import { pickProjectFolder, projectPathsEqual } from '../../lib/project-path';
+import { pushRecentWorkspace } from '../../lib/sessions/recent-workspaces';
 import { useSelectedSession, useSessionList } from '../../lib/shell-data';
 import { ShellSelectionProvider, useShellSelection } from '../../lib/shell-selection-context';
 import { isTauriRuntime } from '../../lib/is-tauri';
@@ -45,6 +49,7 @@ import {
   readBottomRatioUserTouched,
 } from '../../lib/shell-layout';
 import { ActivityRail } from './ActivityRail';
+import { AgentHome } from './AgentHome';
 import { AgentPanelEmpty } from './AgentPanelEmpty';
 import { BottomPanel } from './BottomPanel';
 import { CommandPalette } from './CommandPalette';
@@ -104,6 +109,7 @@ function AppShellInner({
   const { layout, patchLayout, resetPanel, resetVisibility, markBottomPanelResized } =
     useShellLayout();
   const hasEditorTabs = editor.tabs.length > 0;
+  const { uiMode, setUiMode, toggleUiMode } = useUiMode();
   const [viewportWidth, setViewportWidth] = useState(
     typeof window !== 'undefined' ? window.innerWidth : 1440,
   );
@@ -245,7 +251,9 @@ function AppShellInner({
   const sessionForAgent = selectedPaneId ? sessionStates.get(selectedPaneId) : undefined;
   const agentPaneTitle = selectedPaneId ? (paneTitles.get(selectedPaneId) ?? null) : null;
 
-  const agentSplitActive = shell.bottomTab === 'agent' && Boolean(selectedPaneId) && showTui;
+  // Agent mode has no bottom-panel tabs: the conversation (and its TUI column) is always shown.
+  const agentSplitActive =
+    (uiMode === 'agent' || shell.bottomTab === 'agent') && Boolean(selectedPaneId) && showTui;
   const { chatPercent, startDrag } = useAgentChatSplit(agentSplitActive);
 
   const toggleBottom = useCallback(() => {
@@ -307,6 +315,9 @@ function AppShellInner({
           onNewSession={onNewSession}
           onClosePane={onClosePane}
           onJumpApproval={onJumpApproval}
+          uiMode={uiMode}
+          setUiMode={setUiMode}
+          toggleUiMode={toggleUiMode}
           demo={demo}
           shell={shell}
           layout={layout}
@@ -359,6 +370,9 @@ function AppShellChrome(props: {
   onNewSession: (agent: AgentId) => void | Promise<void>;
   onClosePane: (paneId: string) => void;
   onJumpApproval: (paneId: string) => void;
+  uiMode: UiMode;
+  setUiMode: (mode: UiMode) => void;
+  toggleUiMode: () => void;
   demo: ReturnType<typeof useDemoFixtures>;
   shell: ReturnType<typeof useShellSelection>;
   layout: ReturnType<typeof useShellLayout>['layout'];
@@ -420,6 +434,9 @@ function AppShellChrome(props: {
     setShowTui,
     onNewSession,
     onClosePane,
+    uiMode,
+    setUiMode,
+    toggleUiMode,
     demo,
     shell,
     layout,
@@ -480,6 +497,95 @@ function AppShellChrome(props: {
     [setNewPaneOpen],
   );
 
+  /** Opens the IDE layout from agent mode; optionally makes sure the bottom panel is visible. */
+  const revealIde = useCallback(
+    (opts?: { bottomPanel?: boolean }) => {
+      if (uiMode !== 'agent') return;
+      if (opts?.bottomPanel) patchLayout({ bottomPanelCollapsed: false });
+      setUiMode('ide');
+    },
+    [patchLayout, setUiMode, uiMode],
+  );
+
+  // Anything that needs the editor area (opening a file, Review, quick open, explorer search)
+  // switches an agent-mode shell to IDE. Only rising edges count, so toggling back to agent
+  // mode with tabs still open does not bounce straight back.
+  const editorDemandRef = useRef({
+    tabs: editor.tabs.length,
+    active: editor.activeTabId,
+    seq: editor.openSeq ?? 0,
+    review: editor.mainView === 'review',
+    quickOpen: editor.quickOpenOpen,
+    search: editor.explorerView === 'search',
+  });
+  useEffect(() => {
+    const next = {
+      tabs: editor.tabs.length,
+      active: editor.activeTabId,
+      seq: editor.openSeq ?? 0,
+      review: editor.mainView === 'review',
+      quickOpen: editor.quickOpenOpen,
+      search: editor.explorerView === 'search',
+    };
+    const prev = editorDemandRef.current;
+    editorDemandRef.current = next;
+    const rising =
+      next.tabs > prev.tabs ||
+      next.seq > prev.seq ||
+      (next.active !== null && next.active !== prev.active) ||
+      (next.review && !prev.review) ||
+      (next.quickOpen && !prev.quickOpen) ||
+      (next.search && !prev.search);
+    if (rising) revealIde();
+  }, [
+    editor.activeTabId,
+    editor.explorerView,
+    editor.mainView,
+    editor.openSeq,
+    editor.quickOpenOpen,
+    editor.tabs.length,
+    revealIde,
+  ]);
+
+  const handleToggleBottom = useCallback(() => {
+    if (uiMode === 'agent') {
+      revealIde({ bottomPanel: true });
+      return;
+    }
+    toggleBottom();
+  }, [revealIde, toggleBottom, uiMode]);
+
+  const handleSwitchTerminalTab = useCallback(() => {
+    revealIde({ bottomPanel: true });
+    shell.setBottomTab('terminal');
+  }, [revealIde, shell]);
+
+  const handleChangeFolder = useCallback(async () => {
+    const picked = await pickProjectFolder(projectPath);
+    if (!picked) return;
+    await handleOpenWorkspace(picked);
+    try {
+      await pushRecentWorkspace(picked);
+    } catch {
+      /* the recent list is best-effort */
+    }
+  }, [handleOpenWorkspace, projectPath]);
+
+  const recentSessions = useMemo(
+    () =>
+      shellSessions
+        .filter(
+          (s) =>
+            !s.parentSessionId &&
+            (!s.workspaceDirectory ||
+              !projectPath ||
+              projectPathsEqual(s.workspaceDirectory, projectPath)),
+        )
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .slice(0, 5),
+    [projectPath, shellSessions],
+  );
+
   const paletteCommands = useMemo(
     () =>
       buildPaletteCommands({
@@ -488,9 +594,11 @@ function AppShellChrome(props: {
         selected: selectedSession,
         onNewAgent: (agent) => void onNewSession(agent),
         onSelectSession: selectSession,
-        onToggleBottom: toggleBottom,
+        onToggleBottom: handleToggleBottom,
         onToggleSidebar: toggleSidebar,
         onToggleRightRail: toggleRightRail,
+        uiMode,
+        onToggleUiMode: toggleUiMode,
         onOpenSettings: () => shell.setSettingsOpen(true),
         onOpenPorts: () => setPortsOpen(true),
         onFocusComposer: () => {
@@ -498,7 +606,7 @@ function AppShellChrome(props: {
           document.querySelector<HTMLElement>('[data-agent-composer]')?.focus();
         },
         onSwitchAgentTab: () => shell.setBottomTab('agent'),
-        onSwitchTerminalTab: () => shell.setBottomTab('terminal'),
+        onSwitchTerminalTab: handleSwitchTerminalTab,
         onNewOpenCodeSession: (paneId) => void actions.createSession(paneId),
         onRenameSelected: () => {
           if (!selectedSession?.sessionId) return;
@@ -530,9 +638,18 @@ function AppShellChrome(props: {
           }
         },
         editorHandlers: {
-          onQuickOpen: () => editor.openQuickOpen(),
-          onSearchPanel: () => editor.openSearch(),
-          onReview: () => editor.setMainView('review'),
+          onQuickOpen: () => {
+            revealIde();
+            editor.openQuickOpen();
+          },
+          onSearchPanel: () => {
+            revealIde();
+            editor.openSearch();
+          },
+          onReview: () => {
+            revealIde();
+            editor.setMainView('review');
+          },
           onSave: () => void editor.saveActive(),
           onCloseTab: () => {
             if (editor.activeTabId) editor.closeTab(editor.activeTabId);
@@ -544,13 +661,17 @@ function AppShellChrome(props: {
       agentCatalog,
       editor,
       selectSession,
+      handleSwitchTerminalTab,
+      handleToggleBottom,
+      revealIde,
       selectedSession,
       setNewPaneOpen,
       shell,
       shellSessions,
-      toggleBottom,
       toggleRightRail,
       toggleSidebar,
+      toggleUiMode,
+      uiMode,
     ],
   );
 
@@ -558,20 +679,107 @@ function AppShellChrome(props: {
     sessionStates,
     agentPaneId: selectedPaneId,
     onNewAgent: () => openNewPaneMenu(newPaneAnchorRef.current),
-    onToggleBottom: toggleBottom,
+    onToggleBottom: handleToggleBottom,
     onToggleSidebar: toggleSidebar,
+    onToggleUiMode: toggleUiMode,
     onOpenPalette: () => {
       shell.setPaletteFileMode(false);
       shell.setPaletteOpen(true);
     },
     onOpenFilePalette: () => {
+      revealIde();
       editor.openQuickOpen();
     },
-    onSwitchTerminalTab: () => shell.setBottomTab('terminal'),
+    onSwitchTerminalTab: handleSwitchTerminalTab,
     onJumpApproval: props.onJumpApproval,
     onApproveTop: () => {},
     onDenyTop: () => {},
   });
+
+  /**
+   * The selected pane's conversation plus its optional TUI companion column. Shared by the IDE
+   * bottom panel (embedded) and the agent-mode centre column so both mount the same tree.
+   */
+  const renderAgentConversation = ({
+    embedded,
+    empty,
+    onExitWorkspace,
+  }: {
+    embedded: boolean;
+    empty: ReactNode;
+    onExitWorkspace: () => void;
+  }): ReactNode =>
+    selectedPaneId ? (
+      <div className="relative flex flex-1 min-h-0 flex-col z-[1]">
+        {selectedSession?.sessionId && selectedSession.reverted && (
+            <RevertBanner
+              paneId={selectedSession.paneId}
+              sessionId={selectedSession.sessionId}
+            />
+          )}
+        <div className="relative flex flex-1 min-h-0 flex-row">
+        <AgentView
+          embedded={embedded}
+          paneId={selectedPaneId}
+          agentType={selectedPane?.info.agent_type}
+          agentCatalog={agentCatalog}
+          paneStatus={
+            effectivePaneStatus(
+              selectedPane?.status,
+              selectedPane?.info.surface,
+              selectedPane ? sessionStates.get(selectedPane.info.id)?.protocol_backed : undefined,
+            ) ?? undefined
+          }
+          sessionState={sessionForAgent ?? null}
+          paneTitle={agentPaneTitle}
+          paneCwd={selectedPane?.info.cwd}
+          headlessClaude={
+            selectedPane?.info.surface === 'headless' &&
+            selectedPane?.info.agent_type === 'claude'
+          }
+          showTui={showTui}
+          chatWidthPercent={showTui ? chatPercent : undefined}
+          onToggleTui={() => setShowTui((v) => !v)}
+          onExitWorkspace={onExitWorkspace}
+          muted={Boolean(mutedMap[selectedPaneId])}
+          onMutedChange={(muted) =>
+            setMutedMap((prev) => ({ ...prev, [selectedPaneId]: muted }))
+          }
+        />
+        {showTui && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            className="w-px shrink-0 bg-border-subtle hover:bg-accent/50 cursor-col-resize touch-none z-[2] pointer-events-auto"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              startDrag();
+            }}
+          />
+        )}
+        {showTui && selectedPaneId && (
+          <div
+            className="flex flex-1 min-w-[280px] min-h-0 flex-col border-l border-border-subtle bg-canvas z-[2]"
+            data-agent-tui-column={selectedPaneId}
+          >
+            <AgentTuiHeader
+              agentLabel={agentPaneTitle ?? selectedPane?.info.agent_type ?? 'Agent'}
+              onHide={() => setShowTui(false)}
+            />
+            <div className="relative flex flex-1 min-h-0 flex flex-col">
+              {!tuiSurfaceLive && <AgentTuiPlaceholder />}
+              <PaneTerminalHost
+                paneId={tuiPaneIdFor(selectedPaneId, tuiCompanions)}
+                className={tuiSurfaceLive ? '' : 'invisible pointer-events-none'}
+              />
+            </div>
+          </div>
+        )}
+        </div>
+      </div>
+    ) : (
+      empty
+    );
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-canvas text-text" data-testid="app-shell">
@@ -580,6 +788,8 @@ function AppShellChrome(props: {
         onNewPane={() => openNewPaneMenu(newPaneAnchorRef.current)}
         showRightRailToggle={viewportWidth < 1100}
         onToggleRightRail={toggleRightRail}
+        uiMode={uiMode}
+        onUiModeChange={setUiMode}
       />
       <div className="flex flex-1 min-h-0">
         <ActivityRail
@@ -622,7 +832,7 @@ function AppShellChrome(props: {
             />
           </>
         )}
-        {!layout.explorerCollapsed && (
+        {uiMode === 'ide' && !layout.explorerCollapsed && (
           <>
             <div
               style={{ width: layout.explorerWidth }}
@@ -645,160 +855,114 @@ function AppShellChrome(props: {
             />
           </>
         )}
-        <div className="flex flex-col flex-1 min-w-0 min-h-0">
-          <PanelErrorBoundary region="main">
-            <EditorWorkspace
-              launcherProps={{
-                onNewAgent: (anchor) => openNewPaneMenu(anchor),
-                onTogglePanel: toggleBottom,
-                onSearchFiles: () => editor.openQuickOpen(),
-                onCommandPalette: () => {
-                  shell.setPaletteFileMode(false);
-                  shell.setPaletteOpen(true);
-                },
-              }}
-            />
-          </PanelErrorBoundary>
-          {!layout.bottomPanelCollapsed && (
-            <>
-              <ResizableSplitter
-                axis="vertical"
-                data-testid="splitter-bottom"
-                onDragStart={() => {
-                  dragBase.current = layout.bottomPanelPercent;
+        {uiMode === 'agent' ? (
+          <div
+            className="flex flex-col flex-1 min-w-0 min-h-0"
+            data-testid="agent-center"
+          >
+            <PanelErrorBoundary region="main">
+              {renderAgentConversation({
+                embedded: false,
+                empty: (
+                  <AgentHome
+                    projectPath={projectPath}
+                    agentCatalog={agentCatalog}
+                    recentSessions={recentSessions}
+                    onNewSession={(agent) => void onNewSession(agent)}
+                    onSelectSession={selectSession}
+                    onChangeFolder={() => void handleChangeFolder()}
+                  />
+                ),
+                onExitWorkspace: () => setUiMode('ide'),
+              })}
+            </PanelErrorBoundary>
+          </div>
+        ) : (
+          <div className="flex flex-col flex-1 min-w-0 min-h-0">
+            <PanelErrorBoundary region="main">
+              <EditorWorkspace
+                launcherProps={{
+                  onNewAgent: (anchor) => openNewPaneMenu(anchor),
+                  onTogglePanel: toggleBottom,
+                  onSearchFiles: () => editor.openQuickOpen(),
+                  onCommandPalette: () => {
+                    shell.setPaletteFileMode(false);
+                    shell.setPaletteOpen(true);
+                  },
                 }}
-                onDrag={(delta) => {
-                  markBottomPanelResized();
-                  const el = document.querySelector('[data-testid="app-shell"]');
-                  const h = el?.clientHeight ?? 800;
-                  const next = dragBase.current - (delta / h) * 100;
-                  patchLayout({ bottomPanelPercent: Math.min(80, Math.max(20, next)) });
-                }}
-                onDoubleClick={() => resetPanel('bottomPanelPercent')}
               />
-              <div
-                className="min-h-0 shrink-0 flex flex-col relative"
-                style={{ flex: `0 0 ${layout.bottomPanelPercent}%` }}
-                data-testid="bottom-panel-host"
-              >
-                <PanelErrorBoundary region="bottom">
-                <BottomPanel
-                  tab={shell.bottomTab}
-                  onTabChange={shell.setBottomTab}
-                  agentContent={
-                    selectedPaneId ? (
-                      <div className="relative flex flex-1 min-h-0 flex-col z-[1]">
-                        {selectedSession?.sessionId && selectedSession.reverted && (
-                            <RevertBanner
-                              paneId={selectedSession.paneId}
-                              sessionId={selectedSession.sessionId}
+            </PanelErrorBoundary>
+            {!layout.bottomPanelCollapsed && (
+              <>
+                <ResizableSplitter
+                  axis="vertical"
+                  data-testid="splitter-bottom"
+                  onDragStart={() => {
+                    dragBase.current = layout.bottomPanelPercent;
+                  }}
+                  onDrag={(delta) => {
+                    markBottomPanelResized();
+                    const el = document.querySelector('[data-testid="app-shell"]');
+                    const h = el?.clientHeight ?? 800;
+                    const next = dragBase.current - (delta / h) * 100;
+                    patchLayout({ bottomPanelPercent: Math.min(80, Math.max(20, next)) });
+                  }}
+                  onDoubleClick={() => resetPanel('bottomPanelPercent')}
+                />
+                <div
+                  className="min-h-0 shrink-0 flex flex-col relative"
+                  style={{ flex: `0 0 ${layout.bottomPanelPercent}%` }}
+                  data-testid="bottom-panel-host"
+                >
+                  <PanelErrorBoundary region="bottom">
+                  <BottomPanel
+                    tab={shell.bottomTab}
+                    onTabChange={shell.setBottomTab}
+                    agentContent={renderAgentConversation({
+                      embedded: true,
+                      empty: <AgentPanelEmpty onStartAgent={(anchor) => openNewPaneMenu(anchor)} />,
+                      onExitWorkspace: () => setShowTui(false),
+                    })}
+                    terminalContent={
+                      <>
+                        <TerminalShellBar
+                          agentCatalog={agentCatalog}
+                          terminalPanes={terminalPanes}
+                          selectedPaneId={shell.selectedTerminalPaneId}
+                          onSelect={(id) => shell.setSelectedTerminalPaneId(id)}
+                          onNewShell={() => void handleNewShell()}
+                          onCloseShell={(id) => onClosePane(id)}
+                        />
+                        <div className="flex flex-1 min-h-0 flex-col relative">
+                          {!isTauriRuntime() && (
+                            <p
+                              className="absolute inset-0 flex items-center justify-center text-meta text-text-3 pointer-events-none z-[4] px-4 text-center"
+                              data-testid="terminal-browser-placeholder"
+                            >
+                              Terminal not connected in browser preview
+                            </p>
+                          )}
+                          {terminalPanes.length === 0 && isTauriRuntime() && (
+                            <p className="p-4 text-meta text-text-3">
+                              No terminal panes yet. Use + to open a shell.
+                            </p>
+                          )}
+                          {shell.selectedTerminalPaneId && (
+                            <PaneTerminalHost
+                              paneId={shell.selectedTerminalPaneId}
+                              className="flex-1 min-h-0"
                             />
                           )}
-                        <div className="relative flex flex-1 min-h-0 flex-row">
-                        <AgentView
-                          embedded
-                          paneId={selectedPaneId}
-                          agentType={selectedPane?.info.agent_type}
-                          agentCatalog={agentCatalog}
-                          paneStatus={
-                            effectivePaneStatus(
-                              selectedPane?.status,
-                              selectedPane?.info.surface,
-                              selectedPane ? sessionStates.get(selectedPane.info.id)?.protocol_backed : undefined,
-                            ) ?? undefined
-                          }
-                          sessionState={sessionForAgent ?? null}
-                          paneTitle={agentPaneTitle}
-                          paneCwd={selectedPane?.info.cwd}
-                          headlessClaude={
-                            selectedPane?.info.surface === 'headless' &&
-                            selectedPane?.info.agent_type === 'claude'
-                          }
-                          showTui={showTui}
-                          chatWidthPercent={showTui ? chatPercent : undefined}
-                          onToggleTui={() => setShowTui((v) => !v)}
-                          onExitWorkspace={() => setShowTui(false)}
-                          muted={Boolean(mutedMap[selectedPaneId])}
-                          onMutedChange={(muted) =>
-                            setMutedMap((prev) => ({ ...prev, [selectedPaneId]: muted }))
-                          }
-                        />
-                        {showTui && (
-                          <div
-                            role="separator"
-                            aria-orientation="vertical"
-                            className="w-px shrink-0 bg-border-subtle hover:bg-accent/50 cursor-col-resize touch-none z-[2] pointer-events-auto"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              startDrag();
-                            }}
-                          />
-                        )}
-                        {showTui && selectedPaneId && (
-                          <div
-                            className="flex flex-1 min-w-[280px] min-h-0 flex-col border-l border-border-subtle bg-canvas z-[2]"
-                            data-agent-tui-column={selectedPaneId}
-                          >
-                            <AgentTuiHeader
-                              agentLabel={agentPaneTitle ?? selectedPane?.info.agent_type ?? 'Agent'}
-                              onHide={() => setShowTui(false)}
-                            />
-                            <div className="relative flex flex-1 min-h-0 flex flex-col">
-                              {!tuiSurfaceLive && <AgentTuiPlaceholder />}
-                              <PaneTerminalHost
-                                paneId={tuiPaneIdFor(selectedPaneId, tuiCompanions)}
-                                className={tuiSurfaceLive ? '' : 'invisible pointer-events-none'}
-                              />
-                            </div>
-                          </div>
-                        )}
                         </div>
-                      </div>
-                    ) : (
-                      <AgentPanelEmpty
-                        onStartAgent={(anchor) => openNewPaneMenu(anchor)}
-                      />
-                    )
-                  }
-                  terminalContent={
-                    <>
-                      <TerminalShellBar
-                        agentCatalog={agentCatalog}
-                        terminalPanes={terminalPanes}
-                        selectedPaneId={shell.selectedTerminalPaneId}
-                        onSelect={(id) => shell.setSelectedTerminalPaneId(id)}
-                        onNewShell={() => void handleNewShell()}
-                        onCloseShell={(id) => onClosePane(id)}
-                      />
-                      <div className="flex flex-1 min-h-0 flex-col relative">
-                        {!isTauriRuntime() && (
-                          <p
-                            className="absolute inset-0 flex items-center justify-center text-meta text-text-3 pointer-events-none z-[4] px-4 text-center"
-                            data-testid="terminal-browser-placeholder"
-                          >
-                            Terminal not connected in browser preview
-                          </p>
-                        )}
-                        {terminalPanes.length === 0 && isTauriRuntime() && (
-                          <p className="p-4 text-meta text-text-3">
-                            No terminal panes yet. Use + to open a shell.
-                          </p>
-                        )}
-                        {shell.selectedTerminalPaneId && (
-                          <PaneTerminalHost
-                            paneId={shell.selectedTerminalPaneId}
-                            className="flex-1 min-h-0"
-                          />
-                        )}
-                      </div>
-                    </>
-                  }
-                />
-                </PanelErrorBoundary>
-              </div>
-            </>
-          )}
-        </div>
+                      </>
+                    }
+                  />
+                  </PanelErrorBoundary>
+                </div>
+              </>
+            )}
+          </div>
+        )}
         {showRightRail && (
           <>
             <ResizableSplitter
@@ -852,6 +1016,7 @@ function AppShellChrome(props: {
           selectedPane?.info.agent_type === 'opencode_native' ? selectedPane.info.id : null
         }
         opencodeSessionId={selectedSession?.sessionId ?? null}
+        onUiModeChange={setUiMode}
       />
 
       <PortsPanel open={portsOpen} onClose={() => setPortsOpen(false)} />
@@ -864,6 +1029,7 @@ function AppShellChrome(props: {
         showTui={showTui}
         selectedTerminalPaneId={shell.selectedTerminalPaneId}
         subscribePaneData={registry.subscribePaneData}
+        uiMode={uiMode}
       />
     </div>
   );

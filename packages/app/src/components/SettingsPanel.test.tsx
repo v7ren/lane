@@ -62,6 +62,24 @@ afterEach(() => {
   container.remove();
 });
 
+describe('SettingsPanel interface mode', () => {
+  it('shows the stored mode and reports changes', async () => {
+    const onUiModeChange = vi.fn();
+    root = createRoot(container);
+    await act(async () => {
+      root.render(<SettingsPanel open onClose={onClose} projectPath="/p" onUiModeChange={onUiModeChange} />);
+    });
+    const agentOpt = container.querySelector('[data-testid="settings-ui-mode-agent"]') as HTMLButtonElement;
+    const ideOpt = container.querySelector('[data-testid="settings-ui-mode-ide"]') as HTMLButtonElement;
+    expect(agentOpt.getAttribute('aria-checked')).toBe('true');
+    expect(ideOpt.getAttribute('aria-checked')).toBe('false');
+    await act(async () => ideOpt.click());
+    expect(onUiModeChange).toHaveBeenCalledWith('ide');
+    expect(ideOpt.getAttribute('aria-checked')).toBe('true');
+    expect(agentOpt.getAttribute('aria-checked')).toBe('false');
+  });
+});
+
 describe('SettingsPanel sections', () => {
   it('renders General plus all six sections', async () => {
     await mount();

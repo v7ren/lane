@@ -12,7 +12,14 @@ export interface SettingsTabContext {
   projectPath: string | null;
   onProjectPathChange?: (path: string) => Promise<void>;
   bridgeUrl: string | null;
+  /** Applies the interface mode to the running shell immediately (the shell owns persistence). */
+  onUiModeChange?: (mode: 'agent' | 'ide') => void;
 }
+
+const UI_MODE_OPTIONS: { id: 'agent' | 'ide'; label: string; hint: string }[] = [
+  { id: 'agent', label: 'Agent-first', hint: 'The conversation fills the window.' },
+  { id: 'ide', label: 'IDE', hint: 'Explorer, editor and bottom panel.' },
+];
 
 export function SettingsTabPanel({
   tab: _tab,
@@ -21,7 +28,8 @@ export function SettingsTabPanel({
   tab: 'general';
   ctx: SettingsTabContext;
 }) {
-  const { settings, setSettings, projectPath, onProjectPathChange } = ctx;
+  const { settings, setSettings, projectPath, onProjectPathChange, onUiModeChange } = ctx;
+  const uiMode = settings.ui_mode ?? 'agent';
   const [settingsPath, setSettingsPath] = useState('settings.json');
   const [installInfo, setInstallInfo] = useState<AppInstallInfo | null>(null);
   const [agentManifestErrors, setAgentManifestErrors] = useState<
@@ -49,6 +57,36 @@ export function SettingsTabPanel({
 
   return (
     <SettingsSection title="Project" description="Default cwd for new panes.">
+      <SettingBlock label="Interface" description="Switch any time from the title bar." implemented>
+        <div className="flex gap-2" role="radiogroup" aria-label="Interface" data-testid="settings-ui-mode">
+          {UI_MODE_OPTIONS.map((opt) => {
+            const selected = uiMode === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                data-testid={`settings-ui-mode-${opt.id}`}
+                title={opt.hint}
+                className={[
+                  'flex-1 rounded-lg border px-3 py-2 text-left text-sm transition',
+                  selected
+                    ? 'border-pm-accent/60 bg-pm-border/40 text-pm-text'
+                    : 'border-pm-border text-pm-muted hover:bg-pm-border/30',
+                ].join(' ')}
+                onClick={() => {
+                  setSettings({ ...settings, ui_mode: opt.id });
+                  onUiModeChange?.(opt.id);
+                }}
+              >
+                <span className="block font-medium">{opt.label}</span>
+                <span className="block text-xs text-pm-muted">{opt.hint}</span>
+              </button>
+            );
+          })}
+        </div>
+      </SettingBlock>
       <SettingBlock label="Folder" implemented>
         <div className="flex gap-2">
           <FieldInput value={settings.project_path ?? projectPath ?? ''} readOnly />

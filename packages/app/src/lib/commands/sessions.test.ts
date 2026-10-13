@@ -42,6 +42,44 @@ describe('command registry', () => {
   });
 });
 
+describe('toggle-ui-mode command', () => {
+  const baseDeps = {
+    agentCatalog: { agents: [], report: { errors: [] } },
+    sessions: [],
+    selected: null,
+    onNewAgent: () => {},
+    onSelectSession: () => {},
+    onToggleBottom: () => {},
+    onToggleSidebar: () => {},
+    onToggleRightRail: () => {},
+    onOpenSettings: () => {},
+    onFocusComposer: () => {},
+    onSwitchAgentTab: () => {},
+    onSwitchTerminalTab: () => {},
+  };
+
+  it('is labelled by the current mode and runs the toggle', () => {
+    let toggled = 0;
+    const agent = createCommandRegistry();
+    registerSessionCommands(agent, { ...baseDeps, uiMode: 'agent', onToggleUiMode: () => toggled++ });
+    const cmd = agent.list().find((c) => c.id === 'toggle-ui-mode');
+    expect(cmd?.label).toBe('Switch to IDE mode');
+    expect(cmd?.section).toBe('View');
+    cmd?.run();
+    expect(toggled).toBe(1);
+
+    const ide = createCommandRegistry();
+    registerSessionCommands(ide, { ...baseDeps, uiMode: 'ide', onToggleUiMode: () => {} });
+    expect(ide.list().find((c) => c.id === 'toggle-ui-mode')?.label).toBe('Switch to Agent mode');
+  });
+
+  it('is absent without a handler', () => {
+    const r = createCommandRegistry();
+    registerSessionCommands(r, baseDeps);
+    expect(r.list().some((c) => c.id === 'toggle-ui-mode')).toBe(false);
+  });
+});
+
 describe('isSessionReverted', () => {
   it('reads reverted flag', () => {
     const session: ShellSession = {

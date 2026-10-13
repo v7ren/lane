@@ -6,7 +6,7 @@
  * macOS (the hooks accept ctrlKey || metaKey as the primary modifier).
  */
 
-export type KeybindActionId = 'palette' | 'files' | 'bottom' | 'newAgent' | 'terminal';
+export type KeybindActionId = 'palette' | 'files' | 'bottom' | 'newAgent' | 'terminal' | 'uiMode';
 
 export interface KeybindActionDef {
   id: KeybindActionId;
@@ -20,6 +20,7 @@ export const KEYBIND_ACTIONS: readonly KeybindActionDef[] = [
   { id: 'bottom', label: 'Toggle bottom panel', defaultCombo: 'Ctrl+J' },
   { id: 'newAgent', label: 'New agent', defaultCombo: 'Ctrl+Shift+L' },
   { id: 'terminal', label: 'Terminal tab', defaultCombo: 'Ctrl+`' },
+  { id: 'uiMode', label: 'Toggle Agent / IDE mode', defaultCombo: 'Ctrl+Shift+M' },
 ];
 
 /** Shortcuts that exist but cannot be rebound; a new binding may not collide with them. */
@@ -275,6 +276,7 @@ export function matchesAction(e: KeyboardEvent, actionId: KeybindActionId): bool
     case 'bottom':
     case 'newAgent':
     case 'terminal':
+    case 'uiMode':
       return matchesBinding(e, current[actionId]);
     default: {
       const unreachable: never = actionId;
