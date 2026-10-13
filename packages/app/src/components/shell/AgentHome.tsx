@@ -114,10 +114,9 @@ export function AgentHome({
           </section>
         )}
 
-        <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-meta text-text-3" data-testid="agent-home-hints">
-          {hints.map((h, i) => (
+        <p className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-meta text-text-3" data-testid="agent-home-hints">
+          {hints.map((h) => (
             <span key={h.label} className="inline-flex items-center gap-1.5">
-              {i > 0 && <span aria-hidden>·</span>}
               <kbd className="px-1.5 py-0.5 rounded border border-border-subtle bg-elevated text-[11px] font-mono">
                 {displayCombo(h.combo)}
               </kbd>
