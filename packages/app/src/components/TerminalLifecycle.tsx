@@ -14,6 +14,7 @@ export function TerminalLifecycle({
   showTui,
   selectedTerminalPaneId,
   subscribePaneData,
+  uiMode = 'ide',
 }: {
   panes: PaneData[];
   bottomTab: BottomPanelTab;
@@ -21,6 +22,12 @@ export function TerminalLifecycle({
   showTui: boolean;
   selectedTerminalPaneId: string | null;
   subscribePaneData: (paneId: string, cb: (data: Uint8Array) => void) => () => void;
+  /**
+   * Shell layout. In agent mode the bottom panel is not rendered: only the agent TUI column can
+   * host a terminal and user shells stay parked, whatever `bottomTab` says. A mode change
+   * mounts and unmounts hosts without touching any other dependency, so it re-runs the pass.
+   */
+  uiMode?: 'agent' | 'ide';
 }) {
   const layoutVersion = useRef(0);
   const paneSignature = useMemo(
@@ -40,6 +47,8 @@ export function TerminalLifecycle({
     }
   }, [paneSignature, subscribePaneData]);
 
+  const effectiveTab: BottomPanelTab = uiMode === 'agent' ? 'agent' : bottomTab;
+
   useLayoutEffect(() => {
     layoutVersion.current += 1;
     const pass = layoutVersion.current;
@@ -52,9 +61,9 @@ export function TerminalLifecycle({
       const isShell = isUserShellPane(pane.info.agent_type);
 
       const agentTuiVisible =
-        isAgent && bottomTab === 'agent' && agentPaneId === paneId && showTui;
+        isAgent && effectiveTab === 'agent' && agentPaneId === paneId && showTui;
       const terminalTabVisible =
-        isShell && bottomTab === 'terminal' && selectedTerminalPaneId === paneId;
+        isShell && effectiveTab === 'terminal' && selectedTerminalPaneId === paneId;
 
       let host: HTMLElement | null = null;
       if (agentTuiVisible || terminalTabVisible) {
@@ -75,7 +84,7 @@ export function TerminalLifecycle({
       layoutVersion.current += 1;
       cancelAnimationFrame(frame);
     };
-  }, [agentPaneId, bottomTab, paneSignature, selectedTerminalPaneId, showTui, subscribePaneData]);
+  }, [agentPaneId, effectiveTab, paneSignature, selectedTerminalPaneId, showTui, subscribePaneData, uiMode]);
 
   return null;
 }
