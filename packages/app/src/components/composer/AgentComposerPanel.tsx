@@ -162,6 +162,9 @@ export function AgentComposerPanel({
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [configPillLabel, setConfigPillLabel] = useState<string | null>(null);
   const sendInFlightRef = useRef(false);
+  // Enter pressed while submit is blocked: surface the reason (the textarea itself stays editable).
+  const [blockedHint, setBlockedHint] = useState(false);
+  const refocusAfterBusyRef = useRef(false);
   const family = agentFamily(agentType);
   const ctlModels = controls?.models ?? [];
   const ctlModes = controls?.modes ?? [];
@@ -357,10 +360,24 @@ export function AgentComposerPanel({
     return () => window.clearTimeout(id);
   }, [demo, features.mentions, mentionQuery, openCode, paneId, picker]);
 
+  // Refocus after a send finishes, but only if the textarea had focus when it started.
+  useEffect(() => {
+    if (busy) {
+      refocusAfterBusyRef.current = document.activeElement === textareaRef.current;
+      return;
+    }
+    setBlockedHint(false);
+    if (refocusAfterBusyRef.current) {
+      refocusAfterBusyRef.current = false;
+      textareaRef.current?.focus();
+    }
+  }, [busy]);
+
   const submit = useCallback(async () => {
     const raw = draft.trim();
     if (!raw || disabled || busy || sendInFlightRef.current) return;
     sendInFlightRef.current = true;
+    const hadFocus = document.activeElement === textareaRef.current;
     onError(null);
     const messageId = createPromptMessageId();
     try {
@@ -415,6 +432,7 @@ export function AgentComposerPanel({
       throw err;
     } finally {
       sendInFlightRef.current = false;
+      if (hadFocus) textareaRef.current?.focus();
     }
   }, [
     agent,
@@ -435,6 +453,10 @@ export function AgentComposerPanel({
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      if (disabled || busy) {
+        setBlockedHint(true);
+        return;
+      }
       void submit();
       return;
     }
@@ -499,13 +521,21 @@ export function AgentComposerPanel({
         ? 'No models available'
         : 'No matches';
 
+  const blockedReason = disabled
+    ? disabledReason
+    : busy && blockedHint
+      ? 'Still sending the previous message...'
+      : undefined;
+
   return (
     <div className="border-t border-border-subtle bg-surface shrink-0" data-testid="agent-composer">
       <div className="px-3 pt-2">
         <span className="text-section-label text-text-3">Me</span>
       </div>
-      {disabled && disabledReason && (
-        <p className="text-meta text-text-3 px-3 pb-1">{disabledReason}</p>
+      {blockedReason && (
+        <p className="text-meta text-text-3 px-3 pb-1" data-testid="composer-disabled-reason">
+          {blockedReason}
+        </p>
       )}
       {allowlistBlocked && (
         <p className="text-meta text-status-error px-3 pb-1">
@@ -533,7 +563,6 @@ export function AgentComposerPanel({
             className="w-full bg-transparent px-3 py-2 text-body text-text resize-none min-h-[3rem] max-h-40 focus:outline-none overflow-y-auto"
             placeholder="Ask your agent…"
             value={draft}
-            disabled={disabled || busy}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             onChange={(e) => {

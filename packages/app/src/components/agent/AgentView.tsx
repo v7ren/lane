@@ -423,7 +423,11 @@ export function AgentView({
     },
   );
 
-  const composerDisabled = !capabilities.send_prompt && !openCodePane;
+  // While the protocol chat is still connecting (or failed to), source is `native_tui`, which would
+  // otherwise hide the composer. Keep it visible and only block submit.
+  const composerDisabled =
+    (!capabilities.send_prompt && !openCodePane) || connecting || connectFailed;
+  const showComposer = !nativeTuiOnly || connecting || connectFailed;
   const composerReason = connecting
     ? 'Starting the chat...'
     : connectFailed
@@ -596,45 +600,50 @@ export function AgentView({
           />
         </div>
 
-        {!nativeTuiOnly && (
-          <div className="shrink-0 flex flex-col max-h-[45%] min-h-0 overflow-y-auto border-t border-border-subtle/50">
-            <PermissionDock
-              permissions={permissionDockItems}
-              busy={permissionDockBusy}
-              lastRequestError={ocLastRequestError}
-              onReply={(id, reply) => void respondApproval(id, mapPermissionReplyToApproval(reply))}
-            />
-            <QuestionDock
-              questions={questionDockItems}
-              busy={questionDockBusy}
-              lastRequestError={ocLastRequestError}
-              onReply={(id, answers) => {
-                const protocol = protocolQuestions.find((entry) => entry.approval.id === id);
-                if (protocol) {
-                  void answerProtocolQuestion(id, answerDecision(protocol.questions, answers));
-                  return;
-                }
-                void replyOpenCodeQuestion(paneId, id, answers).then(() => refresh());
-              }}
-              onReject={(id) => {
-                if (protocolQuestions.some((entry) => entry.approval.id === id)) {
-                  void answerProtocolQuestion(id, 'deny');
-                  return;
-                }
-                void rejectOpenCodeQuestion(paneId, id).then(() => refresh());
-              }}
-            />
-            {pendingPlan && (
-              <PlanApprovalCard
-                plan={pendingPlan.detail}
-                busy={busy}
-                onApprove={() => void answerPlan(pendingPlan.id, 'allow_once')}
-                onKeepPlanning={() => void answerPlan(pendingPlan.id, 'deny')}
+        {showComposer && (
+          <div className="shrink-0 flex flex-col min-h-0 border-t border-border-subtle/50">
+            <div
+              className="flex flex-col min-h-0 max-h-[40vh] overflow-y-auto"
+              data-testid="agent-dock-scroll"
+            >
+              <PermissionDock
+                permissions={permissionDockItems}
+                busy={permissionDockBusy}
+                lastRequestError={ocLastRequestError}
+                onReply={(id, reply) => void respondApproval(id, mapPermissionReplyToApproval(reply))}
               />
-            )}
-            {headlessClaude && source === 'protocol' && (
-              <ClaudeControlBar info={claudeInfo} />
-            )}
+              <QuestionDock
+                questions={questionDockItems}
+                busy={questionDockBusy}
+                lastRequestError={ocLastRequestError}
+                onReply={(id, answers) => {
+                  const protocol = protocolQuestions.find((entry) => entry.approval.id === id);
+                  if (protocol) {
+                    void answerProtocolQuestion(id, answerDecision(protocol.questions, answers));
+                    return;
+                  }
+                  void replyOpenCodeQuestion(paneId, id, answers).then(() => refresh());
+                }}
+                onReject={(id) => {
+                  if (protocolQuestions.some((entry) => entry.approval.id === id)) {
+                    void answerProtocolQuestion(id, 'deny');
+                    return;
+                  }
+                  void rejectOpenCodeQuestion(paneId, id).then(() => refresh());
+                }}
+              />
+              {pendingPlan && (
+                <PlanApprovalCard
+                  plan={pendingPlan.detail}
+                  busy={busy}
+                  onApprove={() => void answerPlan(pendingPlan.id, 'allow_once')}
+                  onKeepPlanning={() => void answerPlan(pendingPlan.id, 'deny')}
+                />
+              )}
+              {headlessClaude && source === 'protocol' && (
+                <ClaudeControlBar info={claudeInfo} />
+              )}
+            </div>
             <AgentComposerPanel
               paneId={paneId}
               sessionId={sessionId}
@@ -653,6 +662,36 @@ export function AgentView({
               onCancelProtocol={cancelTurn}
               onError={setActionError}
             />
+          </div>
+        )}
+        {!showComposer && (
+          <div
+            className="shrink-0 flex items-center gap-2 px-3 py-2 border-t border-border-subtle/50"
+            data-testid="agent-native-tui-notice"
+          >
+            <p className="text-meta text-text-3 flex-1 min-w-0">
+              This session runs in the terminal. Chat input is unavailable here.
+            </p>
+            {headlessClaude && SHOW_CLAUDE_TUI_TOGGLE ? (
+              <button
+                type="button"
+                className="shrink-0 text-meta px-2 py-0.5 rounded border border-border-subtle hover:bg-hover"
+                onClick={() => void toggleClaudeTui()}
+              >
+                {terminalOwns ? 'Back to chat' : 'Open in terminal'}
+              </button>
+            ) : (
+              capabilities.attach_tui &&
+              !showTui && (
+                <button
+                  type="button"
+                  className="shrink-0 text-meta px-2 py-0.5 rounded border border-border-subtle hover:bg-hover"
+                  onClick={onToggleTui}
+                >
+                  Show TUI
+                </button>
+              )
+            )}
           </div>
         )}
       </div>

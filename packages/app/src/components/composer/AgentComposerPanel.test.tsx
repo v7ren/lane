@@ -297,6 +297,9 @@ function renderWith(props: {
   usage?: { cost_usd?: number; context_tokens?: number; context_window?: number };
   showStop?: boolean;
   busy?: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
+  onSendProtocol?: (text: string) => Promise<void>;
 }) {
   root = createRoot(container);
   act(() => {
@@ -310,10 +313,11 @@ function renderWith(props: {
         agentType={props.agentType}
         controls={props.controls}
         usage={props.usage}
-        disabled={false}
+        disabled={props.disabled ?? false}
+        disabledReason={props.disabledReason}
         busy={props.busy ?? false}
         showStop={props.showStop ?? false}
-        onSendProtocol={async () => {}}
+        onSendProtocol={props.onSendProtocol ?? (async () => {})}
         onCancelProtocol={async () => {}}
         onError={() => {}}
       />,
@@ -387,12 +391,51 @@ describe('AgentComposerPanel toolbar controls', () => {
     expect(container.querySelector('[data-testid="context-bar"]')?.textContent).toBe('50%');
   });
 
-  it('keeps the textarea enabled while a turn runs (showStop), disabled only while busy', () => {
+  it('keeps the textarea enabled while a turn runs (showStop) and while busy', () => {
     renderWith({ agentType: 'claude', agentCapabilities: CLAUDE_CAPABILITIES, showStop: true });
     expect(textarea().disabled).toBe(false);
     expect(container.querySelector('[aria-label="Stop"]')).not.toBeNull();
     act(() => root?.unmount());
     renderWith({ agentType: 'claude', agentCapabilities: CLAUDE_CAPABILITIES, busy: true });
-    expect(textarea().disabled).toBe(true);
+    expect(textarea().disabled).toBe(false);
+    expect((container.querySelector('[aria-label="Send"]') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('keeps the textarea editable but blocks submit when disabled, showing the reason', () => {
+    const send = vi.fn(async () => {});
+    renderWith({
+      agentType: 'claude',
+      agentCapabilities: CLAUDE_CAPABILITIES,
+      disabled: true,
+      disabledReason: 'The chat could not connect.',
+      onSendProtocol: send,
+    });
+    const ta = textarea();
+    expect(ta.disabled).toBe(false);
+    expect(container.querySelector('[data-testid="composer-disabled-reason"]')?.textContent).toBe(
+      'The chat could not connect.',
+    );
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+      setter.call(ta, 'hello');
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(ta.value).toBe('hello');
+    expect((container.querySelector('[aria-label="Send"]') as HTMLButtonElement).disabled).toBe(true);
+    act(() => {
+      ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    expect(send).not.toHaveBeenCalled();
+    expect(ta.value).toBe('hello');
+  });
+
+  it('Enter while busy does not send and shows a hint', () => {
+    const send = vi.fn(async () => {});
+    renderWith({ agentType: 'claude', agentCapabilities: CLAUDE_CAPABILITIES, busy: true, onSendProtocol: send });
+    act(() => {
+      textarea().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    expect(send).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="composer-disabled-reason"]')).not.toBeNull();
   });
 });
