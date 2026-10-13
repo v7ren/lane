@@ -1,16 +1,64 @@
 import { PanelRight, Plus } from 'lucide-react';
 import type { RefObject } from 'react';
 
+const UI_MODE_SEGMENTS: { id: 'agent' | 'ide'; label: string }[] = [
+  { id: 'agent', label: 'Agent' },
+  { id: 'ide', label: 'IDE' },
+];
+
+function UiModeSwitch({
+  uiMode,
+  onChange,
+}: {
+  uiMode: 'agent' | 'ide';
+  onChange: (mode: 'agent' | 'ide') => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Interface mode"
+      data-testid="ui-mode-switch"
+      className="inline-flex items-center rounded-md border border-border-subtle bg-elevated/40 p-0.5"
+    >
+      {UI_MODE_SEGMENTS.map((seg) => {
+        const active = uiMode === seg.id;
+        return (
+          <button
+            key={seg.id}
+            type="button"
+            aria-pressed={active}
+            data-testid={`ui-mode-${seg.id}`}
+            onClick={() => {
+              if (!active) onChange(seg.id);
+            }}
+            className={[
+              'rounded px-2 py-0.5 text-meta transition-colors duration-ui',
+              active ? 'bg-hover text-text' : 'text-text-3 hover:text-text',
+            ].join(' ')}
+          >
+            {seg.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ShellTitleBar({
   newPaneButtonRef,
   onNewPane,
   showRightRailToggle,
   onToggleRightRail,
+  uiMode,
+  onUiModeChange,
 }: {
   newPaneButtonRef?: RefObject<HTMLButtonElement>;
   onNewPane: () => void;
   showRightRailToggle?: boolean;
   onToggleRightRail?: () => void;
+  /** Renders the Agent / IDE switch when both are provided. */
+  uiMode?: 'agent' | 'ide';
+  onUiModeChange?: (mode: 'agent' | 'ide') => void;
 }) {
   return (
     <header
@@ -32,7 +80,8 @@ export function ShellTitleBar({
       <span className="absolute left-1/2 -translate-x-1/2 text-body font-medium tracking-tight text-text lowercase select-none">
         loomria
       </span>
-      <div className="flex-1 flex justify-end">
+      <div className="flex-1 flex justify-end items-center gap-2">
+        {uiMode && onUiModeChange && <UiModeSwitch uiMode={uiMode} onChange={onUiModeChange} />}
         <button
           ref={newPaneButtonRef}
           type="button"

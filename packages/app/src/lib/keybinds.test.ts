@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  FIXED_SHORTCUTS,
   KEYBIND_ACTIONS,
   applyKeybinds,
   combosEqual,
@@ -148,6 +149,7 @@ describe('resolveKeybinds / setBinding / resetBinding', () => {
       bottom: 'Ctrl+J',
       newAgent: 'Ctrl+Shift+L',
       terminal: 'Ctrl+`',
+      uiMode: 'Ctrl+Shift+M',
     });
   });
 
@@ -222,5 +224,13 @@ describe('runtime store', () => {
     expect(matchesAction(ev({ key: 'j', metaKey: true }), 'bottom')).toBe(true);
     expect(matchesAction(ev({ key: 'L', ctrlKey: true, shiftKey: true }), 'newAgent')).toBe(true);
     expect(matchesAction(ev({ key: '`', ctrlKey: true }), 'terminal')).toBe(true);
+    expect(matchesAction(ev({ key: 'M', ctrlKey: true, shiftKey: true }), 'uiMode')).toBe(true);
+  });
+
+  it('uiMode default does not collide with other actions or fixed shortcuts', () => {
+    const combo = c('Ctrl+Shift+M');
+    expect(findConflict(resolveKeybinds(undefined), 'terminal', combo)).toMatchObject({ id: 'uiMode' });
+    expect(FIXED_SHORTCUTS.some((f) => f.combo === 'Ctrl+Shift+M')).toBe(false);
+    expect(KEYBIND_ACTIONS.filter((a) => a.defaultCombo === 'Ctrl+Shift+M')).toHaveLength(1);
   });
 });

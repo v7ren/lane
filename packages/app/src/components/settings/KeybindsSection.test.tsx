@@ -30,13 +30,14 @@ function press(init: KeyboardEventInit & { key: string }) {
 }
 
 describe('KeybindsSection', () => {
-  it('lists the five defaults', () => {
+  it('lists the defaults', () => {
     act(() => root.render(<KeybindsSection keybinds={undefined} onChange={vi.fn()} />));
     expect(q('keybind-combo-palette')?.textContent).toBe('Ctrl+K');
     expect(q('keybind-combo-files')?.textContent).toBe('Ctrl+P');
     expect(q('keybind-combo-bottom')?.textContent).toBe('Ctrl+J');
     expect(q('keybind-combo-newAgent')?.textContent).toBe('Ctrl+Shift+L');
     expect(q('keybind-combo-terminal')?.textContent).toBe('Ctrl+`');
+    expect(q('keybind-combo-uiMode')?.textContent).toBe('Ctrl+Shift+M');
     expect((q('keybinds-reset-all') as HTMLButtonElement).disabled).toBe(true);
   });
 

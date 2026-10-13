@@ -30,6 +30,9 @@ export type SessionCommandDeps = {
   onExportMarkdown?: () => void;
   onUnrevertSelected?: () => void;
   editorHandlers?: EditorCommandHandlers;
+  /** Current shell layout mode; used to label the toggle command. */
+  uiMode?: 'agent' | 'ide';
+  onToggleUiMode?: () => void;
 };
 
 export function registerSessionCommands(registry: CommandRegistry, deps: SessionCommandDeps): void {
@@ -117,6 +120,15 @@ export function registerSessionCommands(registry: CommandRegistry, deps: Session
     });
   }
 
+  if (deps.onToggleUiMode) {
+    registry.register({
+      id: 'toggle-ui-mode',
+      label: deps.uiMode === 'ide' ? 'Switch to Agent mode' : 'Switch to IDE mode',
+      section: 'View',
+      keywords: 'agent ide interface layout mode',
+      run: deps.onToggleUiMode,
+    });
+  }
   registry.register({
     id: 'toggle-bottom',
     label: 'Toggle bottom panel',

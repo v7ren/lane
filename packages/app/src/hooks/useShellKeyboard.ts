@@ -20,6 +20,7 @@ export function useShellKeyboard({
   onJumpApproval,
   onApproveTop,
   onDenyTop,
+  onToggleUiMode,
 }: {
   sessionStates: Map<string, SessionRailState>;
   agentPaneId: string | null;
@@ -32,6 +33,7 @@ export function useShellKeyboard({
   onJumpApproval: (paneId: string) => void;
   onApproveTop: () => void;
   onDenyTop: () => void;
+  onToggleUiMode?: () => void;
 }) {
   useAppKeyboard({
     mode: 'agent',
@@ -63,6 +65,11 @@ export function useShellKeyboard({
         onToggleBottom();
         return;
       }
+      if (onToggleUiMode && matchesAction(e, 'uiMode')) {
+        e.preventDefault();
+        onToggleUiMode();
+        return;
+      }
       if (mod && e.key.toLowerCase() === 'b') {
         e.preventDefault();
         onToggleSidebar();
@@ -82,5 +89,6 @@ export function useShellKeyboard({
     onSwitchTerminalTab,
     onToggleBottom,
     onToggleSidebar,
+    onToggleUiMode,
   ]);
 }

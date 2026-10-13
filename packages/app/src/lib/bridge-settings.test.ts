@@ -10,9 +10,11 @@ describe('toPublicSettings', () => {
       custom_models: [],
       sidebar_width: 360,
       theme: 'dark',
+      ui_mode: 'ide',
     };
     const pub = toPublicSettings(settings);
     expect(pub.default_provider).toBe('anthropic');
     expect(pub).not.toHaveProperty('anthropic_api_key');
+    expect(pub).not.toHaveProperty('ui_mode');
   });
 });
